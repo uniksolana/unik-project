@@ -12,11 +12,13 @@ export default function PaymentPage() {
     const [amount, setAmount] = useState('');
     const [loading, setLoading] = useState(false);
     const [status, setStatus] = useState<'idle' | 'processing' | 'success' | 'error'>('idle');
+    const [isMounted, setIsMounted] = useState(false);
 
     // Mock data for V1 display
     const [aliasDetails, setAliasDetails] = useState<{ owner: string, splits: number } | null>(null);
 
     useEffect(() => {
+        setIsMounted(true);
         // Simulate fetching alias details from chain
         if (alias) {
             setTimeout(() => {
@@ -52,6 +54,8 @@ export default function PaymentPage() {
             setLoading(false);
         }
     };
+
+    if (!isMounted) return null;
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-slate-900 to-slate-800 flex flex-col items-center justify-center p-4">

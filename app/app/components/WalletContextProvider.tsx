@@ -1,6 +1,6 @@
 'use client';
 
-import { FC, ReactNode, useMemo } from 'react';
+import { FC, ReactNode, useMemo, useState, useEffect } from 'react';
 import { ConnectionProvider, WalletProvider } from '@solana/wallet-adapter-react';
 import { WalletModalProvider } from '@solana/wallet-adapter-react-ui';
 import { PhantomWalletAdapter, SolflareWalletAdapter } from '@solana/wallet-adapter-wallets';
@@ -14,6 +14,12 @@ export const WalletContextProvider: FC<{ children: ReactNode }> = ({ children })
     // The network can be set to 'devnet', 'testnet', or 'mainnet-beta'.
     const network = WalletAdapterNetwork.Devnet;
 
+    // Fix hydration error
+    const [isMounted, setIsMounted] = useState(false);
+    useEffect(() => {
+        setIsMounted(true);
+    }, []);
+
     // You can also provide a custom RPC endpoint.
     const endpoint = useMemo(() => clusterApiUrl(network), [network]);
 
@@ -24,6 +30,8 @@ export const WalletContextProvider: FC<{ children: ReactNode }> = ({ children })
         ],
         [network]
     );
+
+    if (!isMounted) return null;
 
     return (
         <ConnectionProvider endpoint={endpoint}>

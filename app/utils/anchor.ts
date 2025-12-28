@@ -6,6 +6,9 @@ export const PROGRAM_ID = new PublicKey('ACYE3zhj2pWbe3GVPFVqqjDuJYAGM4BFXUw3b6X
 export const IDL = {
     "version": "0.1.0",
     "name": "unik_anchor",
+    "metadata": {
+        "address": "ACYE3zhj2pWbe3GVPFVqqjDuJYAGM4BFXUw3b6XVwkyB"
+    },
     "instructions": [
         {
             "name": "registerAlias",
