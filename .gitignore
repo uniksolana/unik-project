@@ -1,0 +1,21 @@
+# Anchor / Rust
+target/
+**/*.rs.bk
+node_modules/
+test-ledger/
+.anchor/
+
+# Node / JS / Next.js
+app/node_modules/
+app/.next/
+app/out/
+app/build/
+indexer/node_modules/
+indexer/dist/
+*.log
+.env
+.DS_Store
+coverage/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
