@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { WalletMultiButton } from '@solana/wallet-adapter-react-ui';
 
 export default function Home() {
   const [alias, setAlias] = useState('');
@@ -24,6 +25,10 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900">
+      <nav className="container mx-auto px-4 py-6 flex justify-between items-center">
+        <div className="text-2xl font-bold text-white">🧠 UNIK</div>
+        <WalletMultiButton />
+      </nav>
       <div className="container mx-auto px-4 py-16">
         <div className="text-center mb-16">
           <h1 className="text-6xl font-bold text-white mb-4">
