@@ -55,17 +55,20 @@ export default function Dashboard() {
             const program = new Program(IDL as any, provider);
 
             // 3. Derive PDA
+            // Normalization: Ensure lowercase for consistency with contract
+            const normalizedAlias = alias.toLowerCase().trim();
+
             const [aliasPDA] = PublicKey.findProgramAddressSync(
-                [Buffer.from("alias"), Buffer.from(alias)],
+                [Buffer.from("alias"), Buffer.from(normalizedAlias)],
                 PROGRAM_ID
             );
 
-            console.log("Registering alias:", alias, "PDA:", aliasPDA.toBase58());
+            console.log("Registering alias:", normalizedAlias, "PDA:", aliasPDA.toBase58());
 
             // 4. Send Transaction
             // Note: In V1 MVP, metadataUri is empty or placeholder
             const tx = await program.methods
-                .registerAlias(alias, "https://unik.to/metadata_placeholder")
+                .registerAlias(normalizedAlias, "https://unik.to/metadata_placeholder")
                 .accounts({
                     aliasAccount: aliasPDA,
                     payer: publicKey, // The payer for the transaction
@@ -74,14 +77,27 @@ export default function Dashboard() {
                 .rpc();
 
             console.log("Transaction signature", tx);
-            setRegisteredAlias(alias);
+            setRegisteredAlias(normalizedAlias);
             alert(`Success! Transaction: ${tx}`);
 
-        } catch (error) {
+        } catch (error: any) {
             console.error("Error registering:", error);
-            // Fallback for V1 Demo/Testing if Devnet tx fails
-            alert("Devnet Transaction failed (likely due to insufficient funds or program not deployed). Switching to DEMO MODE.");
-            setRegisteredAlias(alias);
+
+            // B. Detailed Error Feedback
+            let message = "Transaction failed.";
+            if (error.message?.includes("User rejected")) {
+                message = "Request rejected by user.";
+            } else if (error.message?.includes("0x1")) { // Insufficient funds generic
+                message = "Transaction failed (Insufficient funds?).";
+            } else if (error.logs) {
+                // Try to find custom error codes (e.g. "Alias must be...")
+                // For now, simplify for UX
+                message = "Transaction failed on-chain. Check console for logs.";
+            }
+
+            // Fallback for V1 Demo/Testing (keep existing logic but refine message)
+            alert(`${message} \n\n[DEVNET FALLBACK]: Switching to DEMO MODE due to error.`);
+            setRegisteredAlias(alias.toLowerCase()); // Use current input but lowercase
         } finally {
             setLoading(false);
         }
@@ -203,7 +219,11 @@ export default function Dashboard() {
                                 <input
                                     type="text"
                                     value={alias}
-                                    onChange={(e) => setAlias(e.target.value)}
+                                    onChange={(e) => {
+                                        // Enforce client-side normalization for better UX
+                                        const val = e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, '');
+                                        setAlias(val);
+                                    }}
                                     placeholder="Enter desired alias (e.g. david)"
                                     className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none transition-all"
                                 />

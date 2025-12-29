@@ -11,7 +11,7 @@ import { WalletAdapterNetwork } from '@solana/wallet-adapter-base';
 import '@solana/wallet-adapter-react-ui/styles.css';
 
 export const WalletContextProvider: FC<{ children: ReactNode }> = ({ children }) => {
-    // The network can be set to 'devnet', 'testnet', or 'mainnet-beta'.
+    // STAGE: DEVNET (Hardened for V1 Launch)
     const network = WalletAdapterNetwork.Devnet;
 
     // Fix hydration error

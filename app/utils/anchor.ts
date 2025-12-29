@@ -1,13 +1,13 @@
 import { PublicKey } from '@solana/web3.js';
 
 // Replaced automatically during build/deployment
-export const PROGRAM_ID = new PublicKey('ACYE3zhj2pWbe3GVPFVqqjDuJYAGM4BFXUw3b6XVwkyB');
+export const PROGRAM_ID = new PublicKey('ASA8xRVPFBQLo3dLJQH2NedBKJWsVXGu46radY6oRX6i');
 
 export const IDL = {
     "version": "0.1.0",
     "name": "unik_anchor",
     "metadata": {
-        "address": "ACYE3zhj2pWbe3GVPFVqqjDuJYAGM4BFXUw3b6XVwkyB"
+        "address": "ASA8xRVPFBQLo3dLJQH2NedBKJWsVXGu46radY6oRX6i"
     },
     "instructions": [
         {

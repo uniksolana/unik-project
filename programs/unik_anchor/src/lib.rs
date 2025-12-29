@@ -1,16 +1,23 @@
 use anchor_lang::prelude::*;
 use anchor_lang::system_program;
 
-declare_id!("ACYE3zhj2pWbe3GVPFVqqjDuJYAGM4BFXUw3b6XVwkyB");
+declare_id!("ASA8xRVPFBQLo3dLJQH2NedBKJWsVXGu46radY6oRX6i");
 
 #[program]
 pub mod unik_anchor {
     use super::*;
 
     pub fn register_alias(ctx: Context<RegisterAlias>, alias: String, metadata_uri: String) -> Result<()> {
+        // A. Alias Normalization and Validation
+        require!(alias.len() >= 3 && alias.len() <= 32, UnikError::InvalidAliasLength);
+        require!(alias.chars().all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '_'), UnikError::InvalidAliasCharacters);
+        
+        // E. Metadata Validation
+        require!(metadata_uri.len() <= 200, UnikError::MetadataTooLong);
+
         let alias_account = &mut ctx.accounts.alias_account;
         alias_account.owner = ctx.accounts.user.key();
-        alias_account.alias = alias;
+        alias_account.alias = alias.clone();
         alias_account.metadata_uri = metadata_uri;
         alias_account.bump = ctx.bumps.alias_account;
         
@@ -28,6 +35,11 @@ pub mod unik_anchor {
         // Validate splits total 100% (10000 basis points)
         let total_percentage: u64 = splits.iter().map(|s| s.percentage as u64).sum();
         require!(total_percentage <= 10000, UnikError::InvalidSplitTotal);
+
+        // TODO: V2 Implementation - Handle remainder (10000 - total_percentage)
+        // Options: Send to Treasury, Refund to Owner, or Burn.
+        // Current logic: Logic in execute_transfer simply doesn't move the remainder, 
+        // effectively leaving it in the sender's wallet (since we only transfer calculated amounts).
 
         route_account.alias_ref = alias_account.key();
         route_account.splits = splits;
@@ -166,4 +178,10 @@ pub enum UnikError {
     Overflow,
     #[msg("Recipient account missing in remaining_accounts.")]
     MissingRecipient,
+    #[msg("Alias must be between 3 and 32 characters.")]
+    InvalidAliasLength,
+    #[msg("Alias must contain only lowercase alphanumeric characters and underscores.")]
+    InvalidAliasCharacters,
+    #[msg("Metadata URI exceeds 200 characters.")]
+    MetadataTooLong,
 }
