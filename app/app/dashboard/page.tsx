@@ -3,9 +3,9 @@
 import { useWallet } from '@solana/wallet-adapter-react';
 import { WalletMultiButton } from '@solana/wallet-adapter-react-ui';
 import { useState, useEffect } from 'react';
-import { PublicKey } from '@solana/web3.js';
+import { PublicKey, SystemProgram } from '@solana/web3.js';
 import { PROGRAM_ID, IDL } from '../../utils/anchor';
-import { Program, AnchorProvider } from '@coral-xyz/anchor';
+import { Program, AnchorProvider, BN } from '@coral-xyz/anchor';
 import { useConnection } from '@solana/wallet-adapter-react';
 import { Buffer } from 'buffer'; // Required for Buffer.from
 
@@ -14,6 +14,7 @@ export default function Dashboard() {
     const [alias, setAlias] = useState('');
     const [loading, setLoading] = useState(false);
     const [registeredAlias, setRegisteredAlias] = useState<string | null>(null);
+    const [balance, setBalance] = useState<number | null>(null);
 
     // Constants
     const { connection } = useConnection();
@@ -27,9 +28,13 @@ export default function Dashboard() {
 
     useEffect(() => {
         if (connected && publicKey) {
-            // Future: Real on-chain check
+            connection.getBalance(publicKey).then(b => setBalance(b / 1e9));
+            const timer = setInterval(() => {
+                connection.getBalance(publicKey).then(b => setBalance(b / 1e9));
+            }, 10000);
+            return () => clearInterval(timer);
         }
-    }, [connected, publicKey]);
+    }, [connected, publicKey, connection]);
 
     // Dashboard State (Moved up to fix hook ordering)
     const [splits, setSplits] = useState([{ recipient: 'Primary Wallet (You)', address: publicKey?.toBase58(), percent: 100 }]);
@@ -66,38 +71,36 @@ export default function Dashboard() {
             console.log("Registering alias:", normalizedAlias, "PDA:", aliasPDA.toBase58());
 
             // 4. Send Transaction
-            // Note: In V1 MVP, metadataUri is empty or placeholder
             const tx = await program.methods
                 .registerAlias(normalizedAlias, "https://unik.to/metadata_placeholder")
                 .accounts({
                     aliasAccount: aliasPDA,
-                    payer: publicKey, // The payer for the transaction
-                    systemProgram: PublicKey.default, // System program for account creation
+                    user: publicKey,
+                    systemProgram: PublicKey.default,
                 })
                 .rpc();
 
             console.log("Transaction signature", tx);
             setRegisteredAlias(normalizedAlias);
-            alert(`Success! Transaction: ${tx}`);
+            alert(`Success! Alias @${normalizedAlias} registered on-chain.\nSignature: ${tx}`);
 
         } catch (error: any) {
             console.error("Error registering:", error);
 
-            // B. Detailed Error Feedback
             let message = "Transaction failed.";
             if (error.message?.includes("User rejected")) {
                 message = "Request rejected by user.";
-            } else if (error.message?.includes("0x1")) { // Insufficient funds generic
+            } else if (error.message?.includes("0x1") || error.message?.includes("insufficient funds")) {
                 message = "Transaction failed (Insufficient funds?).";
-            } else if (error.logs) {
-                // Try to find custom error codes (e.g. "Alias must be...")
-                // For now, simplify for UX
-                message = "Transaction failed on-chain. Check console for logs.";
             }
 
-            // Fallback for V1 Demo/Testing (keep existing logic but refine message)
-            alert(`${message} \n\n[DEVNET FALLBACK]: Switching to DEMO MODE due to error.`);
-            setRegisteredAlias(alias.toLowerCase()); // Use current input but lowercase
+            if (error.logs) {
+                console.log("On-chain logs:", error.logs);
+                if (error.logs.some((l: string) => l.includes("InvalidAliasLength"))) message = "Alias must be 3-32 characters.";
+                if (error.logs.some((l: string) => l.includes("InvalidAliasCharacters"))) message = "Alias only allowed a-z, 0-9 and _";
+            }
+
+            alert(`Error: ${message}`);
         } finally {
             setLoading(false);
         }
@@ -110,27 +113,44 @@ export default function Dashboard() {
             const provider = new AnchorProvider(connection, wallet as any, {});
             const program = new Program(IDL as any, provider);
 
-            // Derive Route PDA (assuming logic from contract: route is PDA of [alias, "route"])
-            // Note: Check contract for exact seeds. Usually it's ["route", alias] or similar.
-            // Let's assume ["route", alias] based on standard patterns, or check lib.rs if needed.
-            // Re-checking lib.rs would be safer, but for V1 we used ["alias", alias] for AliasAccount.
-            // Let's use ["route", alias] as a guess, or better, stick to simulation if unsure.
-            // Smart contract verify shows: pub fn set_route_config(...).
+            const normalizedAlias = alias.toLowerCase().trim();
 
-            // For V1 Demo fallback is key.
-            console.log("Saving config for", alias, splits);
+            const [aliasPDA] = PublicKey.findProgramAddressSync(
+                [Buffer.from("alias"), Buffer.from(normalizedAlias)],
+                PROGRAM_ID
+            );
 
-            // Simulate delay for effect
-            await new Promise(resolve => setTimeout(resolve, 1000));
+            const [routePDA] = PublicKey.findProgramAddressSync(
+                [Buffer.from("route"), Buffer.from(normalizedAlias)],
+                PROGRAM_ID
+            );
 
-            // In real app, we would construct instructions here.
-            // const tx = await program.methods.setRouteConfig(...).rpc();
+            // Convert frontend splits to IDL format (Recipient Pubkey + Bps)
+            const idlSplits = splits.map(s => ({
+                recipient: new PublicKey(s.address!),
+                percentage: s.percent * 100 // 100% -> 10000 bps
+            }));
 
-            alert("DEVNET FALLBACK: Configuration Saved! (Simulated)");
+            console.log("Saving route config to PDA:", routePDA.toBase58());
 
-        } catch (error) {
+            const tx = await program.methods
+                .setRouteConfig(normalizedAlias, idlSplits)
+                .accounts({
+                    routeAccount: routePDA,
+                    aliasAccount: aliasPDA,
+                    user: publicKey,
+                    systemProgram: SystemProgram.programId,
+                })
+                .rpc();
+
+            console.log("Route config saved. Tx:", tx);
+            alert(`Success! Routing rules saved on-chain.\nSignature: ${tx}`);
+            setIsEditing(false);
+        } catch (error: any) {
             console.error("Error saving config:", error);
-            alert("Failed to save config on-chain.");
+            let message = "Failed to save config.";
+            if (error.message?.includes("User rejected")) message = "Rejected by user.";
+            alert(`${message} Check console for details.`);
         } finally {
             setLoading(false);
         }
@@ -209,6 +229,11 @@ export default function Dashboard() {
                     </div>
                 </div>
             </nav>
+            {balance !== null && balance < 0.01 && (
+                <div className="bg-amber-100 border-b border-amber-200 py-2 px-4 text-amber-800 text-sm flex items-center justify-center gap-2">
+                    ⚠️ <b>Low Balance:</b> You have {balance.toFixed(4)} SOL. You need Devnet SOL to register or save configs.
+                </div>
+            )}
 
             <main className="container mx-auto px-4 py-8">
                 {!registeredAlias ? (

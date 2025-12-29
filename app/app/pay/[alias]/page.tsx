@@ -1,24 +1,33 @@
 'use client';
 
-import { useWallet } from '@solana/wallet-adapter-react';
+import { useWallet, useConnection } from '@solana/wallet-adapter-react';
 import { WalletMultiButton } from '@solana/wallet-adapter-react-ui';
 import { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
-import { PublicKey } from '@solana/web3.js';
+import { PublicKey, SystemProgram } from '@solana/web3.js';
+import { PROGRAM_ID, IDL } from '../../../utils/anchor';
+import { Program, AnchorProvider, BN } from '@coral-xyz/anchor';
+import { Buffer } from 'buffer';
 
 export default function PaymentPage() {
     const { alias } = useParams();
-    const { publicKey, connected, sendTransaction } = useWallet();
+    const { connection } = useConnection();
+    const wallet = useWallet();
+    const { publicKey, connected } = useWallet();
     const [amount, setAmount] = useState('');
     const [loading, setLoading] = useState(false);
     const [status, setStatus] = useState<'idle' | 'processing' | 'success' | 'error'>('idle');
     const [isMounted, setIsMounted] = useState(false);
+    const [balance, setBalance] = useState<number | null>(null);
 
     // Mock data for V1 display
     const [aliasDetails, setAliasDetails] = useState<{ owner: string, splits: number } | null>(null);
 
     useEffect(() => {
         setIsMounted(true);
+        if (connected && publicKey) {
+            connection.getBalance(publicKey).then(b => setBalance(b / 1e9));
+        }
         // Simulate fetching alias details from chain
         if (alias) {
             setTimeout(() => {
@@ -36,19 +45,50 @@ export default function PaymentPage() {
         setStatus('processing');
 
         try {
-            console.log(`Sending ${amount} SOL to ${alias}`);
+            if (!alias || typeof alias !== 'string') throw new Error("Invalid alias");
 
-            // TODO: Construct Transaction
-            // 1. Get Route PDA for alias
-            // 2. Create instruction for execute_transfer
-            // 3. Send transaction
+            const provider = new AnchorProvider(connection, wallet as any, {});
+            const program = new Program(IDL as any, provider);
 
-            await new Promise(resolve => setTimeout(resolve, 2000)); // Simulate tx
+            const normalizedAlias = alias.toLowerCase().trim();
 
+            const [routePDA] = PublicKey.findProgramAddressSync(
+                [Buffer.from("route"), Buffer.from(normalizedAlias)],
+                PROGRAM_ID
+            );
+
+            console.log(`Sending ${amount} SOL to ${normalizedAlias} (Route: ${routePDA.toBase58()})`);
+
+            // 1. Fetch the Route Account to get recipients
+            const routeAccount = await program.account.routeAccount.fetch(routePDA);
+
+            // 2. Map recipients to Remaining Accounts
+            const remainingAccounts = (routeAccount.splits as any[]).map(split => ({
+                pubkey: split.recipient,
+                isWritable: true,
+                isSigner: false,
+            }));
+
+            // 3. Convert SOL to Lamports
+            const lamports = parseFloat(amount) * 1e9;
+
+            // 4. Execute Transfer
+            const tx = await program.methods
+                .executeTransfer(normalizedAlias, new BN(lamports))
+                .accounts({
+                    routeAccount: routePDA,
+                    user: publicKey,
+                    systemProgram: SystemProgram.programId,
+                })
+                .remainingAccounts(remainingAccounts)
+                .rpc();
+
+            console.log("Transfer successful. Signature:", tx);
             setStatus('success');
             setAmount('');
         } catch (error) {
             console.error("Payment failed:", error);
+            alert("Payment failed: " + (error instanceof Error ? error.message : "Unknown error"));
             setStatus('error');
         } finally {
             setLoading(false);
@@ -124,6 +164,11 @@ export default function PaymentPage() {
                             >
                                 {loading ? 'Processing...' : `Pay ${amount || '0'} SOL`}
                             </button>
+                            {balance !== null && balance < parseFloat(amount || '0') && (
+                                <p className="text-red-400 text-xs text-center mt-2">
+                                    Insufficient balance ({balance.toFixed(4)} SOL)
+                                </p>
+                            )}
                         </div>
                     )}
                 </div>
