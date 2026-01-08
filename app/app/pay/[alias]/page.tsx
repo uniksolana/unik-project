@@ -25,10 +25,13 @@ function PaymentContent() {
     // Mock data for V1 display
     const [aliasDetails, setAliasDetails] = useState<{ owner: string, splits: number } | null>(null);
 
+    const [isLocked, setIsLocked] = useState(false);
+
     useEffect(() => {
         const queryAmount = searchParams.get('amount');
         if (queryAmount && !isNaN(parseFloat(queryAmount))) {
             setAmount(queryAmount);
+            setIsLocked(true);
         }
     }, [searchParams]);
 
@@ -144,14 +147,17 @@ function PaymentContent() {
                     ) : (
                         <div className="space-y-6">
                             <div>
-                                <label className="block text-sm font-medium text-gray-400 mb-2">Amount (SOL)</label>
+                                <label className="block text-sm font-medium text-gray-400 mb-2">
+                                    Amount (SOL) {isLocked && <span className="text-yellow-500 text-xs ml-2">🔒 Locked by request</span>}
+                                </label>
                                 <div className="relative">
                                     <input
                                         type="number"
                                         value={amount}
-                                        onChange={(e) => setAmount(e.target.value)}
+                                        onChange={(e) => !isLocked && setAmount(e.target.value)}
+                                        readOnly={isLocked}
                                         placeholder="0.00"
-                                        className="w-full pl-4 pr-12 py-4 text-2xl font-bold bg-slate-900 border border-slate-700 rounded-xl text-white focus:ring-2 focus:ring-blue-500 outline-none"
+                                        className={`w-full pl-4 pr-12 py-4 text-2xl font-bold bg-slate-900 border rounded-xl text-white outline-none transition-colors ${isLocked ? 'border-yellow-500/50 text-gray-400 cursor-not-allowed' : 'border-slate-700 focus:ring-2 focus:ring-blue-500'}`}
                                     />
                                     <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 font-bold">SOL</span>
                                 </div>

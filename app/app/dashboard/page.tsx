@@ -17,6 +17,7 @@ export default function Dashboard() {
     const [myAliases, setMyAliases] = useState<string[]>([]);
     const [balance, setBalance] = useState<number | null>(null);
     const [showRegisterForm, setShowRegisterForm] = useState(false);
+    const [linkAmount, setLinkAmount] = useState('');
 
     // Constants
     const { connection } = useConnection();
@@ -398,12 +399,30 @@ export default function Dashboard() {
 
                             <div className="p-4 bg-gray-50 dark:bg-slate-700/50 rounded-lg">
                                 <h4 className="text-sm font-semibold text-gray-500 mb-2">My Payment Link (Local)</h4>
+
+                                <div className="mb-3">
+                                    <label className="text-xs text-gray-500 block mb-1">Request specific amount (optional)</label>
+                                    <div className="flex items-center gap-2">
+                                        <input
+                                            type="number"
+                                            placeholder="0.00"
+                                            step="0.01"
+                                            className="w-24 px-2 py-1 text-sm rounded border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-900 focus:outline-none focus:border-blue-500"
+                                            onChange={(e) => setLinkAmount(e.target.value)}
+                                        />
+                                        <span className="text-xs font-bold text-gray-400">SOL</span>
+                                    </div>
+                                </div>
+
                                 <div className="flex bg-white dark:bg-slate-900 p-2 rounded border border-gray-200 dark:border-slate-600">
-                                    <code className="flex-1 text-sm pt-1 text-gray-600 dark:text-gray-300 truncate">localhost:3000/pay/{registeredAlias}</code>
+                                    <code className="flex-1 text-sm pt-1 text-gray-600 dark:text-gray-300 truncate">
+                                        localhost:3000/pay/{registeredAlias}{linkAmount ? `?amount=${linkAmount}` : ''}
+                                    </code>
                                     <button
                                         className="text-xs text-blue-600 font-bold uppercase tracking-wider hover:text-blue-800"
                                         onClick={() => {
-                                            navigator.clipboard.writeText(`http://localhost:3000/pay/${registeredAlias}`);
+                                            const url = `http://localhost:3000/pay/${registeredAlias}${linkAmount ? `?amount=${linkAmount}` : ''}`;
+                                            navigator.clipboard.writeText(url);
                                             alert("Link copied to clipboard! (Share this URL to get paid)");
                                         }}
                                     >
