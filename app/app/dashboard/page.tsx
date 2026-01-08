@@ -14,7 +14,9 @@ export default function Dashboard() {
     const [alias, setAlias] = useState('');
     const [loading, setLoading] = useState(false);
     const [registeredAlias, setRegisteredAlias] = useState<string | null>(null);
+    const [myAliases, setMyAliases] = useState<string[]>([]);
     const [balance, setBalance] = useState<number | null>(null);
+    const [showRegisterForm, setShowRegisterForm] = useState(false);
 
     // Constants
     const { connection } = useConnection();
@@ -43,11 +45,108 @@ export default function Dashboard() {
     const [newSplitPercent, setNewSplitPercent] = useState('');
 
     // Update primary wallet address when connected
+    // Check for existing alias when wallet connects
     useEffect(() => {
-        if (publicKey && splits.length === 1 && splits[0].address !== publicKey.toBase58()) {
-            setSplits([{ recipient: 'Primary Wallet (You)', address: publicKey.toBase58(), percent: 100 }]);
-        }
-    }, [publicKey]);
+        const checkExistingAlias = async () => {
+            if (!publicKey || !wallet || !connected) {
+                setRegisteredAlias(null);
+                setAlias('');
+                return;
+            }
+
+            try {
+                // 1. Setup Provider & Program
+                // Note: We use a read-only provider if wallet not ready, but here we need consistency
+                const provider = new AnchorProvider(connection, wallet as any, {});
+                const program = new Program(IDL as any, provider);
+
+                setLoading(true);
+
+                // 2. Fetch all AliasAccounts where owner == publicKey
+                // Filter: discriminator (8) + owner (32)
+                // Memcmp offset 8 for owner
+                const aliases = await program.account.aliasAccount.all([
+                    {
+                        memcmp: {
+                            offset: 8,
+                            bytes: publicKey.toBase58(),
+                        },
+                    },
+                ]);
+
+                if (aliases.length > 0) {
+                    // Map all aliases
+                    const aliasList = aliases.map(a => a.account.alias);
+                    setMyAliases(aliasList);
+
+                    // Auto-select the first one if none selected
+                    if (!registeredAlias) {
+                        setRegisteredAlias(aliasList[0]);
+                        setAlias(aliasList[0]);
+                    }
+                } else {
+                    setMyAliases([]);
+                    setRegisteredAlias(null);
+                    setShowRegisterForm(true);
+                }
+            } catch (err) {
+                console.error("Error fetching alias:", err);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        checkExistingAlias();
+    }, [publicKey, connected, connection, wallet]);
+
+    // Fetch Route Config when registeredAlias changes (selected alias)
+    useEffect(() => {
+        const fetchRouteConfig = async () => {
+            if (!registeredAlias || !publicKey || !wallet) return;
+
+            // Don't auto-reset splits if we just switched to a new alias that might not have routes yet
+            // actually we should reset to default (owner 100%) or empty if we want 0% support?
+            // Let's reset to owner 100% as a safe default for display, but fetching will override
+
+            try {
+                const provider = new AnchorProvider(connection, wallet as any, {});
+                const program = new Program(IDL as any, provider);
+                const [routePDA] = PublicKey.findProgramAddressSync(
+                    [Buffer.from("route"), Buffer.from(registeredAlias)],
+                    PROGRAM_ID
+                );
+
+                const routeAccount = await program.account.routeAccount.fetch(routePDA);
+                console.log("Found existing routes:", routeAccount.splits);
+
+                const mappedSplits = routeAccount.splits.map((s: any) => ({
+                    recipient: s.recipient.toBase58() === publicKey.toBase58() ? 'Primary Wallet (You)' : `Wallet ${s.recipient.toBase58().slice(0, 4)}...`,
+                    address: s.recipient.toBase58(),
+                    percent: s.percentage / 100
+                }));
+
+                if (mappedSplits.length > 0) {
+                    setSplits(mappedSplits);
+                } else {
+                    // Should be unreachable if account exists, but fallback
+                    setSplits([{ recipient: 'Primary Wallet (You)', address: publicKey.toBase58(), percent: 100 }]);
+                }
+
+            } catch (e) {
+                console.log("No route config found, using default.");
+                // Default: 100% to owner if no config exists
+                setSplits([{ recipient: 'Primary Wallet (You)', address: publicKey.toBase58(), percent: 100 }]);
+            }
+        };
+
+        fetchRouteConfig();
+    }, [registeredAlias, publicKey, wallet, connection]);
+
+    // Update primary wallet address when connected AND no existing alias found
+    useEffect(() => {
+        // If we are showing the register form (new user or adding new alias), reset splits? 
+        // No, splits UI only shows when alias is selected.
+    }, []);
 
     const handleRegister = async () => {
         if (!alias || !publicKey || !wallet) return;
@@ -81,7 +180,10 @@ export default function Dashboard() {
                 .rpc();
 
             console.log("Transaction signature", tx);
+            console.log("Transaction signature", tx);
             setRegisteredAlias(normalizedAlias);
+            setMyAliases([...myAliases, normalizedAlias]);
+            setShowRegisterForm(false);
             alert(`Success! Alias @${normalizedAlias} registered on-chain.\nSignature: ${tx}`);
 
         } catch (error: any) {
@@ -178,41 +280,26 @@ export default function Dashboard() {
         const percent = parseInt(newSplitPercent);
         if (isNaN(percent) || percent <= 0 || percent >= 100) return;
 
-        // Auto-adjust primary wallet calculation
-        // Strategy: Subtract from the first wallet (Primary) if it has enough
-        // Otherwise, just add and let user fix (but user reported stuck state, so better to enforce valid state)
+        // Flexible logic: just add the split. User must ensure total <= 100.
+        // If we want to auto-adjust, try to take from the highest allocation split?
+        // Or just fail if total + new > 100?
+        if (totalPercent + percent > 100) {
+            alert(`Cannot add split. Total would exceed 100% (Current: ${totalPercent}% + New: ${percent}% = ${totalPercent + percent}%). Please reduce another split first.`);
+            return;
+        }
 
         let currentSplits = [...splits];
-        let primaryWallet = currentSplits[0]; // Assuming first is primary
+        currentSplits.push({ recipient: `Wallet ${currentSplits.length + 1}`, address: newSplitAddress, percent });
 
-        if (primaryWallet.percent > percent) {
-            // Deduct from primary
-            currentSplits[0] = { ...primaryWallet, percent: primaryWallet.percent - percent };
-            // Add new
-            currentSplits.push({ recipient: `Wallet ${currentSplits.length + 1}`, address: newSplitAddress, percent });
-
-            setSplits(currentSplits);
-            setNewSplitAddress('');
-            setNewSplitPercent('');
-            setIsEditing(false);
-        } else {
-            alert("Not enough percentage available in Primary Wallet to allocate. Reduce others first.");
-        }
+        setSplits(currentSplits);
+        setNewSplitAddress('');
+        setNewSplitPercent('');
+        setIsEditing(false);
     };
 
     const removeSplit = (index: number) => {
-        // When removing, add back to primary wallet logic?
-        // Or just remove and let total < 100
-        // Better UX: Add back to primary
-
-        const splitToRemove = splits[index];
+        // Just remove it. Percentage becomes unallocated.
         const newSplits = splits.filter((_, i) => i !== index);
-
-        // Add back to first wallet (Primary)
-        if (newSplits.length > 0) {
-            newSplits[0].percent += splitToRemove.percent;
-        }
-
         setSplits(newSplits);
     };
 
@@ -236,9 +323,38 @@ export default function Dashboard() {
             )}
 
             <main className="container mx-auto px-4 py-8">
-                {!registeredAlias ? (
+                {/* Selector for multiple aliases */}
+                {myAliases.length > 0 && !showRegisterForm && (
+                    <div className="flex justify-end mb-4 gap-4">
+                        <div className="relative">
+                            <select
+                                value={registeredAlias || ''}
+                                onChange={(e) => setRegisteredAlias(e.target.value)}
+                                className="appearance-none bg-white dark:bg-slate-800 text-slate-800 dark:text-white py-2 pl-4 pr-8 rounded-lg shadow font-bold text-sm border border-gray-200 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            >
+                                {myAliases.map(a => <option key={a} value={a}>@{a}</option>)}
+                            </select>
+                            <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-700 dark:text-gray-300">
+                                <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z" /></svg>
+                            </div>
+                        </div>
+                        <button
+                            onClick={() => setShowRegisterForm(true)}
+                            className="text-sm font-bold text-blue-600 hover:text-blue-700 bg-blue-50 dark:bg-blue-900/20 px-4 py-2 rounded-lg transition-colors"
+                        >
+                            + New Alias
+                        </button>
+                    </div>
+                )}
+
+                {showRegisterForm ? (
                     <div className="max-w-2xl mx-auto bg-white dark:bg-slate-800 rounded-xl shadow-lg p-8">
-                        <h2 className="text-2xl font-bold text-slate-800 dark:text-white mb-6">Register Your UNIK Alias</h2>
+                        <div className="flex justify-between items-center mb-6">
+                            <h2 className="text-2xl font-bold text-slate-800 dark:text-white">Register Your UNIK Alias</h2>
+                            {myAliases.length > 0 && (
+                                <button onClick={() => setShowRegisterForm(false)} className="text-gray-500 hover:text-gray-700">Cancel</button>
+                            )}
+                        </div>
                         <div className="flex gap-4">
                             <div className="flex-1">
                                 <input
@@ -263,7 +379,7 @@ export default function Dashboard() {
                             </button>
                         </div>
                     </div>
-                ) : (
+                ) : registeredAlias ? (
                     <div className="grid md:grid-cols-2 gap-8">
                         <div className="bg-white dark:bg-slate-800 rounded-xl shadow-lg p-6 h-fit">
                             <h3 className="text-xl font-bold text-slate-800 dark:text-white mb-4">Your Identity</h3>
@@ -324,7 +440,8 @@ export default function Dashboard() {
                                         </div>
                                         <div className="flex items-center gap-3">
                                             <span className="font-bold text-slate-800 dark:text-white">{split.percent}%</span>
-                                            {idx > 0 && <button onClick={() => removeSplit(idx)} className="text-red-400 hover:text-red-600">×</button>}
+                                            <span className="font-bold text-slate-800 dark:text-white">{split.percent}%</span>
+                                            <button onClick={() => removeSplit(idx)} className="text-red-400 hover:text-red-600">×</button>
                                         </div>
                                     </div>
                                 ))}
@@ -368,7 +485,7 @@ export default function Dashboard() {
                             </div>
                         </div>
                     </div>
-                )}
+                ) : null}
             </main>
         </div>
     );
