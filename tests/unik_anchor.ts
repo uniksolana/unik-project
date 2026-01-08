@@ -10,7 +10,7 @@ describe("unik_anchor", () => {
 
   const program = anchor.workspace.unikAnchor as Program<UnikAnchor>;
 
-  const alias = "my_alias";
+  const alias = `alias_${Date.now()}`;
   const metadataUri = "https://example.com/metadata";
 
   // PDAs
@@ -86,7 +86,7 @@ describe("unik_anchor", () => {
       })
       .rpc();
 
-    const amount = new anchor.BN(1000000); // 0.001 SOL
+    const amount = new anchor.BN(10000000); // 0.01 SOL (Rent exempt for fresh accts)
 
     // Get initial balances
     const initialBal1 = await provider.connection.getBalance(recipient1.publicKey);
@@ -109,7 +109,159 @@ describe("unik_anchor", () => {
     const finalBal1 = await provider.connection.getBalance(recipient1.publicKey);
     const finalBal2 = await provider.connection.getBalance(recipient2.publicKey);
 
-    assert.equal(finalBal1 - initialBal1, 500000);
-    assert.equal(finalBal2 - initialBal2, 500000);
+    assert.equal(finalBal1 - initialBal1, 5000000);
+    assert.equal(finalBal2 - initialBal2, 5000000);
+  });
+
+  // --- Negative Tests (V1 Hardening) ---
+
+  it("Fail: Duplicate alias registration", async () => {
+    try {
+      await program.methods
+        .registerAlias(alias, metadataUri)
+        .accounts({
+          aliasAccount: aliasPda,
+          user: provider.wallet.publicKey,
+          systemProgram: anchor.web3.SystemProgram.programId,
+        })
+        .rpc();
+      assert.fail("Should have failed to register duplicate alias");
+    } catch (e: any) {
+      // Anchor throws an error when initializing an existing account (usually logs "already in use")
+      assert.ok(e.logs?.some((log: string) => log.includes("already in use")) || e.toString().includes("0x0"), "Expected 'already in use' error");
+    }
+  });
+
+  it("Fail: Split sum > 100%", async () => {
+    const r1 = anchor.web3.Keypair.generate().publicKey;
+    const splits = [{ recipient: r1, percentage: 10001 }]; // 100.01%
+    try {
+      await program.methods.setRouteConfig(alias, splits).accounts({
+        routeAccount: routePda,
+        aliasAccount: aliasPda,
+        user: provider.wallet.publicKey,
+        systemProgram: anchor.web3.SystemProgram.programId,
+      }).rpc();
+      assert.fail("Should fail > 100%");
+    } catch (e: any) {
+      const str = JSON.stringify(e) + e.toString();
+      assert.ok(str.includes("6001") || str.includes("InvalidSplitTotal"), "Expected InvalidSplitTotal (6001)");
+    }
+  });
+
+  it("Fail: Split sum < 100%", async () => {
+    const r1 = anchor.web3.Keypair.generate().publicKey;
+    const splits = [{ recipient: r1, percentage: 9999 }]; // 99.99%
+    try {
+      await program.methods.setRouteConfig(alias, splits).accounts({
+        routeAccount: routePda,
+        aliasAccount: aliasPda,
+        user: provider.wallet.publicKey,
+        systemProgram: anchor.web3.SystemProgram.programId,
+      }).rpc();
+      assert.fail("Should fail < 100%");
+    } catch (e: any) {
+      const str = JSON.stringify(e) + e.toString();
+      assert.ok(str.includes("6001") || str.includes("InvalidSplitTotal"), "Expected InvalidSplitTotal (6001)");
+    }
+  });
+
+  it("Fail: More than 5 recipients", async () => {
+    const splits = Array(6).fill(0).map(() => ({
+      recipient: anchor.web3.Keypair.generate().publicKey,
+      percentage: 2000 // 20% * 6 = 120% (logic fails on sum first if checked first, or length)
+      // We set percentage to 1000 (10%) to satisfy sum check if we had 10? 
+      // Actually 6 * 1666 = 9996... hard to exact 10000 with 6 if equal.
+      // Let's just use dummy percentages that sum correctly or fail length check first.
+      // Contract checks sum primarily?
+      // Order in lib.rs: Sum check -> Len check.
+      // Let's make sum valid: 6 items: 5x1666 + 1x1670 = 10000
+    }));
+    splits[0].percentage = 1666;
+    splits[1].percentage = 1666;
+    splits[2].percentage = 1666;
+    splits[3].percentage = 1666;
+    splits[4].percentage = 1666;
+    splits[5].percentage = 1670;
+
+    try {
+      await program.methods.setRouteConfig(alias, splits).accounts({
+        routeAccount: routePda,
+        aliasAccount: aliasPda,
+        user: provider.wallet.publicKey,
+        systemProgram: anchor.web3.SystemProgram.programId,
+      }).rpc();
+      assert.fail("Should fail with > 5 splits");
+    } catch (e: any) {
+      console.error("FULL ERROR OBJECT (TooManySplits):", JSON.stringify(e, null, 2));
+      console.error("FULL ERROR TOSTRING:", e.toString());
+      if (e.logs) console.error("LOGS:", e.logs);
+
+      const str = JSON.stringify(e) + e.toString() + (e.logs ? e.logs.join("") : "");
+      assert.ok(str.includes("6007") || str.includes("Maximum 5 splits allowed") || str.includes("TooManySplits"), `Expected TooManySplits (6007), got: ${str.substring(0, 500)}...`);
+    }
+  });
+
+  it("Fail: Duplicate recipient", async () => {
+    const r1 = anchor.web3.Keypair.generate().publicKey;
+    const splits = [
+      { recipient: r1, percentage: 5000 },
+      { recipient: r1, percentage: 5000 },
+    ];
+    try {
+      await program.methods.setRouteConfig(alias, splits).accounts({
+        routeAccount: routePda,
+        aliasAccount: aliasPda,
+        user: provider.wallet.publicKey,
+        systemProgram: anchor.web3.SystemProgram.programId,
+      }).rpc();
+      assert.fail("Should duplicate recipient");
+    } catch (e: any) {
+      const str = JSON.stringify(e) + e.toString();
+      assert.ok(str.includes("6008") || str.includes("Duplicate recipient"), "Expected DuplicateRecipient (6008)");
+    }
+  });
+
+  it("Fail: Self-Reference (Route Account)", async () => {
+    const splits = [
+      { recipient: routePda, percentage: 10000 },
+    ];
+    try {
+      await program.methods.setRouteConfig(alias, splits).accounts({
+        routeAccount: routePda,
+        aliasAccount: aliasPda,
+        user: provider.wallet.publicKey,
+        systemProgram: anchor.web3.SystemProgram.programId,
+      }).rpc();
+      assert.fail("Should fail self-reference");
+    } catch (e: any) {
+      console.error("FULL ERROR OBJECT (SelfReference):", JSON.stringify(e, null, 2));
+      console.error("FULL ERROR TOSTRING:", e.toString());
+      if (e.logs) console.error("LOGS:", e.logs);
+
+      const str = JSON.stringify(e) + e.toString() + (e.logs ? e.logs.join("") : "");
+      assert.ok(str.includes("6009") || str.includes("Cannot route funds to the alias") || str.includes("SelfReference"), `Expected SelfReference (6009), got: ${str.substring(0, 500)}...`);
+    }
+  }); it("Fail: Duplicate alias registration", async () => {
+    try {
+      await program.methods
+        .registerAlias(alias, metadataUri)
+        .accounts({
+          aliasAccount: aliasPda,
+          user: provider.wallet.publicKey,
+          systemProgram: anchor.web3.SystemProgram.programId,
+        })
+        .rpc();
+      assert.fail("Should have failed to register duplicate alias");
+    } catch (e: any) {
+      console.log("Duplicate alias error:", e);
+      // Anchor throws an error when initializing an existing account (usually logs "already in use")
+      assert.ok(
+        e.logs?.some((log: string) => log.includes("already in use")) ||
+        e.toString().includes("0x0") ||
+        JSON.stringify(e).includes("already in use"),
+        "Expected 'already in use' error"
+      );
+    }
   });
 });

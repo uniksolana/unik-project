@@ -3,14 +3,16 @@
 import { useWallet, useConnection } from '@solana/wallet-adapter-react';
 import { WalletMultiButton } from '@solana/wallet-adapter-react-ui';
 import { useState, useEffect } from 'react';
-import { useParams } from 'next/navigation';
+import { useParams, useSearchParams } from 'next/navigation';
+import { Suspense } from 'react';
 import { PublicKey, SystemProgram } from '@solana/web3.js';
 import { PROGRAM_ID, IDL } from '../../../utils/anchor';
 import { Program, AnchorProvider, BN } from '@coral-xyz/anchor';
 import { Buffer } from 'buffer';
 
-export default function PaymentPage() {
+function PaymentContent() {
     const { alias } = useParams();
+    const searchParams = useSearchParams();
     const { connection } = useConnection();
     const wallet = useWallet();
     const { publicKey, connected } = useWallet();
@@ -22,6 +24,13 @@ export default function PaymentPage() {
 
     // Mock data for V1 display
     const [aliasDetails, setAliasDetails] = useState<{ owner: string, splits: number } | null>(null);
+
+    useEffect(() => {
+        const queryAmount = searchParams.get('amount');
+        if (queryAmount && !isNaN(parseFloat(queryAmount))) {
+            setAmount(queryAmount);
+        }
+    }, [searchParams]);
 
     useEffect(() => {
         setIsMounted(true);
@@ -37,7 +46,7 @@ export default function PaymentPage() {
                 });
             }, 500);
         }
-    }, [alias]);
+    }, [alias, connected, publicKey, connection]);
 
     const handlePayment = async () => {
         if (!amount || !publicKey) return;
@@ -94,6 +103,8 @@ export default function PaymentPage() {
             setLoading(false);
         }
     };
+
+    if (!isMounted) return null;
 
     if (!isMounted) return null;
 
@@ -178,5 +189,13 @@ export default function PaymentPage() {
                 Powered by <span className="font-bold text-gray-400">UNIK Protocol</span>
             </div>
         </div>
+    );
+}
+
+export default function PaymentPage() {
+    return (
+        <Suspense fallback={<div className="min-h-screen flex items-center justify-center text-white">Loading payment interface...</div>}>
+            <PaymentContent />
+        </Suspense>
     );
 }

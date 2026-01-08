@@ -32,9 +32,25 @@ pub mod unik_anchor {
         // Authorization check: Only alias owner can set routes
         require!(alias_account.owner == ctx.accounts.user.key(), UnikError::Unauthorized);
         
-        // Validate splits total 100% (10000 basis points)
+        // Validate splits total 100% (10000 basis points) EXACTLY
         let total_percentage: u64 = splits.iter().map(|s| s.percentage as u64).sum();
-        require!(total_percentage <= 10000, UnikError::InvalidSplitTotal);
+        require!(total_percentage == 10000, UnikError::InvalidSplitTotal);
+
+        // Max 5 splits allowed
+        require!(splits.len() <= 5, UnikError::TooManySplits);
+
+        // Duplicate check
+        for (i, split) in splits.iter().enumerate() {
+            // Check for duplicates
+            for (j, other_split) in splits.iter().enumerate() {
+                if i != j && split.recipient == other_split.recipient {
+                    return err!(UnikError::DuplicateRecipient);
+                }
+            }
+            // Check for self-reference (prevent route/alias loop)
+            require!(split.recipient != route_account.key(), UnikError::SelfReference);
+            require!(split.recipient != alias_account.key(), UnikError::SelfReference);
+        }
 
         // TODO: V2 Implementation - Handle remainder (10000 - total_percentage)
         // Options: Send to Treasury, Refund to Owner, or Burn.
@@ -113,7 +129,7 @@ pub struct SetRouteConfig<'info> {
     #[account(
         init_if_needed,
         payer = user,
-        space = 8 + 32 + 4 + (splits.len() * 42) + 1 + 100, 
+        space = 8 + 32 + 4 + (5 * 34) + 1 + 100, // Fixed space for max 5 splits
         seeds = [b"route", alias.as_bytes()],
         bump
     )]
@@ -184,4 +200,10 @@ pub enum UnikError {
     InvalidAliasCharacters,
     #[msg("Metadata URI exceeds 200 characters.")]
     MetadataTooLong,
+    #[msg("Maximum 5 splits allowed.")]
+    TooManySplits,
+    #[msg("Duplicate recipient in splits.")]
+    DuplicateRecipient,
+    #[msg("Cannot route funds to the alias or route account itself.")]
+    SelfReference,
 }
