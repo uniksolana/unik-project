@@ -66,7 +66,7 @@ export default function Dashboard() {
                 // 2. Fetch all AliasAccounts where owner == publicKey
                 // Filter: discriminator (8) + owner (32)
                 // Memcmp offset 8 for owner
-                const aliases = await program.account.aliasAccount.all([
+                const aliases = await (program.account as any).aliasAccount.all([
                     {
                         memcmp: {
                             offset: 8,
@@ -77,7 +77,7 @@ export default function Dashboard() {
 
                 if (aliases.length > 0) {
                     // Map all aliases
-                    const aliasList = aliases.map(a => a.account.alias);
+                    const aliasList = aliases.map((a: any) => a.account.alias);
                     setMyAliases(aliasList);
 
                     // Auto-select the first one if none selected
@@ -117,7 +117,7 @@ export default function Dashboard() {
                     PROGRAM_ID
                 );
 
-                const routeAccount = await program.account.routeAccount.fetch(routePDA);
+                const routeAccount = await (program.account as any).routeAccount.fetch(routePDA);
                 console.log("Found existing routes:", routeAccount.splits);
 
                 const mappedSplits = routeAccount.splits.map((s: any) => ({

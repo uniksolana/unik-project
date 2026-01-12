@@ -72,7 +72,7 @@ function PaymentContent() {
             console.log(`Sending ${amount} SOL to ${normalizedAlias} (Route: ${routePDA.toBase58()})`);
 
             // 1. Fetch the Route Account to get recipients
-            const routeAccount = await program.account.routeAccount.fetch(routePDA);
+            const routeAccount = await (program.account as any).routeAccount.fetch(routePDA);
 
             // 2. Map recipients to Remaining Accounts
             const remainingAccounts = (routeAccount.splits as any[]).map(split => ({

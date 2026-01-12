@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+
 import dynamic from 'next/dynamic';
 
 const WalletMultiButton = dynamic(
@@ -9,24 +9,6 @@ const WalletMultiButton = dynamic(
 );
 
 export default function Home() {
-  const [alias, setAlias] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [result, setResult] = useState<any>(null);
-
-  const checkAlias = async () => {
-    if (!alias) return;
-
-    setLoading(true);
-    try {
-      const response = await fetch(`http://localhost:3001/api/check/${alias}`);
-      const data = await response.json();
-      setResult(data);
-    } catch (error) {
-      setResult({ error: 'Failed to check alias' });
-    } finally {
-      setLoading(false);
-    }
-  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900">
@@ -74,33 +56,17 @@ export default function Home() {
           </div>
         </div>
 
-        <div className="max-w-2xl mx-auto bg-white/10 backdrop-blur-lg rounded-xl p-8 border border-white/20">
-          <h2 className="text-2xl font-bold text-white mb-6">Check Alias Availability</h2>
-
-          <div className="flex gap-4 mb-6">
-            <input
-              type="text"
-              value={alias}
-              onChange={(e) => setAlias(e.target.value)}
-              placeholder="Enter alias name..."
-              className="flex-1 px-4 py-3 rounded-lg bg-white/20 border border-white/30 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-            <button
-              onClick={checkAlias}
-              disabled={loading || !alias}
-              className="px-8 py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 text-white font-semibold rounded-lg transition-colors"
-            >
-              {loading ? 'Checking...' : 'Check'}
-            </button>
-          </div>
-
-          {result && (
-            <div className="bg-black/30 rounded-lg p-4">
-              <pre className="text-sm text-gray-300 overflow-auto">
-                {JSON.stringify(result, null, 2)}
-              </pre>
-            </div>
-          )}
+        <div className="max-w-2xl mx-auto bg-white/10 backdrop-blur-lg rounded-xl p-8 border border-white/20 text-center">
+          <h2 className="text-2xl font-bold text-white mb-6">Ready to get started?</h2>
+          <p className="text-gray-300 mb-8">
+            Connect your wallet and start routing payments on Solana Devnet today.
+          </p>
+          <a
+            href="/dashboard"
+            className="inline-block px-8 py-4 bg-blue-600 hover:bg-blue-700 text-white font-bold text-lg rounded-xl transition-all shadow-lg hover:shadow-blue-500/20"
+          >
+            🚀 Launch Dashboard
+          </a>
         </div>
 
         <div className="mt-16 max-w-4xl mx-auto">
