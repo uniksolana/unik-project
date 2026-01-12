@@ -398,7 +398,7 @@ export default function Dashboard() {
                             </div>
 
                             <div className="p-4 bg-gray-50 dark:bg-slate-700/50 rounded-lg">
-                                <h4 className="text-sm font-semibold text-gray-500 mb-2">My Payment Link (Local)</h4>
+                                <h4 className="text-sm font-semibold text-gray-500 mb-2">My Payment Link</h4>
 
                                 <div className="mb-3">
                                     <label className="text-xs text-gray-500 block mb-1">Request specific amount (optional)</label>
@@ -416,12 +416,13 @@ export default function Dashboard() {
 
                                 <div className="flex bg-white dark:bg-slate-900 p-2 rounded border border-gray-200 dark:border-slate-600">
                                     <code className="flex-1 text-sm pt-1 text-gray-600 dark:text-gray-300 truncate">
-                                        localhost:3000/pay/{registeredAlias}{linkAmount ? `?amount=${linkAmount}` : ''}
+                                        {typeof window !== 'undefined' ? window.location.host : 'unik.app'}/pay/{registeredAlias}{linkAmount ? `?amount=${linkAmount}` : ''}
                                     </code>
                                     <button
                                         className="text-xs text-blue-600 font-bold uppercase tracking-wider hover:text-blue-800"
                                         onClick={() => {
-                                            const url = `http://localhost:3000/pay/${registeredAlias}${linkAmount ? `?amount=${linkAmount}` : ''}`;
+                                            const origin = typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000';
+                                            const url = `${origin}/pay/${registeredAlias}${linkAmount ? `?amount=${linkAmount}` : ''}`;
                                             navigator.clipboard.writeText(url);
                                             alert("Link copied to clipboard! (Share this URL to get paid)");
                                         }}
