@@ -5,12 +5,16 @@ import { WalletMultiButton } from '@solana/wallet-adapter-react-ui';
 import { useState, useEffect } from 'react';
 import { PublicKey, SystemProgram, Transaction } from '@solana/web3.js';
 import { PROGRAM_ID, IDL } from '../../utils/anchor';
-import { Program, AnchorProvider, BN } from '@coral-xyz/anchor';
+import { Program, AnchorProvider } from '@coral-xyz/anchor';
 import { useConnection } from '@solana/wallet-adapter-react';
-import { Buffer } from 'buffer'; // Required for Buffer.from
+import { Buffer } from 'buffer';
+import Image from 'next/image';
+
+type TabType = 'receive' | 'send' | 'splits' | 'alias' | 'contacts';
 
 export default function Dashboard() {
     const { publicKey, connected } = useWallet();
+    const [activeTab, setActiveTab] = useState<TabType>('receive');
     const [alias, setAlias] = useState('');
     const [loading, setLoading] = useState(false);
     const [registeredAlias, setRegisteredAlias] = useState<string | null>(null);
@@ -24,15 +28,17 @@ export default function Dashboard() {
     const [sendAlias, setSendAlias] = useState('');
     const [sendAmount, setSendAmount] = useState('');
 
-    // Constants
-    const { connection } = useConnection();
-    const wallet = useWallet(); // Get full wallet context for provider
+    // Splits State
+    const [splits, setSplits] = useState([{ recipient: 'Primary Wallet (You)', address: publicKey?.toBase58(), percent: 100 }]);
+    const [isEditing, setIsEditing] = useState(false);
+    const [newSplitAddress, setNewSplitAddress] = useState('');
+    const [newSplitPercent, setNewSplitPercent] = useState('');
 
-    // Fix hydration error
+    const { connection } = useConnection();
+    const wallet = useWallet();
+
     const [isMounted, setIsMounted] = useState(false);
-    useEffect(() => {
-        setIsMounted(true);
-    }, []);
+    useEffect(() => setIsMounted(true), []);
 
     useEffect(() => {
         if (connected && publicKey) {
@@ -44,14 +50,6 @@ export default function Dashboard() {
         }
     }, [connected, publicKey, connection]);
 
-    // Dashboard State (Moved up to fix hook ordering)
-    const [splits, setSplits] = useState([{ recipient: 'Primary Wallet (You)', address: publicKey?.toBase58(), percent: 100 }]);
-    const [isEditing, setIsEditing] = useState(false);
-    const [newSplitAddress, setNewSplitAddress] = useState('');
-    const [newSplitPercent, setNewSplitPercent] = useState('');
-
-    // Update primary wallet address when connected
-    // Check for existing alias when wallet connects
     useEffect(() => {
         const checkExistingAlias = async () => {
             if (!publicKey || !wallet || !connected) {
@@ -61,31 +59,17 @@ export default function Dashboard() {
             }
 
             try {
-                // 1. Setup Provider & Program
-                // Note: We use a read-only provider if wallet not ready, but here we need consistency
                 const provider = new AnchorProvider(connection, wallet as any, {});
                 const program = new Program(IDL as any, provider);
-
                 setLoading(true);
 
-                // 2. Fetch all AliasAccounts where owner == publicKey
-                // Filter: discriminator (8) + owner (32)
-                // Memcmp offset 8 for owner
                 const aliases = await (program.account as any).aliasAccount.all([
-                    {
-                        memcmp: {
-                            offset: 8,
-                            bytes: publicKey.toBase58(),
-                        },
-                    },
+                    { memcmp: { offset: 8, bytes: publicKey.toBase58() } }
                 ]);
 
                 if (aliases.length > 0) {
-                    // Map all aliases
                     const aliasList = aliases.map((a: any) => a.account.alias);
                     setMyAliases(aliasList);
-
-                    // Auto-select the first one if none selected
                     if (!registeredAlias) {
                         setRegisteredAlias(aliasList[0]);
                         setAlias(aliasList[0]);
@@ -94,6 +78,7 @@ export default function Dashboard() {
                     setMyAliases([]);
                     setRegisteredAlias(null);
                     setShowRegisterForm(true);
+                    setActiveTab('alias');
                 }
             } catch (err) {
                 console.error("Error fetching alias:", err);
@@ -105,14 +90,9 @@ export default function Dashboard() {
         checkExistingAlias();
     }, [publicKey, connected, connection, wallet]);
 
-    // Fetch Route Config when registeredAlias changes (selected alias)
     useEffect(() => {
         const fetchRouteConfig = async () => {
             if (!registeredAlias || !publicKey || !wallet) return;
-
-            // Don't auto-reset splits if we just switched to a new alias that might not have routes yet
-            // actually we should reset to default (owner 100%) or empty if we want 0% support?
-            // Let's reset to owner 100% as a safe default for display, but fetching will override
 
             try {
                 const provider = new AnchorProvider(connection, wallet as any, {});
@@ -123,8 +103,6 @@ export default function Dashboard() {
                 );
 
                 const routeAccount = await (program.account as any).routeAccount.fetch(routePDA);
-                console.log("Found existing routes:", routeAccount.splits);
-
                 const mappedSplits = routeAccount.splits.map((s: any) => ({
                     recipient: s.recipient.toBase58() === publicKey.toBase58() ? 'Primary Wallet (You)' : `Wallet ${s.recipient.toBase58().slice(0, 4)}...`,
                     address: s.recipient.toBase58(),
@@ -134,13 +112,9 @@ export default function Dashboard() {
                 if (mappedSplits.length > 0) {
                     setSplits(mappedSplits);
                 } else {
-                    // Should be unreachable if account exists, but fallback
                     setSplits([{ recipient: 'Primary Wallet (You)', address: publicKey.toBase58(), percent: 100 }]);
                 }
-
             } catch (e) {
-                console.log("No route config found, using default.");
-                // Default: 100% to owner if no config exists
                 setSplits([{ recipient: 'Primary Wallet (You)', address: publicKey.toBase58(), percent: 100 }]);
             }
         };
@@ -148,24 +122,12 @@ export default function Dashboard() {
         fetchRouteConfig();
     }, [registeredAlias, publicKey, wallet, connection]);
 
-    // Update primary wallet address when connected AND no existing alias found
-    useEffect(() => {
-        // If we are showing the register form (new user or adding new alias), reset splits? 
-        // No, splits UI only shows when alias is selected.
-    }, []);
-
     const handleRegister = async () => {
         if (!alias || !publicKey || !wallet) return;
         setLoading(true);
         try {
-            // 1. Setup Provider
             const provider = new AnchorProvider(connection, wallet as any, {});
-
-            // 2. Setup Program
             const program = new Program(IDL as any, provider);
-
-            // 3. Derive PDA
-            // Normalization: Ensure lowercase for consistency with contract
             const normalizedAlias = alias.toLowerCase().trim();
 
             const [aliasPDA] = PublicKey.findProgramAddressSync(
@@ -173,9 +135,6 @@ export default function Dashboard() {
                 PROGRAM_ID
             );
 
-            console.log("Registering alias:", normalizedAlias, "PDA:", aliasPDA.toBase58());
-
-            // 4. Send Transaction
             const tx = await program.methods
                 .registerAlias(normalizedAlias, "https://unik.to/metadata_placeholder")
                 .accounts({
@@ -185,25 +144,17 @@ export default function Dashboard() {
                 })
                 .rpc();
 
-            console.log("Transaction signature", tx);
-            console.log("Transaction signature", tx);
             setRegisteredAlias(normalizedAlias);
             setMyAliases([...myAliases, normalizedAlias]);
             setShowRegisterForm(false);
             alert(`Success! Alias @${normalizedAlias} registered on-chain.\nSignature: ${tx}`);
-
         } catch (error: any) {
             console.error("Error registering:", error);
-
             let message = "Transaction failed.";
-            if (error.message?.includes("User rejected")) {
-                message = "Request rejected by user.";
-            } else if (error.message?.includes("0x1") || error.message?.includes("insufficient funds")) {
-                message = "Transaction failed (Insufficient funds?).";
-            }
+            if (error.message?.includes("User rejected")) message = "Request rejected by user.";
+            else if (error.message?.includes("0x1") || error.message?.includes("insufficient funds")) message = "Transaction failed (Insufficient funds?).";
 
             if (error.logs) {
-                console.log("On-chain logs:", error.logs);
                 if (error.logs.some((l: string) => l.includes("InvalidAliasLength"))) message = "Alias must be 3-32 characters.";
                 if (error.logs.some((l: string) => l.includes("InvalidAliasCharacters"))) message = "Alias only allowed a-z, 0-9 and _";
             }
@@ -220,7 +171,6 @@ export default function Dashboard() {
         try {
             const provider = new AnchorProvider(connection, wallet as any, {});
             const program = new Program(IDL as any, provider);
-
             const normalizedAlias = alias.toLowerCase().trim();
 
             const [aliasPDA] = PublicKey.findProgramAddressSync(
@@ -233,13 +183,10 @@ export default function Dashboard() {
                 PROGRAM_ID
             );
 
-            // Convert frontend splits to IDL format (Recipient Pubkey + Bps)
             const idlSplits = splits.map(s => ({
                 recipient: new PublicKey(s.address!),
-                percentage: s.percent * 100 // 100% -> 10000 bps
+                percentage: s.percent * 100
             }));
-
-            console.log("Saving route config to PDA:", routePDA.toBase58());
 
             const tx = await program.methods
                 .setRouteConfig(normalizedAlias, idlSplits)
@@ -251,7 +198,6 @@ export default function Dashboard() {
                 })
                 .rpc();
 
-            console.log("Route config saved. Tx:", tx);
             alert(`Success! Routing rules saved on-chain.\nSignature: ${tx}`);
             setIsEditing(false);
         } catch (error: any) {
@@ -264,21 +210,6 @@ export default function Dashboard() {
         }
     };
 
-    if (!connected) {
-        // Return conditional UI but component logic runs first
-        if (!isMounted) return null; // Ensure no hydration mismatch for this too
-
-        return (
-            <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 flex flex-col items-center justify-center text-white px-4">
-                <h1 className="text-4xl font-bold mb-8">Access Your Dashboard</h1>
-                <p className="text-xl text-gray-300 mb-8 max-w-md text-center">
-                    Connect your Solana wallet to manage your aliases and routing rules.
-                </p>
-                <WalletMultiButton />
-            </div>
-        );
-    }
-
     const totalPercent = splits.reduce((acc, curr) => acc + curr.percent, 0);
 
     const addSplit = () => {
@@ -286,11 +217,8 @@ export default function Dashboard() {
         const percent = parseInt(newSplitPercent);
         if (isNaN(percent) || percent <= 0 || percent >= 100) return;
 
-        // Flexible logic: just add the split. User must ensure total <= 100.
-        // If we want to auto-adjust, try to take from the highest allocation split?
-        // Or just fail if total + new > 100?
         if (totalPercent + percent > 100) {
-            alert(`Cannot add split. Total would exceed 100% (Current: ${totalPercent}% + New: ${percent}% = ${totalPercent + percent}%). Please reduce another split first.`);
+            alert(`Cannot add split. Total would exceed 100%.`);
             return;
         }
 
@@ -304,395 +232,383 @@ export default function Dashboard() {
     };
 
     const removeSplit = (index: number) => {
-        // Just remove it. Percentage becomes unallocated.
         const newSplits = splits.filter((_, i) => i !== index);
         setSplits(newSplits);
     };
 
+    if (!connected) {
+        if (!isMounted) return null;
+
+        return (
+            <div className="min-h-screen bg-black flex flex-col items-center justify-center text-white px-4">
+                <Image src="/logo-full.png" alt="UNIK" width={300} height={100} className="mb-12" priority />
+                <h1 className="text-4xl font-bold mb-4">Welcome to UNIK</h1>
+                <p className="text-xl text-gray-400 mb-8 max-w-md text-center">
+                    The non-custodial payment router for Solana
+                </p>
+                <WalletMultiButton />
+            </div>
+        );
+    }
+
     if (!isMounted) return null;
 
     return (
-        <div className="min-h-screen bg-gray-50 dark:bg-slate-900">
-            <nav className="bg-white dark:bg-slate-800 shadow-sm">
-                <div className="container mx-auto px-4 py-4 flex justify-between items-center">
-                    <div className="text-xl font-bold text-blue-600 dark:text-blue-400">🧠 UNIK Dashboard</div>
+        <div className="min-h-screen bg-black text-white">
+            {/* Header */}
+            <nav className="border-b border-gray-800 bg-black/50 backdrop-blur-xl sticky top-0 z-50">
+                <div className="max-w-6xl mx-auto px-4 py-4 flex justify-between items-center">
+                    <Image src="/logo-full.png" alt="UNIK" width={120} height={40} priority />
                     <div className="flex items-center gap-4">
-                        {registeredAlias && <span className="text-sm font-bold text-slate-700 dark:text-gray-300">@{registeredAlias}</span>}
+                        {balance !== null && (
+                            <div className="text-right">
+                                <p className="text-xs text-gray-500">Balance</p>
+                                <p className="text-lg font-bold">{balance.toFixed(4)} SOL</p>
+                            </div>
+                        )}
                         <WalletMultiButton />
                     </div>
                 </div>
             </nav>
-            {balance !== null && balance < 0.01 && (
-                <div className="bg-amber-100 border-b border-amber-200 py-2 px-4 text-amber-800 text-sm flex items-center justify-center gap-2">
-                    ⚠️ <b>Low Balance:</b> You have {balance.toFixed(4)} SOL. You need Devnet SOL to register or save configs.
-                </div>
-            )}
 
-            <main className="container mx-auto px-4 py-8">
-                {/* Selector for multiple aliases */}
-                {myAliases.length > 0 && !showRegisterForm && (
-                    <div className="flex justify-end mb-4 gap-4">
-                        <div className="relative">
-                            <select
-                                value={registeredAlias || ''}
-                                onChange={(e) => setRegisteredAlias(e.target.value)}
-                                className="appearance-none bg-white dark:bg-slate-800 text-slate-800 dark:text-white py-2 pl-4 pr-8 rounded-lg shadow font-bold text-sm border border-gray-200 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            >
-                                {myAliases.map(a => <option key={a} value={a}>@{a}</option>)}
-                            </select>
-                            <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-700 dark:text-gray-300">
-                                <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z" /></svg>
-                            </div>
+            {/* Main Container */}
+            <div className="max-w-6xl mx-auto px-4 py-8">
+                {/* Wallet Card */}
+                <div className="bg-gradient-to-br from-cyan-500 via-purple-500 to-pink-500 rounded-3xl p-8 mb-8 shadow-2xl">
+                    <div className="flex justify-between items-start mb-6">
+                        <div>
+                            <p className="text-sm text-white/70 mb-1">Your UNIK Alias</p>
+                            <h2 className="text-4xl font-bold">@{registeredAlias || 'not-set'}</h2>
                         </div>
-                        <button
-                            onClick={() => setShowRegisterForm(true)}
-                            className="text-sm font-bold text-blue-600 hover:text-blue-700 bg-blue-50 dark:bg-blue-900/20 px-4 py-2 rounded-lg transition-colors"
+                        <Image src="/logo-icon.png" alt="UNIK" width={60} height={60} />
+                    </div>
+
+                    {myAliases.length > 1 && (
+                        <select
+                            value={registeredAlias || ''}
+                            onChange={(e) => setRegisteredAlias(e.target.value)}
+                            className="bg-white/20 backdrop-blur-sm text-white px-4 py-2 rounded-xl font-semibold border border-white/30 focus:outline-none focus:ring-2 focus:ring-white/50"
                         >
-                            + New Alias
-                        </button>
-                    </div>
-                )}
-
-                {showRegisterForm ? (
-                    <div className="max-w-2xl mx-auto bg-white dark:bg-slate-800 rounded-xl shadow-lg p-8">
-                        <div className="flex justify-between items-center mb-6">
-                            <h2 className="text-2xl font-bold text-slate-800 dark:text-white">Register Your UNIK Alias</h2>
-                            {myAliases.length > 0 && (
-                                <button onClick={() => setShowRegisterForm(false)} className="text-gray-500 hover:text-gray-700">Cancel</button>
-                            )}
-                        </div>
-                        <div className="flex gap-4">
-                            <div className="flex-1">
-                                <input
-                                    type="text"
-                                    value={alias}
-                                    onChange={(e) => {
-                                        // Enforce client-side normalization for better UX
-                                        const val = e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, '');
-                                        setAlias(val);
-                                    }}
-                                    placeholder="Enter desired alias (e.g. david)"
-                                    className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none transition-all"
-                                />
-                                <p className="text-sm text-gray-500 mt-2">Maximum 32 characters. Lowercase alphanumeric only.</p>
-                            </div>
-                            <button
-                                onClick={handleRegister}
-                                disabled={loading || !alias}
-                                className="px-8 py-3 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-bold rounded-lg transition-colors h-fit flex items-center gap-2"
-                            >
-                                {loading ? 'Minting...' : 'Register'}
-                            </button>
-                        </div>
-                    </div>
-                ) : registeredAlias ? (
-                    <div className="grid md:grid-cols-2 gap-8">
-                        <div className="bg-white dark:bg-slate-800 rounded-xl shadow-lg p-6 h-fit">
-                            <h3 className="text-xl font-bold text-slate-800 dark:text-white mb-4">Your Identity</h3>
-                            <div className="flex items-center justify-between p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg mb-6">
-                                <div>
-                                    <p className="text-sm text-blue-600 dark:text-blue-400 font-medium">Active Alias</p>
-                                    <p className="text-2xl font-bold text-slate-800 dark:text-white">@{registeredAlias}</p>
-                                </div>
-                                <div className="text-right">
-                                    <p className="text-sm text-gray-500">Routing Status</p>
-                                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${totalPercent === 100 ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}>
-                                        {totalPercent === 100 ? 'Active' : 'Invalid Config'}
-                                    </span>
-                                </div>
-                            </div>
-
-                            <div className="p-4 bg-gray-50 dark:bg-slate-700/50 rounded-lg">
-                                <h4 className="text-sm font-semibold text-gray-500 mb-2">My Payment Link</h4>
-
-                                <div className="mb-3">
-                                    <label className="text-xs text-gray-500 block mb-1">Request specific amount (optional)</label>
-                                    <div className="flex items-center gap-2">
-                                        <input
-                                            type="number"
-                                            placeholder="0.00"
-                                            step="0.01"
-                                            className="w-24 px-2 py-1 text-sm rounded border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-900 focus:outline-none focus:border-blue-500"
-                                            onChange={(e) => setLinkAmount(e.target.value)}
-                                        />
-                                        <span className="text-xs font-bold text-gray-400">SOL</span>
-                                    </div>
-                                </div>
-
-                                <div className="flex bg-white dark:bg-slate-900 p-2 rounded border border-gray-200 dark:border-slate-600">
-                                    <code className="flex-1 text-sm pt-1 text-gray-600 dark:text-gray-300 truncate">
-                                        {typeof window !== 'undefined' ? window.location.host : 'unik.app'}/pay/{registeredAlias}{linkAmount ? `?amount=${linkAmount}` : ''}
-                                    </code>
-                                    <button
-                                        className="text-xs text-blue-600 font-bold uppercase tracking-wider hover:text-blue-800"
-                                        onClick={() => {
-                                            const origin = typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000';
-                                            const url = `${origin}/pay/${registeredAlias}${linkAmount ? `?amount=${linkAmount}` : ''}`;
-                                            navigator.clipboard.writeText(url);
-                                            alert("Link copied to clipboard! (Share this URL to get paid)");
-                                        }}
-                                    >
-                                        Copy
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div className="bg-white dark:bg-slate-800 rounded-xl shadow-lg p-6">
-                            <div className="flex justify-between items-center mb-6">
-                                <h3 className="text-xl font-bold text-slate-800 dark:text-white">Routing Rules</h3>
-                                <button
-                                    onClick={() => setIsEditing(!isEditing)}
-                                    className="text-sm text-blue-600 hover:text-blue-700 font-medium"
-                                >
-                                    {isEditing ? 'Cancel' : '+ Add Split'}
-                                </button>
-                            </div>
-
-                            <div className="space-y-4">
-                                {splits.map((split, idx) => (
-                                    <div key={idx} className="flex items-center justify-between p-3 border border-gray-100 dark:border-slate-700 rounded-lg">
-                                        <div className="flex items-center gap-3 overflow-hidden">
-                                            <div className="flex-shrink-0 w-8 h-8 rounded-full bg-indigo-100 dark:bg-indigo-900/30 flex items-center justify-center text-indigo-600 text-sm font-bold">
-                                                {idx + 1}
-                                            </div>
-                                            <div className="min-w-0">
-                                                <p className="font-medium text-slate-800 dark:text-white truncate">{split.recipient}</p>
-                                                <p className="text-xs text-gray-400 font-mono truncate" title={split.address}>
-                                                    {split.address?.slice(0, 6)}...{split.address?.slice(-6)}
-                                                </p>
-                                            </div>
-                                        </div>
-                                        <div className="flex items-center gap-3">
-                                            <span className="font-bold text-slate-800 dark:text-white">{split.percent}%</span>
-                                            <span className="font-bold text-slate-800 dark:text-white">{split.percent}%</span>
-                                            <button onClick={() => removeSplit(idx)} className="text-red-400 hover:text-red-600">×</button>
-                                        </div>
-                                    </div>
-                                ))}
-
-                                {splits.length === 0 && <p className="text-center text-gray-400 text-sm py-4">No routing rules set.</p>}
-
-                                {isEditing && (
-                                    <div className="p-4 bg-gray-50 dark:bg-slate-700/30 rounded-lg border border-dashed border-blue-200 dark:border-blue-900">
-                                        <h4 className="text-sm font-bold text-slate-700 dark:text-gray-300 mb-3">Add New Recipient</h4>
-                                        <input
-                                            className="w-full mb-2 px-3 py-2 rounded border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-sm"
-                                            placeholder="Solana Wallet Address"
-                                            value={newSplitAddress}
-                                            onChange={(e) => setNewSplitAddress(e.target.value)}
-                                        />
-                                        <div className="flex gap-2">
-                                            <input
-                                                className="w-24 px-3 py-2 rounded border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-sm"
-                                                placeholder="%"
-                                                type="number"
-                                                value={newSplitPercent}
-                                                onChange={(e) => setNewSplitPercent(e.target.value)}
-                                            />
-                                            <button onClick={addSplit} className="flex-1 bg-blue-600 text-white rounded text-sm font-bold shadow-sm hover:bg-blue-700">Add Rule</button>
-                                        </div>
-                                    </div>
-                                )}
-
-                                <div className="pt-4 border-t border-gray-100 dark:border-slate-700 flex justify-between items-center">
-                                    <p className={`text-sm font-medium ${totalPercent === 100 ? 'text-green-600' : 'text-red-500'}`}>
-                                        Total Allocation: {totalPercent}%
-                                    </p>
-                                    <button
-                                        onClick={handleSaveConfig}
-                                        className="px-4 py-2 bg-slate-900 dark:bg-white dark:text-slate-900 text-white text-sm font-bold rounded-lg disabled:opacity-50 hover:bg-slate-800 transition-colors"
-                                        disabled={totalPercent !== 100 || loading}
-                                    >
-                                        {loading ? 'Saving...' : 'Save on-chain'}
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                ) : null}
-
-                {/* CONTACTS & SEND SECTION */}
-                <div className="grid md:grid-cols-2 gap-8 mt-8">
-                    {/* LEFT: Contact List */}
-                    <div className="bg-white dark:bg-slate-800 rounded-xl shadow-lg p-6">
-                        <h3 className="text-xl font-bold text-slate-800 dark:text-white mb-4">My Contacts</h3>
-
-                        {/* Add Contact Form */}
-                        <div className="mb-6 p-4 bg-gray-50 dark:bg-slate-700/30 rounded-lg border border-gray-100 dark:border-slate-700">
-                            <h4 className="text-sm font-bold text-slate-700 dark:text-gray-300 mb-2">Add New Contact</h4>
-                            <div className="flex gap-2">
-                                <input
-                                    type="text"
-                                    placeholder="Enter Alias (e.g. alice)"
-                                    className="flex-1 px-3 py-2 rounded border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-sm focus:outline-none focus:border-blue-500"
-                                    id="newContactInput"
-                                />
-                                <button
-                                    onClick={async () => {
-                                        const input = (document.getElementById('newContactInput') as HTMLInputElement);
-                                        const aliasToAdd = input.value.toLowerCase().trim();
-                                        if (!aliasToAdd) return;
-                                        setLoading(true);
-
-                                        try {
-                                            // 1. Resolve Alias on-chain
-                                            // We manually derive the PDA to check if it exists
-                                            const provider = new AnchorProvider(connection, wallet as any, {});
-                                            const program = new Program(IDL as any, provider);
-
-                                            const [aliasPDA] = PublicKey.findProgramAddressSync(
-                                                [Buffer.from("alias"), Buffer.from(aliasToAdd)],
-                                                PROGRAM_ID
-                                            );
-
-                                            console.log("Looking up contact:", aliasToAdd, aliasPDA.toBase58());
-                                            const account = await (program.account as any).aliasAccount.fetch(aliasPDA);
-
-                                            // 2. If successful, save to LocalStorage
-                                            const newContact = {
-                                                alias: aliasToAdd,
-                                                address: account.owner.toBase58(),
-                                                addedAt: Date.now()
-                                            };
-
-                                            // Load existing, append, save
-                                            const existing = JSON.parse(localStorage.getItem('unik_contacts') || '[]');
-                                            if (existing.some((c: any) => c.alias === aliasToAdd)) {
-                                                alert("Contact already exists!");
-                                                setLoading(false);
-                                                return;
-                                            }
-
-                                            const updated = [...existing, newContact];
-                                            localStorage.setItem('unik_contacts', JSON.stringify(updated));
-
-                                            // Force re-render of list (simplified for this task)
-                                            window.dispatchEvent(new Event('storage'));
-                                            input.value = '';
-                                            alert(`Added @${aliasToAdd} to contacts!`);
-
-                                        } catch (e) {
-                                            console.error(e);
-                                            alert(`Could not find alias "@${aliasToAdd}". Make sure it is registered.`);
-                                        } finally {
-                                            setLoading(false);
-                                        }
-                                    }}
-                                    className="px-4 py-2 bg-blue-600 text-white font-bold rounded text-sm hover:bg-blue-700 disabled:opacity-50"
-                                    disabled={loading}
-                                >
-                                    {loading ? '...' : 'Add'}
-                                </button>
-                            </div>
-                        </div>
-
-                        {/* Render saved contacts */}
-                        <ContactsList
-                            onSelect={(c: any) => {
-                                // Scroll to Send form and pre-fill
-                                const sendSection = document.getElementById('sendSection');
-                                const addressInput = document.getElementById('sendAddress') as HTMLInputElement;
-                                if (sendSection && addressInput) {
-                                    addressInput.value = c.address;
-                                    sendSection.scrollIntoView({ behavior: 'smooth' });
-                                    // Trigger event for React state if we bound it, but for now direct DOM manipulation is fast for V1
-                                    // Let's actually bind this properly in V2, but for now we'll use a local 'sendRecipient' state if we refactor.
-                                    // Actually, let's just make the Send card use state.
-                                    setSendRecipient(c.address);
-                                    setSendAlias(c.alias);
-                                }
-                            }}
-                        />
-                    </div>
-
-                    {/* RIGHT: Send SOL */}
-                    <div id="sendSection" className="bg-white dark:bg-slate-800 rounded-xl shadow-lg p-6 h-fit bg-gradient-to-br from-white to-blue-50 dark:from-slate-800 dark:to-slate-900 border border-blue-100 dark:border-blue-900">
-                        <div className="flex items-center gap-3 mb-6">
-                            <div className="w-10 h-10 rounded-full bg-blue-600 flex items-center justify-center text-white text-xl">💸</div>
-                            <h3 className="text-xl font-bold text-slate-800 dark:text-white">Easy Send</h3>
-                        </div>
-
-                        <div className="space-y-4">
-                            <div>
-                                <label className="block text-sm font-semibold text-gray-500 mb-1">Recipient</label>
-                                {sendAlias && (
-                                    <div className="flex justify-between items-center mb-1 text-sm text-blue-600 font-bold">
-                                        <span>@{sendAlias}</span>
-                                        <button onClick={() => { setSendAlias(''); setSendRecipient(''); }} className="text-xs text-red-400">Clear</button>
-                                    </div>
-                                )}
-                                <input
-                                    id="sendAddress"
-                                    type="text"
-                                    placeholder="Recipient Address"
-                                    value={sendRecipient}
-                                    onChange={(e) => { setSendRecipient(e.target.value); setSendAlias(''); }}
-                                    className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-sm font-mono focus:ring-2 focus:ring-blue-500 outline-none"
-                                />
-                            </div>
-
-                            <div>
-                                <label className="block text-sm font-semibold text-gray-500 mb-1">Amount (SOL)</label>
-                                <input
-                                    type="number"
-                                    step="0.01"
-                                    placeholder="0.00"
-                                    value={sendAmount}
-                                    onChange={(e) => setSendAmount(e.target.value)}
-                                    className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-xl font-bold focus:ring-2 focus:ring-blue-500 outline-none"
-                                />
-                            </div>
-
-                            <button
-                                onClick={async () => {
-                                    if (!sendRecipient || !sendAmount || !publicKey || !wallet) return;
-                                    setLoading(true);
-                                    try {
-                                        const amountLamports = parseFloat(sendAmount) * 1e9;
-                                        const transaction = new Transaction().add(
-                                            SystemProgram.transfer({
-                                                fromPubkey: publicKey,
-                                                toPubkey: new PublicKey(sendRecipient),
-                                                lamports: Math.floor(amountLamports),
-                                            })
-                                        );
-
-                                        const signature = await wallet.sendTransaction(transaction, connection);
-                                        console.log("Send signature:", signature);
-
-                                        const latestBlockhash = await connection.getLatestBlockhash();
-                                        await connection.confirmTransaction({
-                                            signature,
-                                            blockhash: latestBlockhash.blockhash,
-                                            lastValidBlockHeight: latestBlockhash.lastValidBlockHeight
-                                        });
-
-                                        alert(`Successfully sent ${sendAmount} SOL to ${sendAlias ? '@' + sendAlias : 'recipient'}!\nSignature: ${signature}`);
-                                        setSendAmount('');
-                                    } catch (e: any) {
-                                        console.error(e);
-                                        alert(`Send failed: ${e.message}`);
-                                    } finally {
-                                        setLoading(false);
-                                    }
-                                }}
-                                disabled={loading || !sendRecipient || !sendAmount}
-                                className="w-full py-4 bg-green-600 hover:bg-green-700 text-white font-bold rounded-xl shadow-lg shadow-green-600/20 disabled:opacity-50 transition-all transform active:scale-95"
-                            >
-                                {loading ? 'Sending...' : 'Send SOL Now'}
-                            </button>
-                        </div>
-                    </div>
+                            {myAliases.map(a => <option key={a} value={a} className="text-black">@{a}</option>)}
+                        </select>
+                    )}
                 </div>
-            </main>
+
+                {/* Action Buttons */}
+                <div className="grid grid-cols-5 gap-4 mb-8">
+                    <ActionButton
+                        icon="📥"
+                        label="Receive"
+                        active={activeTab === 'receive'}
+                        onClick={() => setActiveTab('receive')}
+                    />
+                    <ActionButton
+                        icon="📤"
+                        label="Send"
+                        active={activeTab === 'send'}
+                        onClick={() => setActiveTab('send')}
+                    />
+                    <ActionButton
+                        icon="🔀"
+                        label="Splits"
+                        active={activeTab === 'splits'}
+                        onClick={() => setActiveTab('splits')}
+                    />
+                    <ActionButton
+                        icon="🎯"
+                        label="Alias"
+                        active={activeTab === 'alias'}
+                        onClick={() => setActiveTab('alias')}
+                    />
+                    <ActionButton
+                        icon="👥"
+                        label="Contacts"
+                        active={activeTab === 'contacts'}
+                        onClick={() => setActiveTab('contacts')}
+                    />
+                </div>
+
+                {/* Content Area */}
+                <div className="bg-gray-900 rounded-2xl p-8 border border-gray-800">
+                    {activeTab === 'receive' && <ReceiveTab registeredAlias={registeredAlias} linkAmount={linkAmount} setLinkAmount={setLinkAmount} />}
+                    {activeTab === 'send' && <SendTab sendRecipient={sendRecipient} setSendRecipient={setSendRecipient} sendAlias={sendAlias} setSendAlias={setSendAlias} sendAmount={sendAmount} setSendAmount={setSendAmount} loading={loading} setLoading={setLoading} publicKey={publicKey} wallet={wallet} connection={connection} />}
+                    {activeTab === 'splits' && <SplitsTab splits={splits} setSplits={setSplits} isEditing={isEditing} setIsEditing={setIsEditing} newSplitAddress={newSplitAddress} setNewSplitAddress={setNewSplitAddress} newSplitPercent={newSplitPercent} setNewSplitPercent={setNewSplitPercent} addSplit={addSplit} removeSplit={removeSplit} totalPercent={totalPercent} handleSaveConfig={handleSaveConfig} loading={loading} />}
+                    {activeTab === 'alias' && <AliasTab myAliases={myAliases} showRegisterForm={showRegisterForm} setShowRegisterForm={setShowRegisterForm} alias={alias} setAlias={setAlias} handleRegister={handleRegister} loading={loading} setRegisteredAlias={setRegisteredAlias} />}
+                    {activeTab === 'contacts' && <ContactsTab setSendRecipient={setSendRecipient} setSendAlias={setSendAlias} setActiveTab={setActiveTab} loading={loading} setLoading={setLoading} connection={connection} wallet={wallet} />}
+                </div>
+            </div>
         </div>
     );
 }
 
-// Sub-component for listing contacts (defined in same file for v1 simplicity)
-function ContactsList({ onSelect }: { onSelect: (c: any) => void }) {
+function ActionButton({ icon, label, active, onClick }: { icon: string; label: string; active: boolean; onClick: () => void }) {
+    return (
+        <button
+            onClick={onClick}
+            className={`p-6 rounded-2xl font-semibold transition-all transform hover:scale-105 ${active
+                    ? 'bg-gradient-to-br from-cyan-500 to-purple-500 text-white shadow-lg shadow-purple-500/50'
+                    : 'bg-gray-800 text-gray-400 hover:bg-gray-700 border border-gray-700'
+                }`}
+        >
+            <div className="text-3xl mb-2">{icon}</div>
+            <div className="text-sm">{label}</div>
+        </button>
+    );
+}
+
+function ReceiveTab({ registeredAlias, linkAmount, setLinkAmount }: any) {
+    return (
+        <div>
+            <h3 className="text-2xl font-bold mb-6">Receive Payments</h3>
+
+            <div className="mb-6">
+                <label className="text-sm text-gray-400 block mb-2">Request specific amount (optional)</label>
+                <div className="flex items-center gap-3">
+                    <input
+                        type="number"
+                        placeholder="0.00"
+                        step="0.01"
+                        value={linkAmount}
+                        className="w-32 px-4 py-3 text-lg font-bold bg-gray-800 border border-gray-700 rounded-xl text-white focus:outline-none focus:border-cyan-500"
+                        onChange={(e) => setLinkAmount(e.target.value)}
+                    />
+                    <span className="text-lg font-bold text-gray-400">SOL</span>
+                </div>
+            </div>
+
+            <div className="bg-gray-800 p-6 rounded-xl border border-gray-700">
+                <label className="text-sm text-gray-400 block mb-2">Your Payment Link</label>
+                <div className="flex gap-3">
+                    <code className="flex-1 p-4 bg-black rounded-lg text-cyan-400 font-mono text-sm truncate border border-gray-700">
+                        {typeof window !== 'undefined' ? window.location.host : 'unik.app'}/pay/{registeredAlias}{linkAmount ? `?amount=${linkAmount}` : ''}
+                    </code>
+                    <button
+                        onClick={() => {
+                            const origin = typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000';
+                            const url = `${origin}/pay/${registeredAlias}${linkAmount ? `?amount=${linkAmount}` : ''}`;
+                            navigator.clipboard.writeText(url);
+                            alert("Link copied to clipboard!");
+                        }}
+                        className="px-6 py-3 bg-cyan-600 hover:bg-cyan-700 rounded-xl font-bold transition-colors"
+                    >
+                        Copy
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+}
+
+function SendTab({ sendRecipient, setSendRecipient, sendAlias, setSendAlias, sendAmount, setSendAmount, loading, setLoading, publicKey, wallet, connection }: any) {
+    return (
+        <div>
+            <h3 className="text-2xl font-bold mb-6">Send SOL</h3>
+
+            <div className="space-y-6">
+                <div>
+                    <label className="text-sm text-gray-400 block mb-2">Recipient</label>
+                    {sendAlias && (
+                        <div className="flex justify-between items-center mb-2 text-sm text-cyan-400 font-bold">
+                            <span>@{sendAlias}</span>
+                            <button onClick={() => { setSendAlias(''); setSendRecipient(''); }} className="text-xs text-red-400 hover:text-red-300">Clear</button>
+                        </div>
+                    )}
+                    <input
+                        type="text"
+                        placeholder="Solana Address or Alias"
+                        value={sendRecipient}
+                        onChange={(e) => { setSendRecipient(e.target.value); setSendAlias(''); }}
+                        className="w-full px-4 py-4 bg-gray-800 rounded-xl text-white border border-gray-700 font-mono text-sm focus:outline-none focus:border-cyan-500"
+                    />
+                </div>
+
+                <div>
+                    <label className="text-sm text-gray-400 block mb-2">Amount (SOL)</label>
+                    <input
+                        type="number"
+                        step="0.01"
+                        placeholder="0.00"
+                        value={sendAmount}
+                        onChange={(e) => setSendAmount(e.target.value)}
+                        className="w-full px-4 py-4 bg-gray-800 rounded-xl text-white text-2xl font-bold border border-gray-700 focus:outline-none focus:border-cyan-500"
+                    />
+                </div>
+
+                <button
+                    onClick={async () => {
+                        if (!sendRecipient || !sendAmount || !publicKey || !wallet) return;
+                        setLoading(true);
+                        try {
+                            const amountLamports = parseFloat(sendAmount) * 1e9;
+                            const transaction = new Transaction().add(
+                                SystemProgram.transfer({
+                                    fromPubkey: publicKey,
+                                    toPubkey: new PublicKey(sendRecipient),
+                                    lamports: Math.floor(amountLamports),
+                                })
+                            );
+
+                            const signature = await wallet.sendTransaction(transaction, connection);
+                            const latestBlockhash = await connection.getLatestBlockhash();
+                            await connection.confirmTransaction({
+                                signature,
+                                blockhash: latestBlockhash.blockhash,
+                                lastValidBlockHeight: latestBlockhash.lastValidBlockHeight
+                            });
+
+                            alert(`Successfully sent ${sendAmount} SOL!\nSignature: ${signature}`);
+                            setSendAmount('');
+                        } catch (e: any) {
+                            alert(`Send failed: ${e.message}`);
+                        } finally {
+                            setLoading(false);
+                        }
+                    }}
+                    disabled={loading || !sendRecipient || !sendAmount}
+                    className="w-full py-5 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 rounded-xl font-bold text-lg shadow-lg disabled:opacity-50 disabled:cursor-not-allowed transition-all transform active:scale-95"
+                >
+                    {loading ? 'Sending...' : 'Send SOL Now'}
+                </button>
+            </div>
+        </div>
+    );
+}
+
+function SplitsTab({ splits, setSplits, isEditing, setIsEditing, newSplitAddress, setNewSplitAddress, newSplitPercent, setNewSplitPercent, addSplit, removeSplit, totalPercent, handleSaveConfig, loading }: any) {
+    return (
+        <div>
+            <div className="flex justify-between items-center mb-6">
+                <h3 className="text-2xl font-bold">Routing Rules</h3>
+                <button
+                    onClick={() => setIsEditing(!isEditing)}
+                    className="px-4 py-2 bg-cyan-600 hover:bg-cyan-700 rounded-xl font-semibold text-sm transition-colors"
+                >
+                    {isEditing ? 'Cancel' : '+ Add Split'}
+                </button>
+            </div>
+
+            <div className="space-y-4 mb-6">
+                {splits.map((split: any, idx: number) => (
+                    <div key={idx} className="flex items-center justify-between p-4 bg-gray-800 rounded-xl border border-gray-700">
+                        <div className="flex items-center gap-4">
+                            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-cyan-500 to-purple-500 flex items-center justify-center text-white font-bold">
+                                {idx + 1}
+                            </div>
+                            <div>
+                                <p className="font-semibold">{split.recipient}</p>
+                                <p className="text-xs text-gray-400 font-mono">{split.address?.slice(0, 6)}...{split.address?.slice(-6)}</p>
+                            </div>
+                        </div>
+                        <div className="flex items-center gap-4">
+                            <span className="text-xl font-bold text-cyan-400">{split.percent}%</span>
+                            <button onClick={() => removeSplit(idx)} className="text-red-400 hover:text-red-300 text-2xl">×</button>
+                        </div>
+                    </div>
+                ))}
+
+                {splits.length === 0 && <p className="text-center text-gray-500 py-8">No routing rules set.</p>}
+
+                {isEditing && (
+                    <div className="p-6 bg-gray-800/50 rounded-xl border border-dashed border-cyan-500">
+                        <h4 className="font-semibold mb-4">Add New Recipient</h4>
+                        <input
+                            className="w-full mb-3 px-4 py-3 rounded-xl bg-gray-900 border border-gray-700 text-sm focus:outline-none focus:border-cyan-500"
+                            placeholder="Solana Wallet Address"
+                            value={newSplitAddress}
+                            onChange={(e) => setNewSplitAddress(e.target.value)}
+                        />
+                        <div className="flex gap-3">
+                            <input
+                                className="w-24 px-4 py-3 rounded-xl bg-gray-900 border border-gray-700 text-sm focus:outline-none focus:border-cyan-500"
+                                placeholder="%"
+                                type="number"
+                                value={newSplitPercent}
+                                onChange={(e) => setNewSplitPercent(e.target.value)}
+                            />
+                            <button onClick={addSplit} className="flex-1 bg-cyan-600 hover:bg-cyan-700 rounded-xl font-bold transition-colors">Add Rule</button>
+                        </div>
+                    </div>
+                )}
+            </div>
+
+            <div className="flex justify-between items-center pt-6 border-t border-gray-800">
+                <p className={`font-semibold ${totalPercent === 100 ? 'text-green-400' : 'text-red-400'}`}>
+                    Total Allocation: {totalPercent}%
+                </p>
+                <button
+                    onClick={handleSaveConfig}
+                    disabled={totalPercent !== 100 || loading}
+                    className="px-6 py-3 bg-gradient-to-r from-cyan-600 to-purple-600 hover:from-cyan-700 hover:to-purple-700 rounded-xl font-bold disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                >
+                    {loading ? 'Saving...' : 'Save on-chain'}
+                </button>
+            </div>
+        </div>
+    );
+}
+
+function AliasTab({ myAliases, showRegisterForm, setShowRegisterForm, alias, setAlias, handleRegister, loading, setRegisteredAlias }: any) {
+    return (
+        <div>
+            <h3 className="text-2xl font-bold mb-6">Manage Aliases</h3>
+
+            {myAliases.length > 0 && !showRegisterForm && (
+                <div className="mb-6">
+                    <h4 className="text-sm text-gray-400 mb-3">Your Aliases</h4>
+                    <div className="space-y-3">
+                        {myAliases.map((a: string) => (
+                            <div key={a} className="flex items-center justify-between p-4 bg-gray-800 rounded-xl border border-gray-700 hover:border-cyan-500 transition-colors cursor-pointer" onClick={() => setRegisteredAlias(a)}>
+                                <span className="text-lg font-semibold text-cyan-400">@{a}</span>
+                                <span className="text-sm text-gray-500">Click to switch</span>
+                            </div>
+                        ))}
+                    </div>
+                    <button
+                        onClick={() => setShowRegisterForm(true)}
+                        className="mt-4 w-full py-3 bg-gray-800 hover:bg-gray-700 rounded-xl font-semibold border border-gray-700 transition-colors"
+                    >
+                        + Register New Alias
+                    </button>
+                </div>
+            )}
+
+            {(showRegisterForm || myAliases.length === 0) && (
+                <div className="bg-gray-800 p-6 rounded-xl border border-gray-700">
+                    <h4 className="text-lg font-semibold mb-4">Register New Alias</h4>
+                    <div className="space-y-4">
+                        <div>
+                            <input
+                                type="text"
+                                value={alias}
+                                onChange={(e) => {
+                                    const val = e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, '');
+                                    setAlias(val);
+                                }}
+                                placeholder="your_alias"
+                                className="w-full px-4 py-4 rounded-xl bg-gray-900 border border-gray-700 text-lg focus:outline-none focus:border-cyan-500"
+                            />
+                            <p className="text-xs text-gray-500 mt-2">3-32 characters. Lowercase alphanumeric only.</p>
+                        </div>
+                        <button
+                            onClick={handleRegister}
+                            disabled={loading || !alias}
+                            className="w-full py-4 bg-gradient-to-r from-cyan-600 to-purple-600 hover:from-cyan-700 hover:to-purple-700 rounded-xl font-bold text-lg disabled:opacity-50 disabled:cursor-not-allowed transition-all transform active:scale-95"
+                        >
+                            {loading ? 'Registering...' : 'Register Alias'}
+                        </button>
+                        {myAliases.length > 0 && (
+                            <button onClick={() => setShowRegisterForm(false)} className="w-full py-3 text-gray-400 hover:text-white transition-colors">Cancel</button>
+                        )}
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+}
+
+function ContactsTab({ setSendRecipient, setSendAlias, setActiveTab, loading, setLoading, connection, wallet }: any) {
     const [contacts, setContacts] = useState<any[]>([]);
+    const [newContactAlias, setNewContactAlias] = useState('');
 
     const loadContacts = () => {
         try {
@@ -705,47 +621,118 @@ function ContactsList({ onSelect }: { onSelect: (c: any) => void }) {
 
     useEffect(() => {
         loadContacts();
-        // Listen for storage events (add from main component)
         const listener = () => loadContacts();
         window.addEventListener('storage', listener);
         return () => window.removeEventListener('storage', listener);
     }, []);
 
-    if (contacts.length === 0) return <p className="text-gray-400 text-sm italic">No contacts yet. Add your first one!</p>;
+    const addContact = async () => {
+        if (!newContactAlias) return;
+        setLoading(true);
+
+        try {
+            const provider = new AnchorProvider(connection, wallet as any, {});
+            const program = new Program(IDL as any, provider);
+
+            const [aliasPDA] = PublicKey.findProgramAddressSync(
+                [Buffer.from("alias"), Buffer.from(newContactAlias.toLowerCase())],
+                PROGRAM_ID
+            );
+
+            const account = await (program.account as any).aliasAccount.fetch(aliasPDA);
+
+            const newContact = {
+                alias: newContactAlias.toLowerCase(),
+                address: account.owner.toBase58(),
+                addedAt: Date.now()
+            };
+
+            const existing = JSON.parse(localStorage.getItem('unik_contacts') || '[]');
+            if (existing.some((c: any) => c.alias === newContactAlias.toLowerCase())) {
+                alert("Contact already exists!");
+                setLoading(false);
+                return;
+            }
+
+            const updated = [...existing, newContact];
+            localStorage.setItem('unik_contacts', JSON.stringify(updated));
+            window.dispatchEvent(new Event('storage'));
+            setNewContactAlias('');
+            alert(`Added @${newContactAlias} to contacts!`);
+        } catch (e) {
+            alert(`Could not find alias "@${newContactAlias}". Make sure it is registered.`);
+        } finally {
+            setLoading(false);
+        }
+    };
 
     return (
-        <div className="space-y-3 max-h-64 overflow-y-auto pr-2">
-            {contacts.map((c, i) => (
-                <div key={i} className="flex items-center justify-between p-3 bg-white dark:bg-slate-700/50 rounded-lg border border-gray-100 dark:border-slate-700 hover:border-blue-200 transition-colors">
-                    <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-pink-400 to-orange-400 flex items-center justify-center text-white text-xs font-bold">
-                            {c.alias[0].toUpperCase()}
-                        </div>
-                        <div>
-                            <p className="font-bold text-slate-800 dark:text-white">@{c.alias}</p>
-                            <p className="text-xs text-gray-400 font-mono">{c.address.slice(0, 4)}...{c.address.slice(-4)}</p>
-                        </div>
-                    </div>
+        <div>
+            <h3 className="text-2xl font-bold mb-6">My Contacts</h3>
+
+            <div className="mb-6 bg-gray-800 p-6 rounded-xl border border-gray-700">
+                <h4 className="font-semibold mb-3">Add New Contact</h4>
+                <div className="flex gap-3">
+                    <input
+                        type="text"
+                        placeholder="Enter alias (e.g. alice)"
+                        value={newContactAlias}
+                        onChange={(e) => setNewContactAlias(e.target.value.toLowerCase())}
+                        className="flex-1 px-4 py-3 rounded-xl bg-gray-900 border border-gray-700 focus:outline-none focus:border-cyan-500"
+                    />
                     <button
-                        onClick={() => onSelect(c)}
-                        className="px-3 py-1 bg-slate-100 dark:bg-slate-600 hover:bg-blue-100 dark:hover:bg-blue-900 text-slate-600 dark:text-blue-200 text-xs font-bold rounded"
+                        onClick={addContact}
+                        disabled={loading}
+                        className="px-6 py-3 bg-cyan-600 hover:bg-cyan-700 rounded-xl font-bold disabled:opacity-50 transition-colors"
                     >
-                        Pay
-                    </button>
-                    <button
-                        onClick={() => {
-                            if (confirm("Delete contact?")) {
-                                const updated = contacts.filter(x => x.alias !== c.alias);
-                                localStorage.setItem('unik_contacts', JSON.stringify(updated));
-                                window.dispatchEvent(new Event('storage'));
-                            }
-                        }}
-                        className="text-gray-400 hover:text-red-400 ml-2"
-                    >
-                        ×
+                        {loading ? '...' : 'Add'}
                     </button>
                 </div>
-            ))}
+            </div>
+
+            {contacts.length === 0 ? (
+                <p className="text-center text-gray-500 py-12">No contacts yet. Add your first one!</p>
+            ) : (
+                <div className="space-y-3">
+                    {contacts.map((c, i) => (
+                        <div key={i} className="flex items-center justify-between p-4 bg-gray-800 rounded-xl border border-gray-700 hover:border-cyan-500 transition-colors">
+                            <div className="flex items-center gap-4">
+                                <div className="w-12 h-12 rounded-full bg-gradient-to-br from-pink-500 to-orange-500 flex items-center justify-center text-white text-lg font-bold">
+                                    {c.alias[0].toUpperCase()}
+                                </div>
+                                <div>
+                                    <p className="font-bold text-lg">@{c.alias}</p>
+                                    <p className="text-xs text-gray-400 font-mono">{c.address.slice(0, 4)}...{c.address.slice(-4)}</p>
+                                </div>
+                            </div>
+                            <div className="flex gap-3">
+                                <button
+                                    onClick={() => {
+                                        setSendRecipient(c.address);
+                                        setSendAlias(c.alias);
+                                        setActiveTab('send');
+                                    }}
+                                    className="px-4 py-2 bg-cyan-600 hover:bg-cyan-700 rounded-xl font-semibold text-sm transition-colors"
+                                >
+                                    Pay
+                                </button>
+                                <button
+                                    onClick={() => {
+                                        if (confirm("Delete contact?")) {
+                                            const updated = contacts.filter(x => x.alias !== c.alias);
+                                            localStorage.setItem('unik_contacts', JSON.stringify(updated));
+                                            window.dispatchEvent(new Event('storage'));
+                                        }
+                                    }}
+                                    className="text-gray-400 hover:text-red-400 text-xl px-2"
+                                >
+                                    ×
+                                </button>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            )}
         </div>
     );
 }
