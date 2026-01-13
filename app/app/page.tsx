@@ -35,14 +35,14 @@ export default function Home() {
 
           <Link
             href="/dashboard"
-            className="inline-block px-10 py-5 bg-gradient-to-r from-cyan-600 to-purple-600 hover:from-cyan-700 hover:to-purple-700 rounded-2xl font-bold text-xl shadow-2xl shadow-purple-500/50 transition-all transform hover:scale-105"
+            className="inline-block px-10 py-5 bg-gradient-to-r from-cyan-600 to-purple-600 hover:from-cyan-700 hover:to-purple-700 font-bold text-xl shadow-2xl shadow-purple-500/50 transition-all transform hover:scale-105"
           >
             🚀 Launch Dashboard
           </Link>
         </div>
 
         <div className="grid md:grid-cols-3 gap-8 mb-20">
-          <div className="bg-gray-900 rounded-2xl p-8 border border-gray-800 hover:border-cyan-500 transition-colors">
+          <div className="bg-gray-900 p-6 md:p-8 border border-gray-800 hover:border-cyan-500 transition-colors">
             <div className="text-5xl mb-4">🎯</div>
             <h3 className="text-2xl font-bold mb-3">Smart Aliases</h3>
             <p className="text-gray-400 text-lg">
@@ -50,7 +50,7 @@ export default function Home() {
             </p>
           </div>
 
-          <div className="bg-gray-900 rounded-2xl p-8 border border-gray-800 hover:border-purple-500 transition-colors">
+          <div className="bg-gray-900 p-6 md:p-8 border border-gray-800 hover:border-purple-500 transition-colors">
             <div className="text-5xl mb-4">🔀</div>
             <h3 className="text-2xl font-bold mb-3">Auto Splits</h3>
             <p className="text-gray-400 text-lg">
@@ -58,7 +58,7 @@ export default function Home() {
             </p>
           </div>
 
-          <div className="bg-gray-900 rounded-2xl p-8 border border-gray-800 hover:border-pink-500 transition-colors">
+          <div className="bg-gray-900 p-6 md:p-8 border border-gray-800 hover:border-pink-500 transition-colors">
             <div className="text-5xl mb-4">🔐</div>
             <h3 className="text-2xl font-bold mb-3">Non-Custodial</h3>
             <p className="text-gray-400 text-lg">
@@ -67,7 +67,7 @@ export default function Home() {
           </div>
         </div>
 
-        <div className="bg-gradient-to-br from-gray-900 to-gray-800 rounded-3xl p-12 border border-gray-700">
+        <div className="bg-gradient-to-br from-gray-900 to-gray-800 p-8 md:p-12 border border-gray-700">
           <h2 className="text-4xl font-bold mb-8 text-center">How It Works</h2>
           <div className="grid md:grid-cols-4 gap-6">
             <div className="text-center">

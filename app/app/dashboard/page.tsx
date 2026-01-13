@@ -274,13 +274,13 @@ export default function Dashboard() {
             {/* Main Container */}
             <div className="max-w-6xl mx-auto px-4 py-8">
                 {/* Wallet Card */}
-                <div className="bg-gradient-to-br from-cyan-500 via-purple-500 to-pink-500 rounded-3xl p-8 mb-8 shadow-2xl">
-                    <div className="flex justify-between items-start mb-6">
+                <div className="bg-gradient-to-br from-cyan-500 via-purple-500 to-pink-500 p-6 md:p-8 mb-6 md:mb-8 shadow-2xl">
+                    <div className="flex flex-col sm:flex-row justify-between items-start gap-4 mb-4 md:mb-6">
                         <div>
-                            <p className="text-sm text-white/70 mb-1">Your UNIK Alias</p>
-                            <h2 className="text-4xl font-bold">@{registeredAlias || 'not-set'}</h2>
+                            <p className="text-xs md:text-sm text-white/70 mb-1">Your UNIK Alias</p>
+                            <h2 className="text-2xl md:text-4xl font-bold">@{registeredAlias || 'not-set'}</h2>
                         </div>
-                        <Image src="/logo-icon.png" alt="UNIK" width={60} height={60} />
+                        <Image src="/logo-icon.png" alt="UNIK" width={50} height={50} className="md:w-[60px] md:h-[60px]" />
                     </div>
 
                     {myAliases.length > 1 && (
@@ -295,33 +295,33 @@ export default function Dashboard() {
                 </div>
 
                 {/* Action Buttons */}
-                <div className="grid grid-cols-5 gap-4 mb-8">
+                <div className="grid grid-cols-3 sm:grid-cols-5 gap-3 md:gap-4 mb-8">
                     <ActionButton
-                        icon="📥"
+                        icon="receive"
                         label="Receive"
                         active={activeTab === 'receive'}
                         onClick={() => setActiveTab('receive')}
                     />
                     <ActionButton
-                        icon="📤"
+                        icon="send"
                         label="Send"
                         active={activeTab === 'send'}
                         onClick={() => setActiveTab('send')}
                     />
                     <ActionButton
-                        icon="🔀"
+                        icon="splits"
                         label="Splits"
                         active={activeTab === 'splits'}
                         onClick={() => setActiveTab('splits')}
                     />
                     <ActionButton
-                        icon="🎯"
+                        icon="alias"
                         label="Alias"
                         active={activeTab === 'alias'}
                         onClick={() => setActiveTab('alias')}
                     />
                     <ActionButton
-                        icon="👥"
+                        icon="contacts"
                         label="Contacts"
                         active={activeTab === 'contacts'}
                         onClick={() => setActiveTab('contacts')}
@@ -329,7 +329,7 @@ export default function Dashboard() {
                 </div>
 
                 {/* Content Area */}
-                <div className="bg-gray-900 rounded-2xl p-8 border border-gray-800">
+                <div className="bg-gray-900 p-4 md:p-8 border border-gray-800">
                     {activeTab === 'receive' && <ReceiveTab registeredAlias={registeredAlias} linkAmount={linkAmount} setLinkAmount={setLinkAmount} />}
                     {activeTab === 'send' && <SendTab sendRecipient={sendRecipient} setSendRecipient={setSendRecipient} sendAlias={sendAlias} setSendAlias={setSendAlias} sendAmount={sendAmount} setSendAmount={setSendAmount} loading={loading} setLoading={setLoading} publicKey={publicKey} wallet={wallet} connection={connection} />}
                     {activeTab === 'splits' && <SplitsTab splits={splits} setSplits={setSplits} isEditing={isEditing} setIsEditing={setIsEditing} newSplitAddress={newSplitAddress} setNewSplitAddress={setNewSplitAddress} newSplitPercent={newSplitPercent} setNewSplitPercent={setNewSplitPercent} addSplit={addSplit} removeSplit={removeSplit} totalPercent={totalPercent} handleSaveConfig={handleSaveConfig} loading={loading} />}
@@ -342,16 +342,48 @@ export default function Dashboard() {
 }
 
 function ActionButton({ icon, label, active, onClick }: { icon: string; label: string; active: boolean; onClick: () => void }) {
+    const icons: Record<string, React.ReactElement> = {
+        receive: (
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4" />
+            </svg>
+        ),
+        send: (
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+            </svg>
+        ),
+        splits: (
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+            </svg>
+        ),
+        alias: (
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 20l4-16m2 16l4-16M6 9h14M4 15h14" />
+            </svg>
+        ),
+        contacts: (
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+            </svg>
+        )
+    };
+
     return (
         <button
             onClick={onClick}
-            className={`p-6 rounded-2xl font-semibold transition-all transform hover:scale-105 ${active
-                    ? 'bg-gradient-to-br from-cyan-500 to-purple-500 text-white shadow-lg shadow-purple-500/50'
-                    : 'bg-gray-800 text-gray-400 hover:bg-gray-700 border border-gray-700'
+            className={`p-4 md:p-5 font-semibold transition-all ${active
+                ? 'bg-gradient-to-br from-cyan-500 to-purple-500 text-white shadow-lg shadow-purple-500/30'
+                : 'bg-gray-800 text-gray-400 hover:bg-gray-700 border border-gray-700 hover:border-gray-600'
                 }`}
         >
-            <div className="text-3xl mb-2">{icon}</div>
-            <div className="text-sm">{label}</div>
+            <div className="flex flex-col items-center gap-2">
+                <div className={active ? 'text-white' : 'text-gray-400'}>
+                    {icons[icon] || icons.receive}
+                </div>
+                <div className="text-xs md:text-sm whitespace-nowrap">{label}</div>
+            </div>
         </button>
     );
 }
