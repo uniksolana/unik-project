@@ -27,6 +27,8 @@ export default function Dashboard() {
     const [sendRecipient, setSendRecipient] = useState('');
     const [sendAlias, setSendAlias] = useState('');
     const [sendAmount, setSendAmount] = useState('');
+    const [sendNote, setSendNote] = useState('');
+
 
     // Splits State
     const [splits, setSplits] = useState([{ recipient: 'Primary Wallet (You)', address: publicKey?.toBase58(), percent: 100 }]);
@@ -331,10 +333,10 @@ export default function Dashboard() {
                 {/* Content Area */}
                 <div className="bg-gray-900 p-4 md:p-8 border border-gray-800">
                     {activeTab === 'receive' && <ReceiveTab registeredAlias={registeredAlias} linkAmount={linkAmount} setLinkAmount={setLinkAmount} />}
-                    {activeTab === 'send' && <SendTab sendRecipient={sendRecipient} setSendRecipient={setSendRecipient} sendAlias={sendAlias} setSendAlias={setSendAlias} sendAmount={sendAmount} setSendAmount={setSendAmount} loading={loading} setLoading={setLoading} publicKey={publicKey} wallet={wallet} connection={connection} />}
+                    {activeTab === 'send' && <SendTab sendRecipient={sendRecipient} setSendRecipient={setSendRecipient} sendAlias={sendAlias} setSendAlias={setSendAlias} sendAmount={sendAmount} setSendAmount={setSendAmount} sendNote={sendNote} setSendNote={setSendNote} loading={loading} setLoading={setLoading} publicKey={publicKey} wallet={wallet} connection={connection} />}
                     {activeTab === 'splits' && <SplitsTab splits={splits} setSplits={setSplits} isEditing={isEditing} setIsEditing={setIsEditing} newSplitAddress={newSplitAddress} setNewSplitAddress={setNewSplitAddress} newSplitPercent={newSplitPercent} setNewSplitPercent={setNewSplitPercent} addSplit={addSplit} removeSplit={removeSplit} totalPercent={totalPercent} handleSaveConfig={handleSaveConfig} loading={loading} />}
                     {activeTab === 'alias' && <AliasTab myAliases={myAliases} showRegisterForm={showRegisterForm} setShowRegisterForm={setShowRegisterForm} alias={alias} setAlias={setAlias} handleRegister={handleRegister} loading={loading} setRegisteredAlias={setRegisteredAlias} />}
-                    {activeTab === 'contacts' && <ContactsTab setSendRecipient={setSendRecipient} setSendAlias={setSendAlias} setActiveTab={setActiveTab} loading={loading} setLoading={setLoading} connection={connection} wallet={wallet} />}
+                    {activeTab === 'contacts' && <ContactsTab setSendRecipient={setSendRecipient} setSendAlias={setSendAlias} setSendNote={setSendNote} setActiveTab={setActiveTab} loading={loading} setLoading={setLoading} connection={connection} wallet={wallet} />}
                 </div>
             </div>
         </div>
@@ -489,7 +491,7 @@ function ReceiveTab({ registeredAlias, linkAmount, setLinkAmount }: any) {
     );
 }
 
-function SendTab({ sendRecipient, setSendRecipient, sendAlias, setSendAlias, sendAmount, setSendAmount, loading, setLoading, publicKey, wallet, connection }: any) {
+function SendTab({ sendRecipient, setSendRecipient, sendAlias, setSendAlias, sendAmount, setSendAmount, sendNote, setSendNote, loading, setLoading, publicKey, wallet, connection }: any) {
     return (
         <div>
             <h3 className="text-2xl font-bold mb-6">Send SOL</h3>
@@ -498,16 +500,19 @@ function SendTab({ sendRecipient, setSendRecipient, sendAlias, setSendAlias, sen
                 <div>
                     <label className="text-sm text-gray-400 block mb-2">Recipient</label>
                     {sendAlias && (
-                        <div className="flex justify-between items-center mb-2 text-sm text-cyan-400 font-bold">
-                            <span>@{sendAlias}</span>
-                            <button onClick={() => { setSendAlias(''); setSendRecipient(''); }} className="text-xs text-red-400 hover:text-red-300">Clear</button>
+                        <div className="flex justify-between items-center mb-2">
+                            <div>
+                                <span className="text-sm text-cyan-400 font-bold">@{sendAlias}</span>
+                                {sendNote && <span className="text-xs text-gray-500 ml-2 italic">"{sendNote}"</span>}
+                            </div>
+                            <button onClick={() => { setSendAlias(''); setSendRecipient(''); setSendNote(''); }} className="text-xs text-red-400 hover:text-red-300">Clear</button>
                         </div>
                     )}
                     <input
                         type="text"
                         placeholder="Solana Address or Alias"
                         value={sendRecipient}
-                        onChange={(e) => { setSendRecipient(e.target.value); setSendAlias(''); }}
+                        onChange={(e) => { setSendRecipient(e.target.value); setSendAlias(''); setSendNote(''); }}
                         className="w-full px-4 py-4 bg-gray-800 rounded-xl text-white border border-gray-700 font-mono text-sm focus:outline-none focus:border-cyan-500"
                     />
                 </div>
@@ -696,7 +701,7 @@ function AliasTab({ myAliases, showRegisterForm, setShowRegisterForm, alias, set
     );
 }
 
-function ContactsTab({ setSendRecipient, setSendAlias, setActiveTab, loading, setLoading, connection, wallet }: any) {
+function ContactsTab({ setSendRecipient, setSendAlias, setSendNote, setActiveTab, loading, setLoading, connection, wallet }: any) {
     const [contacts, setContacts] = useState<any[]>([]);
     const [newContactAlias, setNewContactAlias] = useState('');
 
@@ -818,6 +823,7 @@ function ContactsTab({ setSendRecipient, setSendAlias, setActiveTab, loading, se
                                     onClick={() => {
                                         setSendRecipient(c.address);
                                         setSendAlias(c.alias);
+                                        setSendNote(c.note || '');
                                         setActiveTab('send');
                                     }}
                                     className="px-4 py-2 bg-cyan-600 hover:bg-cyan-700 font-semibold text-sm transition-colors"
