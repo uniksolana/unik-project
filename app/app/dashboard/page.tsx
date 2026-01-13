@@ -734,6 +734,7 @@ function ContactsTab({ setSendRecipient, setSendAlias, setActiveTab, loading, se
             const newContact = {
                 alias: newContactAlias.toLowerCase(),
                 address: account.owner.toBase58(),
+                note: '',
                 addedAt: Date.now()
             };
 
@@ -790,19 +791,36 @@ function ContactsTab({ setSendRecipient, setSendAlias, setActiveTab, loading, se
                                 <div className="w-12 h-12 rounded-full bg-gradient-to-br from-pink-500 to-orange-500 flex items-center justify-center text-white text-lg font-bold">
                                     {c.alias[0].toUpperCase()}
                                 </div>
-                                <div>
+                                <div className="flex-1 min-w-0">
                                     <p className="font-bold text-lg">@{c.alias}</p>
-                                    <p className="text-xs text-gray-400 font-mono">{c.address.slice(0, 4)}...{c.address.slice(-4)}</p>
+                                    {c.note && <p className="text-sm text-gray-400 truncate italic">" {c.note}"</p>}
+                                    <p className="text-xs text-gray-500 font-mono">{c.address.slice(0, 4)}...{c.address.slice(-4)}</p>
                                 </div>
                             </div>
-                            <div className="flex gap-3">
+                            <div className="flex gap-2">
+                                <button
+                                    onClick={() => {
+                                        const note = prompt(`Note for @${c.alias}:`, c.note || '');
+                                        if (note !== null) {
+                                            const updated = contacts.map(x => x.alias === c.alias ? { ...x, note: note.trim() } : x);
+                                            localStorage.setItem('unik_contacts', JSON.stringify(updated));
+                                            window.dispatchEvent(new Event('storage'));
+                                        }
+                                    }}
+                                    className="px-3 py-2 bg-gray-700 hover:bg-gray-600 font-semibold text-xs transition-colors"
+                                    title="Edit note"
+                                >
+                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                    </svg>
+                                </button>
                                 <button
                                     onClick={() => {
                                         setSendRecipient(c.address);
                                         setSendAlias(c.alias);
                                         setActiveTab('send');
                                     }}
-                                    className="px-4 py-2 bg-cyan-600 hover:bg-cyan-700 rounded-xl font-semibold text-sm transition-colors"
+                                    className="px-4 py-2 bg-cyan-600 hover:bg-cyan-700 font-semibold text-sm transition-colors"
                                 >
                                     Pay
                                 </button>
