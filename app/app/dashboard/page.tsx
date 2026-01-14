@@ -10,7 +10,7 @@ import { useConnection } from '@solana/wallet-adapter-react';
 import { Buffer } from 'buffer';
 import Image from 'next/image';
 
-type TabType = 'receive' | 'send' | 'splits' | 'alias' | 'contacts';
+type TabType = 'receive' | 'send' | 'splits' | 'alias' | 'contacts' | 'history';
 
 export default function Dashboard() {
     const { publicKey, connected } = useWallet();
@@ -297,7 +297,7 @@ export default function Dashboard() {
                 </div>
 
                 {/* Action Buttons */}
-                <div className="grid grid-cols-3 sm:grid-cols-5 gap-3 md:gap-4 mb-8">
+                <div className="grid grid-cols-3 sm:grid-cols-6 gap-3 md:gap-4 mb-8">
                     <ActionButton
                         icon="receive"
                         label="Receive"
@@ -328,6 +328,12 @@ export default function Dashboard() {
                         active={activeTab === 'contacts'}
                         onClick={() => setActiveTab('contacts')}
                     />
+                    <ActionButton
+                        icon="history"
+                        label="History"
+                        active={activeTab === 'history'}
+                        onClick={() => setActiveTab('history')}
+                    />
                 </div>
 
                 {/* Content Area */}
@@ -337,6 +343,7 @@ export default function Dashboard() {
                     {activeTab === 'splits' && <SplitsTab splits={splits} setSplits={setSplits} isEditing={isEditing} setIsEditing={setIsEditing} newSplitAddress={newSplitAddress} setNewSplitAddress={setNewSplitAddress} newSplitPercent={newSplitPercent} setNewSplitPercent={setNewSplitPercent} addSplit={addSplit} removeSplit={removeSplit} totalPercent={totalPercent} handleSaveConfig={handleSaveConfig} loading={loading} />}
                     {activeTab === 'alias' && <AliasTab myAliases={myAliases} showRegisterForm={showRegisterForm} setShowRegisterForm={setShowRegisterForm} alias={alias} setAlias={setAlias} handleRegister={handleRegister} loading={loading} setRegisteredAlias={setRegisteredAlias} />}
                     {activeTab === 'contacts' && <ContactsTab setSendRecipient={setSendRecipient} setSendAlias={setSendAlias} setSendNote={setSendNote} setActiveTab={setActiveTab} loading={loading} setLoading={setLoading} connection={connection} wallet={wallet} />}
+                    {activeTab === 'history' && <HistoryTab publicKey={publicKey} connection={connection} />}
                 </div>
             </div>
         </div>
@@ -368,6 +375,11 @@ function ActionButton({ icon, label, active, onClick }: { icon: string; label: s
         contacts: (
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+            </svg>
+        ),
+        history: (
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
         )
     };
@@ -847,6 +859,141 @@ function ContactsTab({ setSendRecipient, setSendAlias, setSendNote, setActiveTab
                     ))}
                 </div>
             )}
+        </div>
+    );
+}
+
+function HistoryTab({ publicKey, connection }: any) {
+    const [history, setHistory] = useState<any[]>([]);
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        const fetchHistory = async () => {
+            if (!publicKey) return;
+            setLoading(true);
+            try {
+                const signatures = await connection.getSignaturesForAddress(publicKey, { limit: 15 });
+                const detailedHistory = await Promise.all(
+                    signatures.map(async (sig) => {
+                        try {
+                            const tx = await connection.getParsedTransaction(sig.signature, { maxSupportedTransactionVersion: 0 });
+
+                            let type = 'System';
+                            let amount = 0;
+                            let otherSide = '';
+
+                            // Simple logic to detect SOL transfers
+                            const transferInstruction = tx?.transaction.message.instructions.find(
+                                (ins: any) => ins.program === 'system' && ins.parsed?.type === 'transfer'
+                            );
+
+                            if (transferInstruction) {
+                                const info = (transferInstruction as any).parsed.info;
+                                if (info.destination === publicKey.toBase58()) {
+                                    type = 'Received';
+                                    otherSide = info.source;
+                                    amount = info.lamports / 1e9;
+                                } else {
+                                    type = 'Sent';
+                                    otherSide = info.destination;
+                                    amount = info.lamports / 1e9;
+                                }
+                            }
+
+                            return {
+                                signature: sig.signature,
+                                time: sig.blockTime,
+                                type,
+                                amount,
+                                otherSide,
+                                success: !tx?.meta?.err
+                            };
+                        } catch (e) {
+                            return {
+                                signature: sig.signature,
+                                time: sig.blockTime,
+                                type: 'Transaction',
+                                amount: 0,
+                                otherSide: '',
+                                success: true
+                            };
+                        }
+                    })
+                );
+                setHistory(detailedHistory);
+            } catch (e) {
+                console.error("Failed to fetch history", e);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        fetchHistory();
+    }, [publicKey, connection]);
+
+    if (loading) {
+        return (
+            <div className="py-12 text-center text-gray-500">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-cyan-500 mx-auto mb-4"></div>
+                <p>Loading transaction history...</p>
+            </div>
+        );
+    }
+
+    return (
+        <div>
+            <div className="flex justify-between items-center mb-6">
+                <h3 className="text-2xl font-bold">Recent History</h3>
+                <button
+                    onClick={() => { setLoading(true); window.location.reload(); }}
+                    className="text-xs text-cyan-500 hover:text-cyan-400 font-semibold"
+                >
+                    Refresh
+                </button>
+            </div>
+
+            <div className="space-y-3">
+                {history.length === 0 ? (
+                    <p className="text-center text-gray-500 py-12">No transactions found.</p>
+                ) : (
+                    history.map((tx, i) => (
+                        <div key={i} className="flex items-center justify-between p-4 bg-gray-800 border border-gray-700 hover:border-gray-600 transition-colors">
+                            <div className="flex items-center gap-4 min-w-0">
+                                <div className={`w-10 h-10 flex items-center justify-center text-xl ${tx.type === 'Received' ? 'text-green-500 bg-green-500/10' :
+                                        tx.type === 'Sent' ? 'text-red-500 bg-red-500/10' : 'text-cyan-500 bg-cyan-500/10'
+                                    }`}>
+                                    {tx.type === 'Received' ? '↙' : tx.type === 'Sent' ? '↗' : '⚙'}
+                                </div>
+                                <div className="min-w-0">
+                                    <div className="flex items-center gap-2">
+                                        <p className="font-bold truncate">{tx.type}</p>
+                                        {!tx.success && <span className="text-[10px] bg-red-500 text-white px-1 uppercase leading-none py-0.5">Failed</span>}
+                                    </div>
+                                    <p className="text-xs text-gray-500 font-mono">
+                                        {tx.time ? new Date(tx.time * 1000).toLocaleDateString() + ' ' + new Date(tx.time * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Pending...'}
+                                    </p>
+                                </div>
+                            </div>
+
+                            <div className="text-right ml-4">
+                                {tx.amount > 0 && (
+                                    <p className={`font-bold ${tx.type === 'Received' ? 'text-green-400' : 'text-red-400'}`}>
+                                        {tx.type === 'Received' ? '+' : '-'}{tx.amount.toFixed(4)} SOL
+                                    </p>
+                                )}
+                                <a
+                                    href={`https://solscan.io/tx/${tx.signature}?cluster=devnet`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="text-[10px] text-cyan-500 hover:underline font-mono"
+                                >
+                                    Solscan ↗
+                                </a>
+                            </div>
+                        </div>
+                    ))
+                )}
+            </div>
         </div>
     );
 }
