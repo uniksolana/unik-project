@@ -802,7 +802,7 @@ function ContactsTab({ setSendRecipient, setSendAlias, setSendNote, setActiveTab
                 <p className="text-center text-gray-500 py-12">No contacts yet. Add your first one!</p>
             ) : (
                 <div className="space-y-3">
-                    {contacts.map((c, i) => (
+                    {contacts.map((c: any, i: number) => (
                         <div key={i} className="flex items-center justify-between p-4 bg-gray-800 rounded-xl border border-gray-700 hover:border-cyan-500 transition-colors">
                             <div className="flex items-center gap-4">
                                 <div className="w-12 h-12 rounded-full bg-gradient-to-br from-pink-500 to-orange-500 flex items-center justify-center text-white text-lg font-bold">
@@ -819,7 +819,7 @@ function ContactsTab({ setSendRecipient, setSendAlias, setSendNote, setActiveTab
                                     onClick={() => {
                                         const note = prompt(`Note for @${c.alias}:`, c.note || '');
                                         if (note !== null) {
-                                            const updated = contacts.map(x => x.alias === c.alias ? { ...x, note: note.trim() } : x);
+                                            const updated = contacts.map((x: any) => x.alias === c.alias ? { ...x, note: note.trim() } : x);
                                             localStorage.setItem('unik_contacts', JSON.stringify(updated));
                                             window.dispatchEvent(new Event('storage'));
                                         }
@@ -845,7 +845,7 @@ function ContactsTab({ setSendRecipient, setSendAlias, setSendNote, setActiveTab
                                 <button
                                     onClick={() => {
                                         if (confirm("Delete contact?")) {
-                                            const updated = contacts.filter(x => x.alias !== c.alias);
+                                            const updated = contacts.filter((x: any) => x.alias !== c.alias);
                                             localStorage.setItem('unik_contacts', JSON.stringify(updated));
                                             window.dispatchEvent(new Event('storage'));
                                         }
@@ -874,7 +874,7 @@ function HistoryTab({ publicKey, connection }: any) {
             try {
                 const signatures = await connection.getSignaturesForAddress(publicKey, { limit: 15 });
                 const detailedHistory = await Promise.all(
-                    signatures.map(async (sig) => {
+                    signatures.map(async (sig: any) => {
                         try {
                             const tx = await connection.getParsedTransaction(sig.signature, { maxSupportedTransactionVersion: 0 });
 
@@ -956,11 +956,11 @@ function HistoryTab({ publicKey, connection }: any) {
                 {history.length === 0 ? (
                     <p className="text-center text-gray-500 py-12">No transactions found.</p>
                 ) : (
-                    history.map((tx, i) => (
+                    history.map((tx: any, i: number) => (
                         <div key={i} className="flex items-center justify-between p-4 bg-gray-800 border border-gray-700 hover:border-gray-600 transition-colors">
                             <div className="flex items-center gap-4 min-w-0">
                                 <div className={`w-10 h-10 flex items-center justify-center text-xl ${tx.type === 'Received' ? 'text-green-500 bg-green-500/10' :
-                                        tx.type === 'Sent' ? 'text-red-500 bg-red-500/10' : 'text-cyan-500 bg-cyan-500/10'
+                                    tx.type === 'Sent' ? 'text-red-500 bg-red-500/10' : 'text-cyan-500 bg-cyan-500/10'
                                     }`}>
                                     {tx.type === 'Received' ? '↙' : tx.type === 'Sent' ? '↗' : '⚙'}
                                 </div>
