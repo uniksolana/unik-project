@@ -22,12 +22,16 @@ export default function Dashboard() {
     const [balance, setBalance] = useState<number | null>(null);
     const [showRegisterForm, setShowRegisterForm] = useState(false);
     const [linkAmount, setLinkAmount] = useState('');
+    const [linkConcept, setLinkConcept] = useState('');
+
 
     // Send Feature State
     const [sendRecipient, setSendRecipient] = useState('');
     const [sendAlias, setSendAlias] = useState('');
     const [sendAmount, setSendAmount] = useState('');
     const [sendNote, setSendNote] = useState('');
+    const [paymentConcept, setPaymentConcept] = useState('');
+
 
 
     // Splits State
@@ -338,8 +342,8 @@ export default function Dashboard() {
 
                 {/* Content Area */}
                 <div className="bg-gray-900 p-4 md:p-8 border border-gray-800">
-                    {activeTab === 'receive' && <ReceiveTab registeredAlias={registeredAlias} linkAmount={linkAmount} setLinkAmount={setLinkAmount} />}
-                    {activeTab === 'send' && <SendTab sendRecipient={sendRecipient} setSendRecipient={setSendRecipient} sendAlias={sendAlias} setSendAlias={setSendAlias} sendAmount={sendAmount} setSendAmount={setSendAmount} sendNote={sendNote} setSendNote={setSendNote} loading={loading} setLoading={setLoading} publicKey={publicKey} wallet={wallet} connection={connection} />}
+                    {activeTab === 'receive' && <ReceiveTab registeredAlias={registeredAlias} linkAmount={linkAmount} setLinkAmount={setLinkAmount} linkConcept={linkConcept} setLinkConcept={setLinkConcept} />}
+                    {activeTab === 'send' && <SendTab sendRecipient={sendRecipient} setSendRecipient={setSendRecipient} sendAlias={sendAlias} setSendAlias={setSendAlias} sendAmount={sendAmount} setSendAmount={setSendAmount} sendNote={sendNote} setSendNote={setSendNote} paymentConcept={paymentConcept} setPaymentConcept={setPaymentConcept} loading={loading} setLoading={setLoading} publicKey={publicKey} wallet={wallet} connection={connection} />}
                     {activeTab === 'splits' && <SplitsTab splits={splits} setSplits={setSplits} isEditing={isEditing} setIsEditing={setIsEditing} newSplitAddress={newSplitAddress} setNewSplitAddress={setNewSplitAddress} newSplitPercent={newSplitPercent} setNewSplitPercent={setNewSplitPercent} addSplit={addSplit} removeSplit={removeSplit} totalPercent={totalPercent} handleSaveConfig={handleSaveConfig} loading={loading} />}
                     {activeTab === 'alias' && <AliasTab myAliases={myAliases} showRegisterForm={showRegisterForm} setShowRegisterForm={setShowRegisterForm} alias={alias} setAlias={setAlias} handleRegister={handleRegister} loading={loading} setRegisteredAlias={setRegisteredAlias} />}
                     {activeTab === 'contacts' && <ContactsTab setSendRecipient={setSendRecipient} setSendAlias={setSendAlias} setSendNote={setSendNote} setActiveTab={setActiveTab} loading={loading} setLoading={setLoading} connection={connection} wallet={wallet} />}
@@ -402,10 +406,13 @@ function ActionButton({ icon, label, active, onClick }: { icon: string; label: s
     );
 }
 
-function ReceiveTab({ registeredAlias, linkAmount, setLinkAmount }: any) {
+function ReceiveTab({ registeredAlias, linkAmount, setLinkAmount, linkConcept, setLinkConcept }: any) {
     const getPaymentUrl = () => {
         const origin = typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000';
-        return `${origin}/pay/${registeredAlias}${linkAmount ? `?amount=${linkAmount}` : ''}`;
+        let url = `${origin}/pay/${registeredAlias}?`;
+        if (linkAmount) url += `amount=${linkAmount}&`;
+        if (linkConcept) url += `concept=${encodeURIComponent(linkConcept)}`;
+        return url.endsWith('?') ? url.slice(0, -1) : url.endsWith('&') ? url.slice(0, -1) : url;
     };
 
     const getShareMessage = () => {
@@ -430,6 +437,17 @@ function ReceiveTab({ registeredAlias, linkAmount, setLinkAmount }: any) {
                     />
                     <span className="text-lg font-bold text-gray-400">SOL</span>
                 </div>
+            </div>
+
+            <div className="mb-6">
+                <label className="text-sm text-gray-400 block mb-2">Payment Concept (optional, off-chain)</label>
+                <input
+                    type="text"
+                    placeholder="e.g. For dinner, Project XYZ..."
+                    value={linkConcept}
+                    className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-xl text-white focus:outline-none focus:border-cyan-500"
+                    onChange={(e) => setLinkConcept(e.target.value)}
+                />
             </div>
 
             <div className="bg-gray-800 p-6 border border-gray-700">
@@ -503,7 +521,7 @@ function ReceiveTab({ registeredAlias, linkAmount, setLinkAmount }: any) {
     );
 }
 
-function SendTab({ sendRecipient, setSendRecipient, sendAlias, setSendAlias, sendAmount, setSendAmount, sendNote, setSendNote, loading, setLoading, publicKey, wallet, connection }: any) {
+function SendTab({ sendRecipient, setSendRecipient, sendAlias, setSendAlias, sendAmount, setSendAmount, sendNote, setSendNote, paymentConcept, setPaymentConcept, loading, setLoading, publicKey, wallet, connection }: any) {
     return (
         <div>
             <h3 className="text-2xl font-bold mb-6">Send SOL</h3>
@@ -538,6 +556,17 @@ function SendTab({ sendRecipient, setSendRecipient, sendAlias, setSendAlias, sen
                         value={sendAmount}
                         onChange={(e) => setSendAmount(e.target.value)}
                         className="w-full px-4 py-4 bg-gray-800 rounded-xl text-white text-2xl font-bold border border-gray-700 focus:outline-none focus:border-cyan-500"
+                    />
+                </div>
+
+                <div>
+                    <label className="text-sm text-gray-400 block mb-2">Payment Concept (optional, off-chain)</label>
+                    <input
+                        type="text"
+                        placeholder="What's this for?"
+                        value={paymentConcept}
+                        onChange={(e) => setPaymentConcept(e.target.value)}
+                        className="w-full px-4 py-4 bg-gray-800 rounded-xl text-white border border-gray-700 focus:outline-none focus:border-cyan-500"
                     />
                 </div>
 
@@ -590,8 +619,9 @@ function SendTab({ sendRecipient, setSendRecipient, sendAlias, setSendAlias, sen
                                             .remainingAccounts(remainingAccounts)
                                             .rpc();
 
-                                        alert(`Intelligent Routing Success!\n${sendAmount} SOL split according to @${targetAlias}'s rules.\nSig: ${signature}`);
+                                        alert(`Intelligent Routing Success!\n${sendAmount} SOL split according to @${targetAlias}'s rules.${paymentConcept ? `\nConcept: ${paymentConcept}` : ''}\nSig: ${signature}`);
                                         setSendAmount('');
+                                        setPaymentConcept('');
                                         setLoading(false);
                                         return;
                                     }
@@ -616,8 +646,9 @@ function SendTab({ sendRecipient, setSendRecipient, sendAlias, setSendAlias, sen
                                         const signature = await wallet.sendTransaction(transaction, connection);
                                         await connection.confirmTransaction(signature, 'confirmed');
 
-                                        alert(`Sent ${sendAmount} SOL to @${targetAlias} (${aliasAccount.owner.toBase58()})`);
+                                        alert(`Sent ${sendAmount} SOL to @${targetAlias} (${aliasAccount.owner.toBase58()})${paymentConcept ? `\nConcept: ${paymentConcept}` : ''}`);
                                         setSendAmount('');
+                                        setPaymentConcept('');
                                         setLoading(false);
                                         return;
                                     } catch (err) {
@@ -645,8 +676,9 @@ function SendTab({ sendRecipient, setSendRecipient, sendAlias, setSendAlias, sen
                                 lastValidBlockHeight: latestBlockhash.lastValidBlockHeight
                             });
 
-                            alert(`Successfully sent ${sendAmount} SOL!\nSignature: ${signature}`);
+                            alert(`Successfully sent ${sendAmount} SOL!${paymentConcept ? `\nConcept: ${paymentConcept}` : ''}\nSignature: ${signature}`);
                             setSendAmount('');
+                            setPaymentConcept('');
                         } catch (e: any) {
                             alert(`Send failed: ${e.message}`);
                         } finally {

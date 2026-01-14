@@ -26,12 +26,20 @@ function PaymentContent() {
     const [aliasDetails, setAliasDetails] = useState<{ owner: string, splits: number } | null>(null);
 
     const [isLocked, setIsLocked] = useState(false);
+    const [concept, setConcept] = useState<string | null>(null);
+    const [senderNote, setSenderNote] = useState('');
+
+
 
     useEffect(() => {
         const queryAmount = searchParams.get('amount');
         if (queryAmount && !isNaN(parseFloat(queryAmount))) {
             setAmount(queryAmount);
             setIsLocked(true);
+        }
+        const queryConcept = searchParams.get('concept');
+        if (queryConcept) {
+            setConcept(decodeURIComponent(queryConcept));
         }
     }, [searchParams]);
 
@@ -141,7 +149,8 @@ function PaymentContent() {
                                 <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path></svg>
                             </div>
                             <h3 className="text-xl font-bold text-white mb-2">Payment Sent!</h3>
-                            <p className="text-gray-400 mb-6">Funds have been routed successfully.</p>
+                            <p className="text-gray-400 mb-2">Funds have been routed successfully.</p>
+                            {senderNote && <p className="text-blue-400 italic text-sm mb-6">" {senderNote}"</p>}
                             <button onClick={() => setStatus('idle')} className="text-blue-400 hover:text-blue-300">Send another payment</button>
                         </div>
                     ) : (
@@ -161,6 +170,26 @@ function PaymentContent() {
                                     />
                                     <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 font-bold">SOL</span>
                                 </div>
+                            </div>
+
+                            {concept && (
+                                <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-xl p-4">
+                                    <label className="block text-[10px] uppercase tracking-wider text-yellow-500/80 mb-1">Request Concept</label>
+                                    <p className="text-white italic text-sm">"{concept}"</p>
+                                </div>
+                            )}
+
+                            <div>
+                                <label className="block text-sm font-medium text-gray-400 mb-2">
+                                    Payment Concept (optional, off-chain)
+                                </label>
+                                <input
+                                    type="text"
+                                    placeholder="Add a note for the receiver..."
+                                    value={senderNote}
+                                    onChange={(e) => setSenderNote(e.target.value)}
+                                    className="w-full px-4 py-3 bg-slate-900 border border-slate-700 rounded-xl text-white outline-none focus:ring-2 focus:ring-blue-500 transition-colors"
+                                />
                             </div>
 
                             <div className="bg-slate-700/30 rounded-lg p-4 text-sm text-gray-400">
