@@ -5,7 +5,7 @@ import { WalletMultiButton } from '@solana/wallet-adapter-react-ui';
 import { useState, useEffect } from 'react';
 import { PublicKey, SystemProgram, Transaction } from '@solana/web3.js';
 import { PROGRAM_ID, IDL } from '../../utils/anchor';
-import { Program, AnchorProvider } from '@coral-xyz/anchor';
+import { Program, AnchorProvider, BN } from '@coral-xyz/anchor';
 import { useConnection } from '@solana/wallet-adapter-react';
 import { Buffer } from 'buffer';
 import Image from 'next/image';
@@ -546,12 +546,94 @@ function SendTab({ sendRecipient, setSendRecipient, sendAlias, setSendAlias, sen
                         if (!sendRecipient || !sendAmount || !publicKey || !wallet) return;
                         setLoading(true);
                         try {
-                            const amountLamports = parseFloat(sendAmount) * 1e9;
+                            const provider = new AnchorProvider(connection, wallet as any, {});
+                            const program = new Program(IDL as any, provider);
+                            const amountLamportsBN = new BN(Math.floor(parseFloat(sendAmount) * 1e9));
+
+                            // intelligent routing logic
+                            let targetAlias = sendAlias;
+                            if (!targetAlias && sendRecipient.startsWith('@')) {
+                                targetAlias = sendRecipient.substring(1);
+                            } else if (!targetAlias && !sendRecipient.startsWith('@') && sendRecipient.length < 32) {
+                                // could be an alias typed without @
+                                targetAlias = sendRecipient;
+                            }
+
+                            if (targetAlias) {
+                                targetAlias = targetAlias.toLowerCase().trim();
+                                console.log("Attempting routed transfer for alias:", targetAlias);
+
+                                try {
+                                    const [routePDA] = PublicKey.findProgramAddressSync(
+                                        [Buffer.from("route"), Buffer.from(targetAlias)],
+                                        PROGRAM_ID
+                                    );
+
+                                    const routeAccount: any = await (program.account as any).routeAccount.fetch(routePDA);
+
+                                    if (routeAccount && routeAccount.splits && routeAccount.splits.length > 0) {
+                                        console.log("Found routing rules, executing intelligent transfer...");
+
+                                        const remainingAccounts = routeAccount.splits.map((s: any) => ({
+                                            pubkey: s.recipient,
+                                            isSigner: false,
+                                            isWritable: true
+                                        }));
+
+                                        const signature = await (program.methods as any)
+                                            .executeTransfer(targetAlias, amountLamportsBN)
+                                            .accounts({
+                                                routeAccount: routePDA,
+                                                user: publicKey,
+                                                systemProgram: SystemProgram.programId,
+                                            })
+                                            .remainingAccounts(remainingAccounts)
+                                            .rpc();
+
+                                        alert(`Intelligent Routing Success!\n${sendAmount} SOL split according to @${targetAlias}'s rules.\nSig: ${signature}`);
+                                        setSendAmount('');
+                                        setLoading(false);
+                                        return;
+                                    }
+                                } catch (e) {
+                                    console.log("No routing rules found or alias invalid, checking alias owner...");
+                                    try {
+                                        const [aliasPDA] = PublicKey.findProgramAddressSync(
+                                            [Buffer.from("alias"), Buffer.from(targetAlias)],
+                                            PROGRAM_ID
+                                        );
+                                        const aliasAccount: any = await (program.account as any).aliasAccount.fetch(aliasPDA);
+
+                                        // Fallback to direct transfer to owner
+                                        const transaction = new Transaction().add(
+                                            SystemProgram.transfer({
+                                                fromPubkey: publicKey,
+                                                toPubkey: aliasAccount.owner,
+                                                lamports: amountLamportsBN.toNumber(),
+                                            })
+                                        );
+
+                                        const signature = await wallet.sendTransaction(transaction, connection);
+                                        await connection.confirmTransaction(signature, 'confirmed');
+
+                                        alert(`Sent ${sendAmount} SOL to @${targetAlias} (${aliasAccount.owner.toBase58()})`);
+                                        setSendAmount('');
+                                        setLoading(false);
+                                        return;
+                                    } catch (err) {
+                                        console.error("Alias resolution failed", err);
+                                        throw new Error(`Could not resolve alias @${targetAlias}`);
+                                    }
+                                }
+                            }
+
+                            // Standard Direct Transfer (for plain addresses)
+                            console.log("Executing standard direct transfer...");
                             const transaction = new Transaction().add(
                                 SystemProgram.transfer({
                                     fromPubkey: publicKey,
                                     toPubkey: new PublicKey(sendRecipient),
-                                    lamports: Math.floor(amountLamports),
+                                    lamports: amountLamportsBN.toNumber(),
                                 })
                             );
 
