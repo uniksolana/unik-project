@@ -831,6 +831,8 @@ function ContactsTab({ setSendRecipient, setSendAlias, setSendNote, setActiveTab
     const [contacts, setContacts] = useState<any[]>([]);
     const [newContactAlias, setNewContactAlias] = useState('');
     const [filter, setFilter] = useState('recent');
+    const [searchTerm, setSearchTerm] = useState('');
+    const [showAll, setShowAll] = useState(false);
 
     const loadContacts = () => {
         try {
@@ -848,7 +850,12 @@ function ContactsTab({ setSendRecipient, setSendAlias, setSendNote, setActiveTab
         return () => window.removeEventListener('storage', listener);
     }, []);
 
-    const sortedContacts = [...contacts].sort((a, b) => {
+    const filteredContacts = contacts.filter(c =>
+        c.alias.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (c.note && c.note.toLowerCase().includes(searchTerm.toLowerCase()))
+    );
+
+    const sortedContacts = [...filteredContacts].sort((a, b) => {
         if (filter === 'alpha') return a.alias.localeCompare(b.alias);
         if (filter === 'notes') {
             const aNote = a.note ? 1 : 0;
@@ -858,6 +865,8 @@ function ContactsTab({ setSendRecipient, setSendAlias, setSendNote, setActiveTab
         }
         return (b.addedAt || 0) - (a.addedAt || 0); // recent
     });
+
+    const displayedContacts = showAll ? sortedContacts : sortedContacts.slice(0, 4);
 
     const addContact = async () => {
         if (!newContactAlias) return;
@@ -904,20 +913,37 @@ function ContactsTab({ setSendRecipient, setSendAlias, setSendNote, setActiveTab
         <div>
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
                 <h3 className="text-2xl font-bold">My Contacts</h3>
-                <div className="flex items-center gap-2 bg-gray-800 px-3 py-2 rounded-lg border border-gray-700">
-                    <span className="text-xs text-gray-500 uppercase font-bold tracking-wider">Sort:</span>
-                    <select
-                        value={filter}
-                        onChange={(e) => setFilter(e.target.value)}
-                        className="bg-transparent text-sm font-semibold text-cyan-400 focus:outline-none appearance-none cursor-pointer pr-1"
-                    >
-                        <option value="recent" className="bg-gray-800">Recently Added</option>
-                        <option value="alpha" className="bg-gray-800">Alphabetical (A-Z)</option>
-                        <option value="notes" className="bg-gray-800">With Notes First</option>
-                    </select>
-                    <svg className="w-4 h-4 text-gray-500 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                    </svg>
+                <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto">
+                    {/* Search Field */}
+                    <div className="relative flex-1 sm:w-64">
+                        <input
+                            type="text"
+                            placeholder="Search contacts..."
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                            className="w-full pl-10 pr-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-sm focus:outline-none focus:border-cyan-500 transition-all font-medium"
+                        />
+                        <svg className="w-4 h-4 text-gray-500 absolute left-3 top-1/2 -translate-y-1/2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                        </svg>
+                    </div>
+
+                    {/* Filter Dropdown */}
+                    <div className="flex items-center gap-2 bg-gray-800 px-3 py-2 rounded-lg border border-gray-700">
+                        <span className="text-[10px] text-gray-500 uppercase font-bold tracking-wider">Sort:</span>
+                        <select
+                            value={filter}
+                            onChange={(e) => setFilter(e.target.value)}
+                            className="bg-transparent text-sm font-semibold text-cyan-400 focus:outline-none appearance-none cursor-pointer pr-1"
+                        >
+                            <option value="recent" className="bg-gray-800">Recent</option>
+                            <option value="alpha" className="bg-gray-800">A-Z</option>
+                            <option value="notes" className="bg-gray-800">Notes</option>
+                        </select>
+                        <svg className="w-3 h-3 text-gray-500 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                        </svg>
+                    </div>
                 </div>
             </div>
 
@@ -937,9 +963,9 @@ function ContactsTab({ setSendRecipient, setSendAlias, setSendNote, setActiveTab
                     <button
                         onClick={addContact}
                         disabled={loading}
-                        className="px-6 py-3 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 rounded-xl font-bold disabled:opacity-50 transition-all shadow-lg active:scale-95"
+                        className="px-6 py-3 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 rounded-xl font-bold disabled:opacity-50 transition-all shadow-lg active:scale-95 whitespace-nowrap"
                     >
-                        {loading ? <div className="animate-spin h-5 w-5 border-2 border-white/20 border-t-white rounded-full"></div> : 'Add'}
+                        {loading ? <div className="animate-spin h-5 w-5 border-2 border-white/20 border-t-white rounded-full"></div> : 'Add Contact'}
                     </button>
                 </div>
             </div>
@@ -950,75 +976,97 @@ function ContactsTab({ setSendRecipient, setSendAlias, setSendNote, setActiveTab
                     <p className="text-gray-400 font-medium">No contacts yet.</p>
                     <p className="text-sm text-gray-500">Add your first one to start sending SOL faster!</p>
                 </div>
+            ) : filteredContacts.length === 0 ? (
+                <div className="text-center py-12 bg-gray-800/30 rounded-xl border border-gray-700">
+                    <p className="text-gray-500">No contacts match your search "{searchTerm}"</p>
+                    <button onClick={() => setSearchTerm('')} className="text-cyan-500 text-sm mt-2 hover:underline">Clear search</button>
+                </div>
             ) : (
                 <div className="space-y-3">
-                    {sortedContacts.map((c: any, i: number) => (
-                        <div key={i} className="group flex items-center justify-between p-4 bg-gray-800 rounded-xl border border-gray-700 hover:border-cyan-500/50 hover:bg-gray-750 transition-all duration-300 relative overflow-hidden">
-                            <div className="absolute top-0 left-0 w-1 h-full bg-cyan-500 opacity-0 group-hover:opacity-100 transition-opacity"></div>
-                            <div className="flex items-center gap-4">
-                                <div className="w-12 h-12 rounded-full bg-gradient-to-br from-cyan-500 to-purple-600 flex items-center justify-center text-white text-lg font-bold shadow-lg shadow-cyan-500/20">
-                                    {c.alias[0].toUpperCase()}
-                                </div>
-                                <div className="flex-1 min-w-0">
-                                    <p className="font-bold text-lg flex items-center gap-1">
-                                        @{c.alias}
-                                    </p>
-                                    {c.note ? (
-                                        <p className="text-xs text-gray-400 truncate italic bg-gray-900/50 px-2 py-0.5 rounded border border-gray-700/50 inline-block mb-1">
-                                            "{c.note}"
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {displayedContacts.map((c: any, i: number) => (
+                            <div key={i} className="group flex items-center justify-between p-4 bg-gray-800 rounded-xl border border-gray-700 hover:border-cyan-500/50 hover:bg-gray-750 transition-all duration-300 relative overflow-hidden">
+                                <div className="absolute top-0 left-0 w-1 h-full bg-cyan-500 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                                <div className="flex items-center gap-4">
+                                    <div className="w-12 h-12 rounded-full bg-gradient-to-br from-cyan-500 to-purple-600 flex items-center justify-center text-white text-lg font-bold shadow-lg shadow-cyan-500/20">
+                                        {c.alias[0].toUpperCase()}
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                        <p className="font-bold text-lg flex items-center gap-1">
+                                            @{c.alias}
                                         </p>
-                                    ) : null}
-                                    <p className="text-[10px] text-gray-500 font-mono tracking-tighter opacity-60 group-hover:opacity-100 transition-opacity">
-                                        {c.address.slice(0, 10)}...{c.address.slice(-10)}
-                                    </p>
+                                        {c.note ? (
+                                            <p className="text-xs text-gray-400 truncate italic bg-gray-900/50 px-2 py-0.5 rounded border border-gray-700/50 inline-block mb-1">
+                                                "{c.note}"
+                                            </p>
+                                        ) : null}
+                                        <p className="text-[10px] text-gray-500 font-mono tracking-tighter opacity-60 group-hover:opacity-100 transition-opacity">
+                                            {c.address.slice(0, 10)}...{c.address.slice(-10)}
+                                        </p>
+                                    </div>
+                                </div>
+                                <div className="flex gap-2">
+                                    <button
+                                        onClick={() => {
+                                            const note = prompt(`Note for @${c.alias}:`, c.note || '');
+                                            if (note !== null) {
+                                                const updated = contacts.map((x: any) => x.alias === c.alias ? { ...x, note: note.trim() } : x);
+                                                localStorage.setItem('unik_contacts', JSON.stringify(updated));
+                                                window.dispatchEvent(new Event('storage'));
+                                            }
+                                        }}
+                                        className="p-2.5 bg-gray-700/50 hover:bg-gray-700 rounded-lg text-gray-300 hover:text-white transition-colors border border-gray-600/50 shadow-sm"
+                                        title="Edit note"
+                                    >
+                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                        </svg>
+                                    </button>
+                                    <button
+                                        onClick={() => {
+                                            setSendRecipient(c.address);
+                                            setSendAlias(c.alias);
+                                            setSendNote(c.note || '');
+                                            setActiveTab('send');
+                                        }}
+                                        className="px-5 py-2.5 bg-gradient-to-r from-cyan-600/20 to-blue-600/20 hover:from-cyan-600 hover:to-blue-600 text-cyan-400 hover:text-white font-bold text-sm rounded-lg border border-cyan-500/30 transition-all shadow-lg active:scale-95"
+                                    >
+                                        Pay
+                                    </button>
+                                    <button
+                                        onClick={() => {
+                                            if (confirm(`Delete @${c.alias} from contacts?`)) {
+                                                const updated = contacts.filter((x: any) => x.alias !== c.alias);
+                                                localStorage.setItem('unik_contacts', JSON.stringify(updated));
+                                                window.dispatchEvent(new Event('storage'));
+                                            }
+                                        }}
+                                        className="p-2.5 text-gray-500 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-all"
+                                        title="Delete contact"
+                                    >
+                                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                        </svg>
+                                    </button>
                                 </div>
                             </div>
-                            <div className="flex gap-2">
-                                <button
-                                    onClick={() => {
-                                        const note = prompt(`Note for @${c.alias}:`, c.note || '');
-                                        if (note !== null) {
-                                            const updated = contacts.map((x: any) => x.alias === c.alias ? { ...x, note: note.trim() } : x);
-                                            localStorage.setItem('unik_contacts', JSON.stringify(updated));
-                                            window.dispatchEvent(new Event('storage'));
-                                        }
-                                    }}
-                                    className="p-2.5 bg-gray-700/50 hover:bg-gray-700 rounded-lg text-gray-300 hover:text-white transition-colors border border-gray-600/50 shadow-sm"
-                                    title="Edit note"
-                                >
-                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                                    </svg>
-                                </button>
-                                <button
-                                    onClick={() => {
-                                        setSendRecipient(c.address);
-                                        setSendAlias(c.alias);
-                                        setSendNote(c.note || '');
-                                        setActiveTab('send');
-                                    }}
-                                    className="px-5 py-2.5 bg-gradient-to-r from-cyan-600/20 to-blue-600/20 hover:from-cyan-600 hover:to-blue-600 text-cyan-400 hover:text-white font-bold text-sm rounded-lg border border-cyan-500/30 transition-all shadow-lg active:scale-95"
-                                >
-                                    Pay
-                                </button>
-                                <button
-                                    onClick={() => {
-                                        if (confirm(`Delete @${c.alias} from contacts?`)) {
-                                            const updated = contacts.filter((x: any) => x.alias !== c.alias);
-                                            localStorage.setItem('unik_contacts', JSON.stringify(updated));
-                                            window.dispatchEvent(new Event('storage'));
-                                        }
-                                    }}
-                                    className="p-2.5 text-gray-500 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-all"
-                                    title="Delete contact"
-                                >
-                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                    </svg>
-                                </button>
-                            </div>
+                        ))}
+                    </div>
+
+                    {sortedContacts.length > 4 && (
+                        <div className="mt-6 flex justify-center">
+                            <button
+                                onClick={() => setShowAll(!showAll)}
+                                className="flex items-center gap-2 px-6 py-2 bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded-full text-sm font-bold text-cyan-400 transition-all"
+                            >
+                                {showAll ? (
+                                    <>Show Less <span className="text-xs">↑</span></>
+                                ) : (
+                                    <>View All {sortedContacts.length} Contacts <span className="text-xs">↓</span></>
+                                )}
+                            </button>
                         </div>
-                    ))}
+                    )}
                 </div>
             )}
         </div>
