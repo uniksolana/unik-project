@@ -830,6 +830,7 @@ function AliasTab({ myAliases, showRegisterForm, setShowRegisterForm, alias, set
 function ContactsTab({ setSendRecipient, setSendAlias, setSendNote, setActiveTab, loading, setLoading, connection, wallet }: any) {
     const [contacts, setContacts] = useState<any[]>([]);
     const [newContactAlias, setNewContactAlias] = useState('');
+    const [filter, setFilter] = useState('recent');
 
     const loadContacts = () => {
         try {
@@ -846,6 +847,17 @@ function ContactsTab({ setSendRecipient, setSendAlias, setSendNote, setActiveTab
         window.addEventListener('storage', listener);
         return () => window.removeEventListener('storage', listener);
     }, []);
+
+    const sortedContacts = [...contacts].sort((a, b) => {
+        if (filter === 'alpha') return a.alias.localeCompare(b.alias);
+        if (filter === 'notes') {
+            const aNote = a.note ? 1 : 0;
+            const bNote = b.note ? 1 : 0;
+            if (aNote !== bNote) return bNote - aNote;
+            return a.alias.localeCompare(b.alias);
+        }
+        return (b.addedAt || 0) - (a.addedAt || 0); // recent
+    });
 
     const addContact = async () => {
         if (!newContactAlias) return;
@@ -890,42 +902,75 @@ function ContactsTab({ setSendRecipient, setSendAlias, setSendNote, setActiveTab
 
     return (
         <div>
-            <h3 className="text-2xl font-bold mb-6">My Contacts</h3>
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+                <h3 className="text-2xl font-bold">My Contacts</h3>
+                <div className="flex items-center gap-2 bg-gray-800 px-3 py-2 rounded-lg border border-gray-700">
+                    <span className="text-xs text-gray-500 uppercase font-bold tracking-wider">Sort:</span>
+                    <select
+                        value={filter}
+                        onChange={(e) => setFilter(e.target.value)}
+                        className="bg-transparent text-sm font-semibold text-cyan-400 focus:outline-none appearance-none cursor-pointer pr-1"
+                    >
+                        <option value="recent" className="bg-gray-800">Recently Added</option>
+                        <option value="alpha" className="bg-gray-800">Alphabetical (A-Z)</option>
+                        <option value="notes" className="bg-gray-800">With Notes First</option>
+                    </select>
+                    <svg className="w-4 h-4 text-gray-500 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                </div>
+            </div>
 
-            <div className="mb-6 bg-gray-800 p-6 rounded-xl border border-gray-700">
-                <h4 className="font-semibold mb-3">Add New Contact</h4>
+            <div className="mb-6 bg-gray-800 p-6 rounded-xl border border-gray-700 shadow-xl">
+                <h4 className="font-semibold mb-3 flex items-center gap-2">
+                    <span className="w-2 h-2 bg-cyan-500 rounded-full animate-pulse"></span>
+                    Add New Contact
+                </h4>
                 <div className="flex gap-3">
                     <input
                         type="text"
                         placeholder="Enter alias (e.g. alice)"
                         value={newContactAlias}
                         onChange={(e) => setNewContactAlias(e.target.value.toLowerCase())}
-                        className="flex-1 px-4 py-3 rounded-xl bg-gray-900 border border-gray-700 focus:outline-none focus:border-cyan-500"
+                        className="flex-1 px-4 py-3 rounded-xl bg-gray-900 border border-gray-700 focus:outline-none focus:border-cyan-500 transition-all font-mono text-sm"
                     />
                     <button
                         onClick={addContact}
                         disabled={loading}
-                        className="px-6 py-3 bg-cyan-600 hover:bg-cyan-700 rounded-xl font-bold disabled:opacity-50 transition-colors"
+                        className="px-6 py-3 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 rounded-xl font-bold disabled:opacity-50 transition-all shadow-lg active:scale-95"
                     >
-                        {loading ? '...' : 'Add'}
+                        {loading ? <div className="animate-spin h-5 w-5 border-2 border-white/20 border-t-white rounded-full"></div> : 'Add'}
                     </button>
                 </div>
             </div>
 
             {contacts.length === 0 ? (
-                <p className="text-center text-gray-500 py-12">No contacts yet. Add your first one!</p>
+                <div className="text-center py-16 bg-gray-800/50 rounded-2xl border-2 border-dashed border-gray-700">
+                    <div className="text-5xl mb-4">👥</div>
+                    <p className="text-gray-400 font-medium">No contacts yet.</p>
+                    <p className="text-sm text-gray-500">Add your first one to start sending SOL faster!</p>
+                </div>
             ) : (
                 <div className="space-y-3">
-                    {contacts.map((c: any, i: number) => (
-                        <div key={i} className="flex items-center justify-between p-4 bg-gray-800 rounded-xl border border-gray-700 hover:border-cyan-500 transition-colors">
+                    {sortedContacts.map((c: any, i: number) => (
+                        <div key={i} className="group flex items-center justify-between p-4 bg-gray-800 rounded-xl border border-gray-700 hover:border-cyan-500/50 hover:bg-gray-750 transition-all duration-300 relative overflow-hidden">
+                            <div className="absolute top-0 left-0 w-1 h-full bg-cyan-500 opacity-0 group-hover:opacity-100 transition-opacity"></div>
                             <div className="flex items-center gap-4">
-                                <div className="w-12 h-12 rounded-full bg-gradient-to-br from-pink-500 to-orange-500 flex items-center justify-center text-white text-lg font-bold">
+                                <div className="w-12 h-12 rounded-full bg-gradient-to-br from-cyan-500 to-purple-600 flex items-center justify-center text-white text-lg font-bold shadow-lg shadow-cyan-500/20">
                                     {c.alias[0].toUpperCase()}
                                 </div>
                                 <div className="flex-1 min-w-0">
-                                    <p className="font-bold text-lg">@{c.alias}</p>
-                                    {c.note && <p className="text-sm text-gray-400 truncate italic">" {c.note}"</p>}
-                                    <p className="text-xs text-gray-500 font-mono">{c.address.slice(0, 4)}...{c.address.slice(-4)}</p>
+                                    <p className="font-bold text-lg flex items-center gap-1">
+                                        @{c.alias}
+                                    </p>
+                                    {c.note ? (
+                                        <p className="text-xs text-gray-400 truncate italic bg-gray-900/50 px-2 py-0.5 rounded border border-gray-700/50 inline-block mb-1">
+                                            "{c.note}"
+                                        </p>
+                                    ) : null}
+                                    <p className="text-[10px] text-gray-500 font-mono tracking-tighter opacity-60 group-hover:opacity-100 transition-opacity">
+                                        {c.address.slice(0, 10)}...{c.address.slice(-10)}
+                                    </p>
                                 </div>
                             </div>
                             <div className="flex gap-2">
@@ -938,7 +983,7 @@ function ContactsTab({ setSendRecipient, setSendAlias, setSendNote, setActiveTab
                                             window.dispatchEvent(new Event('storage'));
                                         }
                                     }}
-                                    className="px-3 py-2 bg-gray-700 hover:bg-gray-600 font-semibold text-xs transition-colors"
+                                    className="p-2.5 bg-gray-700/50 hover:bg-gray-700 rounded-lg text-gray-300 hover:text-white transition-colors border border-gray-600/50 shadow-sm"
                                     title="Edit note"
                                 >
                                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -952,21 +997,24 @@ function ContactsTab({ setSendRecipient, setSendAlias, setSendNote, setActiveTab
                                         setSendNote(c.note || '');
                                         setActiveTab('send');
                                     }}
-                                    className="px-4 py-2 bg-cyan-600 hover:bg-cyan-700 font-semibold text-sm transition-colors"
+                                    className="px-5 py-2.5 bg-gradient-to-r from-cyan-600/20 to-blue-600/20 hover:from-cyan-600 hover:to-blue-600 text-cyan-400 hover:text-white font-bold text-sm rounded-lg border border-cyan-500/30 transition-all shadow-lg active:scale-95"
                                 >
                                     Pay
                                 </button>
                                 <button
                                     onClick={() => {
-                                        if (confirm("Delete contact?")) {
+                                        if (confirm(`Delete @${c.alias} from contacts?`)) {
                                             const updated = contacts.filter((x: any) => x.alias !== c.alias);
                                             localStorage.setItem('unik_contacts', JSON.stringify(updated));
                                             window.dispatchEvent(new Event('storage'));
                                         }
                                     }}
-                                    className="text-gray-400 hover:text-red-400 text-xl px-2"
+                                    className="p-2.5 text-gray-500 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-all"
+                                    title="Delete contact"
                                 >
-                                    ×
+                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                    </svg>
                                 </button>
                             </div>
                         </div>
