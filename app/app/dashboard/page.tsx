@@ -952,7 +952,7 @@ function ContactsTab({ setSendRecipient, setSendAlias, setSendNote, setActiveTab
                     <span className="w-2 h-2 bg-cyan-500 rounded-full animate-pulse"></span>
                     Add New Contact
                 </h4>
-                <div className="flex gap-3">
+                <div className="flex flex-col sm:flex-row gap-3">
                     <input
                         type="text"
                         placeholder="Enter alias (e.g. alice)"
@@ -965,7 +965,14 @@ function ContactsTab({ setSendRecipient, setSendAlias, setSendNote, setActiveTab
                         disabled={loading}
                         className="px-6 py-3 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 rounded-xl font-bold disabled:opacity-50 transition-all shadow-lg active:scale-95 whitespace-nowrap"
                     >
-                        {loading ? <div className="animate-spin h-5 w-5 border-2 border-white/20 border-t-white rounded-full"></div> : 'Add Contact'}
+                        {loading ? (
+                            <div className="animate-spin h-5 w-5 border-2 border-white/20 border-t-white rounded-full mx-auto"></div>
+                        ) : (
+                            <>
+                                <span className="sm:hidden">Add</span>
+                                <span className="hidden sm:inline">Add Contact</span>
+                            </>
+                        )}
                     </button>
                 </div>
             </div>
