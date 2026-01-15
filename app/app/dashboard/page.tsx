@@ -10,7 +10,7 @@ import { useConnection } from '@solana/wallet-adapter-react';
 import { Buffer } from 'buffer';
 import Image from 'next/image';
 
-type TabType = 'receive' | 'send' | 'splits' | 'alias' | 'contacts' | 'history' | 'requests';
+type TabType = 'receive' | 'send' | 'splits' | 'alias' | 'contacts' | 'history';
 
 export default function Dashboard() {
     const { publicKey, connected } = useWallet();
@@ -23,7 +23,6 @@ export default function Dashboard() {
     const [showRegisterForm, setShowRegisterForm] = useState(false);
     const [linkAmount, setLinkAmount] = useState('');
     const [linkConcept, setLinkConcept] = useState('');
-    const [pendingRequests, setPendingRequests] = useState<any[]>([]);
 
 
     // Send Feature State
@@ -128,33 +127,6 @@ export default function Dashboard() {
 
         fetchRouteConfig();
     }, [registeredAlias, publicKey, wallet, connection]);
-
-    useEffect(() => {
-        if (connected && registeredAlias && isMounted) {
-            const fetchRequests = async () => {
-                try {
-                    const provider = new AnchorProvider(connection, wallet as any, { commitment: 'confirmed' });
-                    const program = new Program(IDL as any, provider);
-
-                    const requests = await (program.account as any).paymentRequest.all([
-                        {
-                            memcmp: {
-                                offset: 8 + 32 + 4, // Discriminator (8) + sender (32) + string length prefix (4)
-                                bytes: Buffer.from(registeredAlias).toString('base64'),
-                            }
-                        }
-                    ]);
-                    setPendingRequests(requests.filter((r: any) => r.account.recipientAlias === registeredAlias));
-                } catch (e) {
-                    console.error("Failed to fetch requests", e);
-                }
-            };
-            fetchRequests();
-            const interval = setInterval(fetchRequests, 15000);
-            return () => clearInterval(interval);
-        }
-    }, [connected, registeredAlias, connection, wallet, isMounted]);
-
 
     const handleRegister = async () => {
         if (!alias || !publicKey || !wallet) return;
@@ -366,31 +338,23 @@ export default function Dashboard() {
                         active={activeTab === 'history'}
                         onClick={() => setActiveTab('history')}
                     />
-                    <ActionButton
-                        icon="requests"
-                        label="Requests"
-                        active={activeTab === 'requests'}
-                        onClick={() => setActiveTab('requests')}
-                        badge={pendingRequests.length > 0}
-                    />
                 </div>
 
                 {/* Content Area */}
                 <div className="bg-gray-900 p-4 md:p-8 border border-gray-800">
-                    {activeTab === 'receive' && <ReceiveTab registeredAlias={registeredAlias} linkAmount={linkAmount} setLinkAmount={setLinkAmount} linkConcept={linkConcept} setLinkConcept={setLinkConcept} connection={connection} wallet={wallet} setLoading={setLoading} />}
+                    {activeTab === 'receive' && <ReceiveTab registeredAlias={registeredAlias} linkAmount={linkAmount} setLinkAmount={setLinkAmount} linkConcept={linkConcept} setLinkConcept={setLinkConcept} />}
                     {activeTab === 'send' && <SendTab sendRecipient={sendRecipient} setSendRecipient={setSendRecipient} sendAlias={sendAlias} setSendAlias={setSendAlias} sendAmount={sendAmount} setSendAmount={setSendAmount} sendNote={sendNote} setSendNote={setSendNote} paymentConcept={paymentConcept} setPaymentConcept={setPaymentConcept} loading={loading} setLoading={setLoading} publicKey={publicKey} wallet={wallet} connection={connection} />}
                     {activeTab === 'splits' && <SplitsTab splits={splits} setSplits={setSplits} isEditing={isEditing} setIsEditing={setIsEditing} newSplitAddress={newSplitAddress} setNewSplitAddress={setNewSplitAddress} newSplitPercent={newSplitPercent} setNewSplitPercent={setNewSplitPercent} addSplit={addSplit} removeSplit={removeSplit} totalPercent={totalPercent} handleSaveConfig={handleSaveConfig} loading={loading} />}
                     {activeTab === 'alias' && <AliasTab myAliases={myAliases} showRegisterForm={showRegisterForm} setShowRegisterForm={setShowRegisterForm} alias={alias} setAlias={setAlias} handleRegister={handleRegister} loading={loading} setRegisteredAlias={setRegisteredAlias} />}
                     {activeTab === 'contacts' && <ContactsTab setSendRecipient={setSendRecipient} setSendAlias={setSendAlias} setSendNote={setSendNote} setActiveTab={setActiveTab} loading={loading} setLoading={setLoading} connection={connection} wallet={wallet} />}
                     {activeTab === 'history' && <HistoryTab publicKey={publicKey} connection={connection} />}
-                    {activeTab === 'requests' && <RequestsTab pendingRequests={pendingRequests} setPendingRequests={setPendingRequests} registeredAlias={registeredAlias} connection={connection} wallet={wallet} setLoading={setLoading} setActiveTab={setActiveTab} setSendRecipient={setSendRecipient} setSendAmount={setSendAmount} setPaymentConcept={setPaymentConcept} />}
                 </div>
             </div>
         </div>
     );
 }
 
-function ActionButton({ icon, label, active, onClick, badge }: { icon: string; label: string; active: boolean; onClick: () => void; badge?: boolean }) {
+function ActionButton({ icon, label, active, onClick }: { icon: string; label: string; active: boolean; onClick: () => void }) {
     const icons: Record<string, React.ReactElement> = {
         receive: (
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -421,14 +385,6 @@ function ActionButton({ icon, label, active, onClick, badge }: { icon: string; l
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
-        ),
-        requests: (
-            <div className="relative">
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
-                </svg>
-                {badge && <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-gray-900 animate-pulse"></span>}
-            </div>
         )
     };
 
@@ -450,53 +406,7 @@ function ActionButton({ icon, label, active, onClick, badge }: { icon: string; l
     );
 }
 
-function ReceiveTab({ registeredAlias, linkAmount, setLinkAmount, linkConcept, setLinkConcept, connection, wallet, setLoading }: any) {
-    const [contacts, setContacts] = useState<any[]>([]);
-
-    useEffect(() => {
-        const load = () => {
-            const raw = localStorage.getItem('unik_contacts');
-            if (raw) setContacts(JSON.parse(raw));
-        };
-        load();
-        window.addEventListener('storage', load);
-        return () => window.removeEventListener('storage', load);
-    }, []);
-
-    const sendOnChainRequest = async (targetAlias: string) => {
-        if (!confirm(`Send an on-chain payment request to @${targetAlias} for ${linkAmount || '0'} SOL?`)) return;
-        setLoading(true);
-        try {
-            const provider = new AnchorProvider(connection, wallet as any, { commitment: 'confirmed' });
-            const program = new Program(IDL as any, provider);
-
-            const [requestPDA] = PublicKey.findProgramAddressSync(
-                [Buffer.from("request"), Buffer.from(targetAlias), wallet.publicKey.toBuffer()],
-                PROGRAM_ID
-            );
-
-            await program.methods
-                .createPaymentRequest(
-                    targetAlias,
-                    new BN(parseFloat(linkAmount || '0') * 1e9),
-                    linkConcept || ""
-                )
-                .accounts({
-                    paymentRequest: requestPDA,
-                    sender: wallet.publicKey,
-                    systemProgram: SystemProgram.programId,
-                } as any)
-                .rpc();
-
-            alert(`Request sent to @${targetAlias}! They will see it in their dashboard.`);
-        } catch (e: any) {
-            console.error(e);
-            alert("Failed to send request: " + e.message);
-        } finally {
-            setLoading(false);
-        }
-    };
-
+function ReceiveTab({ registeredAlias, linkAmount, setLinkAmount, linkConcept, setLinkConcept }: any) {
     const getPaymentUrl = () => {
         const origin = typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000';
         let url = `${origin}/pay/${registeredAlias}?`;
@@ -505,10 +415,9 @@ function ReceiveTab({ registeredAlias, linkAmount, setLinkAmount, linkConcept, s
         return url.endsWith('?') ? url.slice(0, -1) : url.endsWith('&') ? url.slice(0, -1) : url;
     };
 
-    const getShareMessage = (forAlias?: string) => {
+    const getShareMessage = () => {
         const amount = linkAmount ? ` ${linkAmount} SOL` : '';
-        const namePart = forAlias ? ` @${forAlias}` : '';
-        return `💸 Hey${namePart}, pay me${amount} via UNIK: ${getPaymentUrl()}`;
+        return `💸 Pay me${amount} via UNIK: ${getPaymentUrl()}`;
     };
 
     return (
@@ -531,7 +440,7 @@ function ReceiveTab({ registeredAlias, linkAmount, setLinkAmount, linkConcept, s
             </div>
 
             <div className="mb-6">
-                <label className="text-sm text-gray-400 block mb-2">Payment Concept (on-chain for notifications)</label>
+                <label className="text-sm text-gray-400 block mb-2">Payment Concept (optional, off-chain)</label>
                 <input
                     type="text"
                     placeholder="e.g. For dinner, Project XYZ..."
@@ -591,66 +500,7 @@ function ReceiveTab({ registeredAlias, linkAmount, setLinkAmount, linkConcept, s
                 </div>
 
                 <div className="mt-6 pt-6 border-t border-gray-700">
-                    <label className="text-sm text-gray-400 block mb-3">Request from Contacts</label>
-                    {contacts.length === 0 ? (
-                        <p className="text-xs text-gray-500 italic">No contacts added yet. Add them in the Contacts tab.</p>
-                    ) : (
-                        <div className="space-y-2">
-                            {contacts.slice(0, 5).map((c: any, i: number) => (
-                                <div key={i} className="flex items-center justify-between p-3 bg-gray-900 border border-gray-700 rounded-lg">
-                                    <div className="flex items-center gap-3">
-                                        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-cyan-500 to-blue-500 flex items-center justify-center text-xs font-bold text-white">
-                                            {c.alias[0].toUpperCase()}
-                                        </div>
-                                        <div className="flex flex-col">
-                                            <span className="text-sm font-semibold text-white">@{c.alias}</span>
-                                            {c.note && <span className="text-[10px] text-gray-500 italic max-w-[100px] truncate">{c.note}</span>}
-                                        </div>
-                                    </div>
-                                    <div className="flex gap-2">
-                                        <button
-                                            onClick={() => sendOnChainRequest(c.alias)}
-                                            className="p-2 bg-purple-600/20 hover:bg-purple-600/40 text-purple-400 rounded-lg transition-colors border border-purple-500/30"
-                                            title="Send UNIK Notification"
-                                        >
-                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
-                                            </svg>
-                                        </button>
-                                        <button
-                                            onClick={() => {
-                                                const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(getShareMessage(c.alias))}`;
-                                                window.open(whatsappUrl, '_blank');
-                                            }}
-                                            className="p-2 bg-green-600/20 hover:bg-green-600/40 text-green-500 rounded-lg transition-colors"
-                                            title="Request via WhatsApp"
-                                        >
-                                            <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-                                                <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z" />
-                                            </svg>
-                                        </button>
-                                        <button
-                                            onClick={() => {
-                                                const telegramUrl = `https://t.me/share/url?url=${encodeURIComponent(getPaymentUrl())}&text=${encodeURIComponent(getShareMessage(c.alias))}`;
-                                                window.open(telegramUrl, '_blank');
-                                            }}
-                                            className="p-2 bg-blue-600/20 hover:bg-blue-600/40 text-blue-500 rounded-lg transition-colors"
-                                            title="Request via Telegram"
-                                        >
-                                            <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-                                                <path d="M11.944 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0a12 12 0 0 0-.056 0zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 0 1 .171.325c.016.093.036.306.02.472-.18 1.898-.962 6.502-1.36 8.627-.168.9-.499 1.201-.82 1.23-.696.065-1.225-.46-1.9-.902-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.48.33-.913.49-1.302.48-.428-.008-1.252-.241-1.865-.44-.752-.245-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.83-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635z" />
-                                            </svg>
-                                        </button>
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                    )}
-                </div>
-
-                <div className="mt-6 pt-6 border-t border-gray-700">
                     <label className="text-sm text-gray-400 block mb-3">Share Your Contact</label>
-
                     <p className="text-xs text-gray-500 mb-3">Let others add you to their UNIK contacts instantly</p>
                     <button
                         onClick={() => {
@@ -710,7 +560,7 @@ function SendTab({ sendRecipient, setSendRecipient, sendAlias, setSendAlias, sen
                 </div>
 
                 <div>
-                    <label className="text-sm text-gray-400 block mb-2">Payment Concept (on-chain for notifications)</label>
+                    <label className="text-sm text-gray-400 block mb-2">Payment Concept (optional, off-chain)</label>
                     <input
                         type="text"
                         placeholder="What's this for?"
@@ -1261,84 +1111,3 @@ function HistoryTab({ publicKey, connection }: any) {
         </div>
     );
 }
-
-function RequestsTab({ pendingRequests, setPendingRequests, registeredAlias, connection, wallet, setLoading, setActiveTab, setSendRecipient, setSendAmount, setPaymentConcept }: any) {
-    const handlePay = (req: any) => {
-        setSendRecipient(req.account.sender.toBase58());
-        setSendAmount((req.account.amount.toNumber() / 1e9).toString());
-        setPaymentConcept(req.account.concept);
-        setActiveTab('send');
-    };
-
-    const handleDecline = async (req: any) => {
-        if (!confirm("Are you sure you want to decline and close this request?")) return;
-        setLoading(true);
-        try {
-            const provider = new AnchorProvider(connection, wallet as any, { commitment: 'confirmed' });
-            const program = new Program(IDL as any, provider);
-
-            const [aliasPDA] = PublicKey.findProgramAddressSync(
-                [Buffer.from("alias"), Buffer.from(registeredAlias)],
-                PROGRAM_ID
-            );
-
-            await program.methods
-                .closePaymentRequest()
-                .accounts({
-                    paymentRequest: req.publicKey,
-                    receiverAlias: aliasPDA,
-                    receiver: wallet.publicKey,
-                    systemProgram: SystemProgram.programId,
-                } as any)
-                .rpc();
-
-            setPendingRequests(pendingRequests.filter((r: any) => r.publicKey.toBase58() !== req.publicKey.toBase58()));
-            alert("Request declined successfully.");
-        } catch (e: any) {
-            alert("Failed to decline request: " + e.message);
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    return (
-        <div>
-            <h3 className="text-2xl font-bold mb-6">Payment Requests</h3>
-            {pendingRequests.length === 0 ? (
-                <div className="text-center py-12 bg-gray-800 rounded-xl border border-gray-700">
-                    <p className="text-gray-400">No pending requests for @{registeredAlias}</p>
-                </div>
-            ) : (
-                <div className="space-y-4">
-                    {pendingRequests.map((req: any, i: number) => (
-                        <div key={i} className="bg-gray-800 p-6 border border-gray-700 rounded-xl flex flex-col md:flex-row justify-between items-center gap-6 animate-in fade-in slide-in-from-bottom-2">
-                            <div className="flex-1 w-full">
-                                <div className="flex justify-between mb-2">
-                                    <span className="text-cyan-400 font-bold">{req.account.amount.toNumber() / 1e9} SOL</span>
-                                    <span className="text-xs text-gray-500">{new Date(req.account.timestamp.toNumber() * 1000).toLocaleDateString()}</span>
-                                </div>
-                                <p className="text-sm text-white mb-1"><span className="text-gray-400">From:</span> {req.account.sender.toBase58().slice(0, 8)}...{req.account.sender.toBase58().slice(-8)}</p>
-                                {req.account.concept && <p className="text-xs italic text-gray-400">"{req.account.concept}"</p>}
-                            </div>
-                            <div className="flex gap-3 w-full md:w-auto">
-                                <button
-                                    onClick={() => handleDecline(req)}
-                                    className="flex-1 md:flex-none px-6 py-3 bg-gray-700 hover:bg-red-900/40 text-gray-300 rounded-xl font-bold transition-colors"
-                                >
-                                    Decline
-                                </button>
-                                <button
-                                    onClick={() => handlePay(req)}
-                                    className="flex-1 md:flex-none px-8 py-3 bg-cyan-600 hover:bg-cyan-500 text-white rounded-xl font-bold shadow-lg shadow-cyan-900/20 transition-all active:scale-95"
-                                >
-                                    Pay Now
-                                </button>
-                            </div>
-                        </div>
-                    ))}
-                </div>
-            )}
-        </div>
-    );
-}
-

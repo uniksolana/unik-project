@@ -72,10 +72,12 @@ pub mod unik_anchor {
 
         msg!("Executing transfer of {} lamports for {} splits", amount, splits.len());
 
+        // Extract account infos outside the loop to avoid lifetime issues
         let user_info = ctx.accounts.user.to_account_info();
         let system_program_info = ctx.accounts.system_program.to_account_info();
 
         for split in splits {
+            // Find the recipient account in remaining_accounts
             let recipient_acc = remaining_accounts.iter()
                 .find(|acc| acc.key() == split.recipient)
                 .ok_or(UnikError::MissingRecipient)?;
@@ -87,6 +89,7 @@ pub mod unik_anchor {
                 .ok_or(UnikError::Overflow)? as u64;
 
             if split_amount > 0 {
+                // Perform transfer from user to recipient
                 let cpi_context = CpiContext::new(
                     system_program_info.clone(),
                     system_program::Transfer {
@@ -98,24 +101,6 @@ pub mod unik_anchor {
             }
         }
         
-        Ok(())
-    }
-
-    pub fn create_payment_request(ctx: Context<CreatePaymentRequest>, recipient_alias: String, amount: u64, concept: String) -> Result<()> {
-        let request = &mut ctx.accounts.payment_request;
-        request.sender = ctx.accounts.sender.key();
-        request.recipient_alias = recipient_alias;
-        request.amount = amount;
-        request.concept = concept;
-        request.timestamp = Clock::get()?.unix_timestamp;
-        request.bump = ctx.bumps.payment_request;
-        
-        msg!("Payment request created for alias: {} for {} lamports", request.recipient_alias, amount);
-        Ok(())
-    }
-
-    pub fn close_payment_request(_ctx: Context<ClosePaymentRequest>) -> Result<()> {
-        msg!("Payment request closed and rent recovered.");
         Ok(())
     }
 }
@@ -162,6 +147,7 @@ pub struct SetRouteConfig<'info> {
     
     pub system_program: Program<'info, System>,
 }
+
 #[derive(Accounts)]
 #[instruction(alias: String)]
 pub struct ExecuteTransfer<'info> {
@@ -173,48 +159,6 @@ pub struct ExecuteTransfer<'info> {
     
     #[account(mut)]
     pub user: Signer<'info>,
-    
-    pub system_program: Program<'info, System>,
-}
-
-
-#[derive(Accounts)]
-#[instruction(recipient_alias: String)]
-pub struct CreatePaymentRequest<'info> {
-    #[account(
-        init,
-        payer = sender,
-        space = 8 + 32 + 36 + 8 + 100 + 8 + 1, // Fixed space for request
-        seeds = [b"request", recipient_alias.as_bytes(), sender.key().as_ref()],
-        bump
-    )]
-    pub payment_request: Account<'info, PaymentRequest>,
-    
-    #[account(mut)]
-    pub sender: Signer<'info>,
-    
-    pub system_program: Program<'info, System>,
-}
-
-#[derive(Accounts)]
-pub struct ClosePaymentRequest<'info> {
-    #[account(
-        mut,
-        close = receiver,
-        seeds = [b"request", payment_request.recipient_alias.as_bytes(), payment_request.sender.as_ref()],
-        bump = payment_request.bump,
-        constraint = receiver.key() == payment_request.sender || receiver.key() == receiver_alias.owner
-    )]
-    pub payment_request: Account<'info, PaymentRequest>,
-
-    #[account(
-        seeds = [b"alias", payment_request.recipient_alias.as_bytes()],
-        bump = receiver_alias.bump
-    )]
-    pub receiver_alias: Account<'info, AliasAccount>,
-
-    #[account(mut)]
-    pub receiver: Signer<'info>,
     
     pub system_program: Program<'info, System>,
 }
@@ -231,16 +175,6 @@ pub struct AliasAccount {
 pub struct RouteAccount {
     pub alias_ref: Pubkey,
     pub splits: Vec<Split>,
-    pub bump: u8,
-}
-
-#[account]
-pub struct PaymentRequest {
-    pub sender: Pubkey,
-    pub recipient_alias: String, // Max 32 chars
-    pub amount: u64,
-    pub concept: String, // Max 100 chars
-    pub timestamp: i64,
     pub bump: u8,
 }
 
