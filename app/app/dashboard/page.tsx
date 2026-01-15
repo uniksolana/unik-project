@@ -139,7 +139,7 @@ export default function Dashboard() {
                     const requests = await (program.account as any).paymentRequest.all([
                         {
                             memcmp: {
-                                offset: 8 + 32, // Discriminator + sender pubkey
+                                offset: 8 + 32 + 4, // Discriminator (8) + sender (32) + string length prefix (4)
                                 bytes: Buffer.from(registeredAlias).toString('base64'),
                             }
                         }
@@ -531,7 +531,7 @@ function ReceiveTab({ registeredAlias, linkAmount, setLinkAmount, linkConcept, s
             </div>
 
             <div className="mb-6">
-                <label className="text-sm text-gray-400 block mb-2">Payment Concept (optional, off-chain)</label>
+                <label className="text-sm text-gray-400 block mb-2">Payment Concept (on-chain for notifications)</label>
                 <input
                     type="text"
                     placeholder="e.g. For dinner, Project XYZ..."
@@ -710,7 +710,7 @@ function SendTab({ sendRecipient, setSendRecipient, sendAlias, setSendAlias, sen
                 </div>
 
                 <div>
-                    <label className="text-sm text-gray-400 block mb-2">Payment Concept (optional, off-chain)</label>
+                    <label className="text-sm text-gray-400 block mb-2">Payment Concept (on-chain for notifications)</label>
                     <input
                         type="text"
                         placeholder="What's this for?"
