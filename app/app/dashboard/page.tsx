@@ -302,6 +302,9 @@ export default function Dashboard() {
                             {registeredAlias ? `@${registeredAlias}` : 'No Alias'}
                         </span>
                         {myAliases.length > 1 && (
+                            <svg className="w-3 h-3 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+                        )}
+                        {myAliases.length > 1 && (
                             <select
                                 value={registeredAlias || ''}
                                 onChange={(e) => setRegisteredAlias(e.target.value)}
@@ -310,6 +313,11 @@ export default function Dashboard() {
                                 {myAliases.map(a => <option key={a} value={a}>@{a}</option>)}
                             </select>
                         )}
+                    </div>
+
+                    {/* Integrated Wallet Button */}
+                    <div className="scale-75 origin-right">
+                        <WalletMultiButton />
                     </div>
                 </div>
             </nav>
@@ -338,6 +346,7 @@ export default function Dashboard() {
                 </div>
 
                 {/* Action Grid (3x2) */}
+                {/* Action Grid (3x2) - All buttons identical now for uniformity */}
                 <div className="grid grid-cols-3 gap-3 mb-8">
                     <ActionButton
                         icon="receive"
@@ -345,19 +354,12 @@ export default function Dashboard() {
                         active={activeTab === 'receive'}
                         onClick={() => setActiveTab('receive')}
                     />
-                    {/* Send Button is highlighted */}
-                    <button
+                    <ActionButton
+                        icon="send"
+                        label="Send"
+                        active={activeTab === 'send'}
                         onClick={() => setActiveTab('send')}
-                        className={`aspect-square rounded-[1.5rem] flex flex-col items-center justify-center gap-2 transition-all duration-300 shadow-lg ${activeTab === 'send'
-                            ? 'bg-gradient-to-br from-cyan-500 to-purple-600 text-white shadow-cyan-500/40 scale-105'
-                            : 'bg-gradient-to-br from-cyan-500 via-purple-600 to-pink-500 p-[1px]'
-                            }`}
-                    >
-                        <div className={`w-full h-full rounded-[1.5rem] flex flex-col items-center justify-center gap-2 ${activeTab === 'send' ? 'bg-transparent' : 'bg-[#1a1a24] hover:bg-[#20202c]'}`}>
-                            <svg className="w-7 h-7 text-white" fill="currentColor" viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z" /></svg>
-                            <span className="text-[10px] font-bold tracking-wide text-white">SEND</span>
-                        </div>
-                    </button>
+                    />
                     <ActionButton
                         icon="splits"
                         label="Splits"
@@ -403,6 +405,9 @@ function ActionButton({ icon, label, active, onClick }: { icon: string; label: s
         receive: (
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 14l-7 7m0 0l-7-7m7 7V3" /></svg>
         ),
+        send: (
+            <svg className="w-6 h-6 md:w-7 md:h-7" fill="currentColor" viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z" /></svg>
+        ),
         splits: (
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" /></svg>
         ),
@@ -420,12 +425,12 @@ function ActionButton({ icon, label, active, onClick }: { icon: string; label: s
     return (
         <button
             onClick={onClick}
-            className={`aspect-square rounded-[1.5rem] flex flex-col items-center justify-center gap-2 transition-all duration-300 ${active
-                ? 'bg-gray-800 text-white shadow-lg shadow-gray-900/50 scale-95 border border-gray-700'
-                : 'bg-[#13131f] text-gray-400 hover:bg-[#1a1a24] border border-white/5'
+            className={`aspect-square rounded-[1.5rem] flex flex-col items-center justify-center gap-2 transition-all duration-300 shadow-lg ${active
+                    ? 'bg-gradient-to-br from-cyan-500 to-purple-600 text-white shadow-cyan-500/40 scale-105'
+                    : 'bg-[#13131f] text-gray-400 hover:bg-[#1a1a24] border border-white/5'
                 }`}
         >
-            <div className={`${active ? 'text-cyan-400' : 'text-gray-500'}`}>
+            <div className={`${active ? 'text-white' : 'text-gray-500'}`}>
                 {icons[icon]}
             </div>
             <span className="text-[10px] font-bold tracking-wide uppercase">{label}</span>
