@@ -24,10 +24,7 @@ export const WalletContextProvider: FC<{ children: ReactNode }> = ({ children })
     const endpoint = useMemo(() => clusterApiUrl(network), [network]);
 
     const wallets = useMemo(
-        () => [
-            new PhantomWalletAdapter(),
-            new SolflareWalletAdapter(),
-        ],
+        () => [],
         [network]
     );
 

@@ -138,9 +138,34 @@ function PaymentContent() {
                 <div className="p-8">
                     {!connected ? (
                         <div className="text-center">
-                            <p className="text-gray-400 mb-6">Connect your wallet to perform the payment securely on Solana.</p>
-                            <div className="flex justify-center">
+                            <p className="text-gray-400 mb-6 font-medium">Connect your wallet to perform the payment securely on Solana.</p>
+                            <div className="flex justify-center mb-6">
                                 <WalletMultiButton />
+                            </div>
+
+                            {/* Mobile Fallback Options */}
+                            <div className="border-t border-slate-700 pt-6 mt-6">
+                                <p className="text-gray-500 text-xs mb-3">Having trouble connecting in this browser?</p>
+                                <div className="grid grid-cols-2 gap-3">
+                                    <button
+                                        onClick={() => {
+                                            const url = encodeURIComponent(window.location.href);
+                                            window.location.href = `https://phantom.app/ul/browse/${url}?ref=${encodeURIComponent(window.location.origin)}`;
+                                        }}
+                                        className="py-2 px-3 bg-[#AB9FF2]/10 hover:bg-[#AB9FF2]/20 text-[#AB9FF2] border border-[#AB9FF2]/50 rounded-lg text-sm font-bold transition-all"
+                                    >
+                                        Open in Phantom
+                                    </button>
+                                    <button
+                                        onClick={() => {
+                                            const url = encodeURIComponent(window.location.href);
+                                            window.location.href = `https://solflare.com/ul/v1/browse/${url}?ref=${encodeURIComponent(window.location.origin)}`;
+                                        }}
+                                        className="py-2 px-3 bg-[#FC742F]/10 hover:bg-[#FC742F]/20 text-[#FC742F] border border-[#FC742F]/50 rounded-lg text-sm font-bold transition-all"
+                                    >
+                                        Open in Solflare
+                                    </button>
+                                </div>
                             </div>
                         </div>
                     ) : status === 'success' ? (
