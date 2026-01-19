@@ -7,10 +7,11 @@ import { PublicKey, SystemProgram, Transaction } from '@solana/web3.js';
 import { PROGRAM_ID, IDL } from '../../utils/anchor';
 import { Program, AnchorProvider, BN } from '@coral-xyz/anchor';
 import { useConnection } from '@solana/wallet-adapter-react';
+import { ActionButtonProps, TabType } from '@/types';
+import QRCode from "react-qr-code";
+import { Html5QrcodeScanner } from "html5-qrcode";
 import { Buffer } from 'buffer';
 import Image from 'next/image';
-
-type TabType = 'receive' | 'send' | 'splits' | 'alias' | 'contacts' | 'history';
 
 export default function Dashboard() {
     const { publicKey, connected } = useWallet();
@@ -451,7 +452,20 @@ function ReceiveTab({ registeredAlias, linkAmount, setLinkAmount, linkConcept, s
             </div>
 
             <div className="bg-gray-800 p-6 border border-gray-700">
-                <label className="text-sm text-gray-400 block mb-3">Your Payment Link</label>
+                <label className="text-sm text-gray-400 block mb-3">Your Payment Link & QR Code</label>
+
+                {/* QR Code Display */}
+                <div className="flex justify-center mb-6">
+                    <div className="p-4 bg-white rounded-xl shadow-lg">
+                        <QRCode
+                            value={getPaymentUrl()}
+                            size={180}
+                            style={{ height: "auto", maxWidth: "100%", width: "100%" }}
+                            viewBox={`0 0 256 256`}
+                        />
+                    </div>
+                </div>
+
                 <div className="mb-4">
                     <code className="block p-4 bg-black text-cyan-400 font-mono text-sm break-all border border-gray-700">
                         {typeof window !== 'undefined' ? window.location.host : 'unik.app'}/pay/{registeredAlias}{linkAmount ? `?amount=${linkAmount}` : ''}
@@ -522,9 +536,88 @@ function ReceiveTab({ registeredAlias, linkAmount, setLinkAmount, linkConcept, s
 }
 
 function SendTab({ sendRecipient, setSendRecipient, sendAlias, setSendAlias, sendAmount, setSendAmount, sendNote, setSendNote, paymentConcept, setPaymentConcept, loading, setLoading, publicKey, wallet, connection }: any) {
+    const [scanning, setScanning] = useState(false);
+
+    useEffect(() => {
+        if (scanning) {
+            const scanner = new Html5QrcodeScanner(
+                "reader",
+                { fps: 10, qrbox: { width: 250, height: 250 } },
+                /* verbose= */ false
+            );
+
+            scanner.render((decodedText) => {
+                console.log("Scanned:", decodedText);
+                try {
+                    // Handle URL format: domain/pay/alias?amount=X&concept=Y
+                    if (decodedText.includes('/pay/')) {
+                        const url = new URL(decodedText);
+                        const pathParts = url.pathname.split('/');
+                        const aliasIndex = pathParts.indexOf('pay') + 1;
+                        if (aliasIndex < pathParts.length) {
+                            const alias = pathParts[aliasIndex];
+                            setSendRecipient(`@${alias}`);
+                            setSendAlias(alias);
+
+                            const amount = url.searchParams.get('amount');
+                            if (amount) setSendAmount(amount);
+
+                            const concept = url.searchParams.get('concept');
+                            if (concept) setSendNote(concept);
+                        }
+                    } else {
+                        // Assume it's a direct address or alias
+                        setSendRecipient(decodedText);
+                        setSendAlias('');
+                    }
+                    scanner.clear();
+                    setScanning(false);
+                } catch (e) {
+                    console.error("Error parsing QR", e);
+                    alert("Invalid QR Code format");
+                    scanner.clear();
+                    setScanning(false);
+                }
+            }, (error) => {
+                // console.warn(error);
+            });
+
+            return () => {
+                scanner.clear().catch(e => console.error("Failed to clear scanner", e));
+            };
+        }
+    }, [scanning]);
+
     return (
         <div>
-            <h3 className="text-2xl font-bold mb-6">Send SOL</h3>
+            <div className="flex justify-between items-center mb-6">
+                <h3 className="text-2xl font-bold">Send SOL</h3>
+                <button
+                    onClick={() => setScanning(!scanning)}
+                    className="flex items-center gap-2 text-cyan-400 hover:text-cyan-300 font-bold bg-cyan-900/30 px-3 py-1.5 rounded-lg transition-colors border border-cyan-500/30"
+                >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" />
+                    </svg>
+                    {scanning ? 'Cancel Scan' : 'Scan QR'}
+                </button>
+            </div>
+
+            {scanning && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+                    <div className="bg-gray-900 p-6 rounded-2xl w-full max-w-sm border border-gray-700 shadow-2xl relative">
+                        <button
+                            onClick={() => setScanning(false)}
+                            className="absolute top-4 right-4 text-gray-400 hover:text-white"
+                        >
+                            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                        </button>
+                        <h4 className="text-xl font-bold mb-4 text-center">Scan Payment QR</h4>
+                        <div id="reader" className="overflow-hidden rounded-lg"></div>
+                        <p className="text-center text-xs text-gray-500 mt-4">Point your camera at a UNIK payment QR code</p>
+                    </div>
+                </div>
+            )}
 
             <div className="space-y-6">
                 <div>

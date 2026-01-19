@@ -16,9 +16,11 @@
     "@solana/wallet-adapter-wallets": "^0.19.32",
     "@solana/web3.js": "^1.98.4",
     "buffer": "^6.0.3",
+    "html5-qrcode": "^2.3.8",
     "next": "16.1.1",
     "react": "19.2.3",
-    "react-dom": "19.2.3"
+    "react-dom": "19.2.3",
+    "react-qr-code": "^2.0.18"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
