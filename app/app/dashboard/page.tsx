@@ -2,13 +2,13 @@
 
 import { useWallet } from '@solana/wallet-adapter-react';
 import { WalletMultiButton } from '@solana/wallet-adapter-react-ui';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { PublicKey, SystemProgram, Transaction } from '@solana/web3.js';
 import { PROGRAM_ID, IDL } from '../../utils/anchor';
 import { Program, AnchorProvider, BN } from '@coral-xyz/anchor';
 import { useConnection } from '@solana/wallet-adapter-react';
 import QRCode from "react-qr-code";
-import { Html5QrcodeScanner } from "html5-qrcode";
+import { Html5Qrcode } from "html5-qrcode";
 import { Buffer } from 'buffer';
 import Image from 'next/image';
 
@@ -538,53 +538,79 @@ function ReceiveTab({ registeredAlias, linkAmount, setLinkAmount, linkConcept, s
 
 function SendTab({ sendRecipient, setSendRecipient, sendAlias, setSendAlias, sendAmount, setSendAmount, sendNote, setSendNote, paymentConcept, setPaymentConcept, loading, setLoading, publicKey, wallet, connection }: any) {
     const [scanning, setScanning] = useState(false);
+    const scannerRef = useRef<Html5Qrcode | null>(null);
 
     useEffect(() => {
         if (scanning) {
-            const scanner = new Html5QrcodeScanner(
-                "reader",
-                { fps: 10, qrbox: { width: 250, height: 250 } },
-                /* verbose= */ false
-            );
+            // Give the DOM a moment to render the #reader div
+            const timer = setTimeout(() => {
+                if (!scannerRef.current) {
+                    const html5QrCode = new Html5Qrcode("reader");
+                    scannerRef.current = html5QrCode;
 
-            scanner.render((decodedText) => {
-                console.log("Scanned:", decodedText);
-                try {
-                    // Handle URL format: domain/pay/alias?amount=X&concept=Y
-                    if (decodedText.includes('/pay/')) {
-                        const url = new URL(decodedText);
-                        const pathParts = url.pathname.split('/');
-                        const aliasIndex = pathParts.indexOf('pay') + 1;
-                        if (aliasIndex < pathParts.length) {
-                            const alias = pathParts[aliasIndex];
-                            setSendRecipient(`@${alias}`);
-                            setSendAlias(alias);
+                    const config = { fps: 10, qrbox: { width: 250, height: 250 } };
 
-                            const amount = url.searchParams.get('amount');
-                            if (amount) setSendAmount(amount);
+                    html5QrCode.start(
+                        { facingMode: "environment" },
+                        config,
+                        (decodedText) => {
+                            console.log("Scanned:", decodedText);
+                            try {
+                                // Handle URL format: domain/pay/alias?amount=X&concept=Y
+                                if (decodedText.includes('/pay/')) {
+                                    const url = new URL(decodedText);
+                                    const pathParts = url.pathname.split('/');
+                                    const aliasIndex = pathParts.indexOf('pay') + 1;
+                                    if (aliasIndex < pathParts.length) {
+                                        const alias = pathParts[aliasIndex];
+                                        setSendRecipient(`@${alias}`);
+                                        setSendAlias(alias);
 
-                            const concept = url.searchParams.get('concept');
-                            if (concept) setSendNote(concept);
+                                        const amount = url.searchParams.get('amount');
+                                        if (amount) setSendAmount(amount);
+
+                                        const concept = url.searchParams.get('concept');
+                                        if (concept) setSendNote(concept);
+                                    }
+                                } else {
+                                    // Assume it's a direct address or alias
+                                    setSendRecipient(decodedText);
+                                    setSendAlias('');
+                                }
+
+                                html5QrCode.stop().then(() => {
+                                    html5QrCode.clear();
+                                    scannerRef.current = null;
+                                    setScanning(false);
+                                }).catch(err => console.error("Failed to stop after scan", err));
+
+                            } catch (e) {
+                                console.error("Error parsing QR", e);
+                                alert("Invalid QR Code format");
+                            }
+                        },
+                        (errorMessage) => {
+                            // parse error, ignore usually
                         }
-                    } else {
-                        // Assume it's a direct address or alias
-                        setSendRecipient(decodedText);
-                        setSendAlias('');
-                    }
-                    scanner.clear();
-                    setScanning(false);
-                } catch (e) {
-                    console.error("Error parsing QR", e);
-                    alert("Invalid QR Code format");
-                    scanner.clear();
-                    setScanning(false);
+                    ).catch(err => {
+                        console.error("Error starting scanner", err);
+                        alert("Camera error: " + (err.message || "Permission denied"));
+                        setScanning(false);
+                        scannerRef.current = null;
+                    });
                 }
-            }, (error) => {
-                // console.warn(error);
-            });
+            }, 100); // 100ms delay to ensure div exists
 
             return () => {
-                scanner.clear().catch(e => console.error("Failed to clear scanner", e));
+                clearTimeout(timer);
+                if (scannerRef.current) {
+                    scannerRef.current.stop().then(() => {
+                        scannerRef.current?.clear();
+                        scannerRef.current = null;
+                    }).catch(err => {
+                        console.error("Failed to stop scanner on cleanup", err);
+                    });
+                }
             };
         }
     }, [scanning]);
