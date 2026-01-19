@@ -329,77 +329,90 @@ export default function Dashboard() {
             </nav>
 
             {/* Main Container */}
-            <div className="max-w-md mx-auto px-4 py-6 pb-24">
+            {/* Main Container */}
+            <div className="max-w-7xl mx-auto px-4 py-8 lg:py-12">
 
-                {/* Balance Card */}
-                <div className="relative overflow-hidden rounded-[2rem] p-[1px] bg-gradient-to-br from-cyan-500/50 via-purple-500/50 to-pink-500/50 mb-8 shadow-2xl shadow-purple-900/20">
-                    <div className="bg-[#13131f] rounded-[2rem] p-8 text-center relative overflow-hidden">
-                        {/* Internal Glows */}
-                        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-3/4 h-24 bg-cyan-500/10 blur-[50px] rounded-full"></div>
+                <div className="flex flex-col lg:flex-row gap-8 items-start">
 
-                        <p className="text-xs font-bold tracking-[0.2em] text-gray-500 uppercase mb-2">Total Balance</p>
+                    {/* LEFT COLUMN: Sidebar (Balance & Actions) */}
+                    <div className="w-full lg:w-[350px] flex-shrink-0 space-y-6">
+                        {/* Balance Card */}
+                        <div className="relative overflow-hidden rounded-[2rem] p-[1px] bg-gradient-to-br from-cyan-500/50 via-purple-500/50 to-pink-500/50 shadow-2xl shadow-purple-900/20">
+                            <div className="bg-[#13131f] rounded-[2rem] p-8 text-center relative overflow-hidden">
+                                <div className="absolute top-0 left-1/2 -translate-x-1/2 w-3/4 h-24 bg-cyan-500/10 blur-[50px] rounded-full"></div>
+                                <p className="text-xs font-bold tracking-[0.2em] text-gray-500 uppercase mb-2">Total Balance</p>
+                                <h2 className="text-4xl lg:text-5xl font-bold text-white mb-2 tracking-tighter">
+                                    {balance !== null ? balance.toFixed(4) : '0.00'} <span className="text-xl lg:text-2xl text-gray-600 font-normal">SOL</span>
+                                </h2>
+                                {solPrice && balance !== null && (
+                                    <p className="text-cyan-400 font-medium text-sm flex items-center justify-center gap-1">
+                                        ≈ ${(balance * solPrice).toFixed(2)} USD
+                                    </p>
+                                )}
+                            </div>
+                        </div>
 
-                        <h2 className="text-5xl font-bold text-white mb-2 tracking-tighter">
-                            {balance !== null ? balance.toFixed(4) : '0.00'} <span className="text-2xl text-gray-600 font-normal">SOL</span>
-                        </h2>
+                        {/* Action Grid */}
+                        <div className="grid grid-cols-3 lg:grid-cols-2 gap-3">
+                            <ActionButton
+                                icon="receive"
+                                label="Receive"
+                                active={activeTab === 'receive'}
+                                onClick={() => setActiveTab('receive')}
+                            />
+                            <ActionButton
+                                icon="send"
+                                label="Send"
+                                active={activeTab === 'send'}
+                                onClick={() => setActiveTab('send')}
+                            />
+                            <ActionButton
+                                icon="splits"
+                                label="Splits"
+                                active={activeTab === 'splits'}
+                                onClick={() => setActiveTab('splits')}
+                            />
+                            <ActionButton
+                                icon="alias"
+                                label="Alias"
+                                active={activeTab === 'alias'}
+                                onClick={() => setActiveTab('alias')}
+                            />
+                            <ActionButton
+                                icon="contacts"
+                                label="Contacts"
+                                active={activeTab === 'contacts'}
+                                onClick={() => setActiveTab('contacts')}
+                            />
+                            <ActionButton
+                                icon="history"
+                                label="History"
+                                active={activeTab === 'history'}
+                                onClick={() => setActiveTab('history')}
+                            />
+                        </div>
+                    </div>
 
-                        {solPrice && balance !== null && (
-                            <p className="text-cyan-400 font-medium text-sm flex items-center justify-center gap-1">
-                                ≈ ${(balance * solPrice).toFixed(2)} USD
-                            </p>
-                        )}
+                    {/* RIGHT COLUMN: Content Area */}
+                    <div className="flex-1 w-full bg-[#13131f]/50 backdrop-blur-sm rounded-[2rem] border border-white/5 p-4 lg:p-8 min-h-[500px]">
+                        {activeTab === 'receive' && <ReceiveTab registeredAlias={registeredAlias} linkAmount={linkAmount} setLinkAmount={setLinkAmount} linkConcept={linkConcept} setLinkConcept={setLinkConcept} />}
+                        {activeTab === 'send' && <SendTab sendRecipient={sendRecipient} setSendRecipient={setSendRecipient} sendAlias={sendAlias} setSendAlias={setSendAlias} sendAmount={sendAmount} setSendAmount={setSendAmount} sendNote={sendNote} setSendNote={setSendNote} paymentConcept={paymentConcept} setPaymentConcept={setPaymentConcept} loading={loading} setLoading={setLoading} publicKey={publicKey} wallet={wallet} connection={connection} solPrice={solPrice} balance={balance} />}
+                        {activeTab === 'splits' && <SplitsTab splits={splits} setSplits={setSplits} isEditing={isEditing} setIsEditing={setIsEditing} newSplitAddress={newSplitAddress} setNewSplitAddress={setNewSplitAddress} newSplitPercent={newSplitPercent} setNewSplitPercent={setNewSplitPercent} addSplit={addSplit} removeSplit={removeSplit} totalPercent={totalPercent} handleSaveConfig={handleSaveConfig} loading={loading} />}
+                        {activeTab === 'alias' && <AliasTab myAliases={myAliases} showRegisterForm={showRegisterForm} setShowRegisterForm={setShowRegisterForm} alias={alias} setAlias={setAlias} handleRegister={handleRegister} loading={loading} setRegisteredAlias={setRegisteredAlias} />}
+                        {activeTab === 'contacts' && <ContactsTab setSendRecipient={setSendRecipient} setSendAlias={setSendAlias} setSendNote={setSendNote} setActiveTab={setActiveTab} loading={loading} setLoading={setLoading} connection={connection} wallet={wallet} />}
+                        {activeTab === 'history' && <HistoryTab publicKey={publicKey} connection={connection} />}
                     </div>
                 </div>
 
-                {/* Action Grid (3x2) */}
-                {/* Action Grid (3x2) - All buttons identical now for uniformity */}
-                <div className="grid grid-cols-3 gap-3 mb-8">
-                    <ActionButton
-                        icon="receive"
-                        label="Receive"
-                        active={activeTab === 'receive'}
-                        onClick={() => setActiveTab('receive')}
-                    />
-                    <ActionButton
-                        icon="send"
-                        label="Send"
-                        active={activeTab === 'send'}
-                        onClick={() => setActiveTab('send')}
-                    />
-                    <ActionButton
-                        icon="splits"
-                        label="Splits"
-                        active={activeTab === 'splits'}
-                        onClick={() => setActiveTab('splits')}
-                    />
-                    <ActionButton
-                        icon="alias"
-                        label="Alias"
-                        active={activeTab === 'alias'}
-                        onClick={() => setActiveTab('alias')}
-                    />
-                    <ActionButton
-                        icon="contacts"
-                        label="Contacts"
-                        active={activeTab === 'contacts'}
-                        onClick={() => setActiveTab('contacts')}
-                    />
-                    <ActionButton
-                        icon="history"
-                        label="History"
-                        active={activeTab === 'history'}
-                        onClick={() => setActiveTab('history')}
-                    />
-                </div>
-
-                {/* Content Area */}
-                <div className="">
-                    {activeTab === 'receive' && <ReceiveTab registeredAlias={registeredAlias} linkAmount={linkAmount} setLinkAmount={setLinkAmount} linkConcept={linkConcept} setLinkConcept={setLinkConcept} />}
-                    {activeTab === 'send' && <SendTab sendRecipient={sendRecipient} setSendRecipient={setSendRecipient} sendAlias={sendAlias} setSendAlias={setSendAlias} sendAmount={sendAmount} setSendAmount={setSendAmount} sendNote={sendNote} setSendNote={setSendNote} paymentConcept={paymentConcept} setPaymentConcept={setPaymentConcept} loading={loading} setLoading={setLoading} publicKey={publicKey} wallet={wallet} connection={connection} solPrice={solPrice} balance={balance} />}
-                    {activeTab === 'splits' && <SplitsTab splits={splits} setSplits={setSplits} isEditing={isEditing} setIsEditing={setIsEditing} newSplitAddress={newSplitAddress} setNewSplitAddress={setNewSplitAddress} newSplitPercent={newSplitPercent} setNewSplitPercent={setNewSplitPercent} addSplit={addSplit} removeSplit={removeSplit} totalPercent={totalPercent} handleSaveConfig={handleSaveConfig} loading={loading} />}
-                    {activeTab === 'alias' && <AliasTab myAliases={myAliases} showRegisterForm={showRegisterForm} setShowRegisterForm={setShowRegisterForm} alias={alias} setAlias={setAlias} handleRegister={handleRegister} loading={loading} setRegisteredAlias={setRegisteredAlias} />}
-                    {activeTab === 'contacts' && <ContactsTab setSendRecipient={setSendRecipient} setSendAlias={setSendAlias} setSendNote={setSendNote} setActiveTab={setActiveTab} loading={loading} setLoading={setLoading} connection={connection} wallet={wallet} />}
-                    {activeTab === 'history' && <HistoryTab publicKey={publicKey} connection={connection} />}
+                {/* Footer */}
+                <div className="mt-12 pt-8 border-t border-white/5 text-center text-gray-500">
+                    <p className="text-sm mb-2 font-medium">Powered by <span className="text-cyan-400">UNIK Protocol</span></p>
+                    <p className="text-[10px] uppercase tracking-wider max-w-md mx-auto opacity-50 px-4">
+                        Beta Product • Use at your own risk • Non-Custodial
+                        <br className="sm:hidden" />
+                        <span className="hidden sm:inline"> • </span>
+                        Not responsible for lost funds
+                    </p>
                 </div>
             </div>
         </div>
