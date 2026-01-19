@@ -111,7 +111,7 @@ pub struct RegisterAlias<'info> {
     #[account(
         init,
         payer = user,
-        space = 8 + 32 + 4 + 32 + 4 + 128 + 1,
+        space = 8 + 32 + 4 + 32 + 4 + 200 + 1,
         seeds = [b"alias", alias.as_bytes()],
         bump
     )]

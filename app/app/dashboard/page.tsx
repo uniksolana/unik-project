@@ -218,6 +218,27 @@ export default function Dashboard() {
         }
     };
 
+    // Price State
+    const [solPrice, setSolPrice] = useState<number | null>(null);
+
+    useEffect(() => {
+        // Fetch SOL price
+        const fetchPrice = async () => {
+            try {
+                const res = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=solana&vs_currencies=usd');
+                const data = await res.json();
+                setSolPrice(data.solana.usd);
+            } catch (e) {
+                console.error("Failed to fetch price", e);
+            }
+        };
+        fetchPrice();
+    }, []);
+
+    // ... existing alias and config effects ...
+
+    // ... (keep handleRegister and handleSaveConfig logic same as before, they are fine)
+
     const totalPercent = splits.reduce((acc, curr) => acc + curr.percent, 0);
 
     const addSplit = () => {
@@ -246,15 +267,18 @@ export default function Dashboard() {
 
     if (!connected) {
         if (!isMounted) return null;
-
         return (
-            <div className="min-h-screen bg-black flex flex-col items-center justify-center text-white px-4">
-                <Image src="/logo-full.png" alt="UNIK" width={300} height={100} className="mb-12" priority />
-                <h1 className="text-4xl font-bold mb-4">Welcome to UNIK</h1>
-                <p className="text-xl text-gray-400 mb-8 max-w-md text-center">
-                    The non-custodial payment router for Solana
-                </p>
-                <WalletMultiButton />
+            <div className="min-h-screen bg-[#0d0d12] flex flex-col items-center justify-center text-white px-4 relative overflow-hidden">
+                {/* Ambient Background */}
+                <div className="absolute top-[-10%] left-[-10%] w-[500px] h-[500px] bg-purple-600/20 rounded-full blur-[120px]"></div>
+                <div className="absolute bottom-[-10%] right-[-10%] w-[500px] h-[500px] bg-cyan-600/20 rounded-full blur-[120px]"></div>
+
+                <div className="text-center z-10 p-8 border border-white/10 bg-white/5 backdrop-blur-xl rounded-3xl shadow-2xl">
+                    <Image src="/logo-icon.png" alt="UNIK" width={80} height={80} className="mx-auto mb-6 drop-shadow-[0_0_15px_rgba(6,182,212,0.5)]" priority />
+                    <h1 className="text-4xl font-bold mb-3 tracking-tight">Welcome to UNIK</h1>
+                    <p className="text-gray-400 mb-8 max-w-xs mx-auto">The next-gen payment router for Solana.</p>
+                    <WalletMultiButton />
+                </div>
             </div>
         );
     }
@@ -262,60 +286,78 @@ export default function Dashboard() {
     if (!isMounted) return null;
 
     return (
-        <div className="min-h-screen bg-black text-white">
-            {/* Header */}
-            <nav className="border-b border-gray-800 bg-black/50 backdrop-blur-xl sticky top-0 z-50">
-                <div className="max-w-6xl mx-auto px-4 py-4 flex justify-between items-center">
-                    <Image src="/logo-full.png" alt="UNIK" width={120} height={40} priority />
-                    <div className="flex items-center gap-4">
-                        {balance !== null && (
-                            <div className="text-right">
-                                <p className="text-xs text-gray-500">Balance</p>
-                                <p className="text-lg font-bold">{balance.toFixed(4)} SOL</p>
-                            </div>
+        <div className="min-h-screen bg-[#0d0d12] text-white selection:bg-cyan-500/30">
+            {/* Header / Nav */}
+            <nav className="border-b border-white/5 bg-[#0d0d12]/80 backdrop-blur-xl sticky top-0 z-50">
+                <div className="max-w-md mx-auto px-6 py-4 flex justify-between items-center">
+                    <div className="flex items-center gap-2">
+                        <div className="w-8 h-8 bg-gradient-to-tr from-cyan-500 to-purple-600 rounded-lg flex items-center justify-center text-xs font-bold shadow-lg shadow-cyan-500/20">U</div>
+                        <span className="font-bold text-xl tracking-wide bg-clip-text text-transparent bg-gradient-to-r from-cyan-400 to-purple-400">UNIK</span>
+                    </div>
+
+                    {/* Active Alias Capsule */}
+                    <div className="flex items-center gap-2 bg-white/5 border border-white/10 rounded-full px-3 py-1.5 backdrop-blur-md">
+                        <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse shadow-[0_0_8px_limegreen]"></div>
+                        <span className="text-xs font-mono text-gray-300">
+                            {registeredAlias ? `@${registeredAlias}` : 'No Alias'}
+                        </span>
+                        {myAliases.length > 1 && (
+                            <select
+                                value={registeredAlias || ''}
+                                onChange={(e) => setRegisteredAlias(e.target.value)}
+                                className="bg-transparent text-transparent w-4 absolute opacity-0 cursor-pointer inset-0"
+                            >
+                                {myAliases.map(a => <option key={a} value={a}>@{a}</option>)}
+                            </select>
                         )}
-                        <WalletMultiButton />
                     </div>
                 </div>
             </nav>
 
             {/* Main Container */}
-            <div className="max-w-6xl mx-auto px-4 py-8">
-                {/* Wallet Card */}
-                <div className="bg-gradient-to-br from-cyan-500 via-purple-500 to-pink-500 p-6 md:p-8 mb-6 md:mb-8 shadow-2xl">
-                    <div className="flex flex-col sm:flex-row justify-between items-start gap-4 mb-4 md:mb-6">
-                        <div>
-                            <p className="text-xs md:text-sm text-white/70 mb-1">Your UNIK Alias</p>
-                            <h2 className="text-2xl md:text-4xl font-bold">@{registeredAlias || 'not-set'}</h2>
-                        </div>
-                        <Image src="/logo-icon.png" alt="UNIK" width={50} height={50} className="md:w-[60px] md:h-[60px]" />
-                    </div>
+            <div className="max-w-md mx-auto px-4 py-6 pb-24">
 
-                    {myAliases.length > 1 && (
-                        <select
-                            value={registeredAlias || ''}
-                            onChange={(e) => setRegisteredAlias(e.target.value)}
-                            className="bg-white/20 backdrop-blur-sm text-white px-4 py-2 rounded-xl font-semibold border border-white/30 focus:outline-none focus:ring-2 focus:ring-white/50"
-                        >
-                            {myAliases.map(a => <option key={a} value={a} className="text-black">@{a}</option>)}
-                        </select>
-                    )}
+                {/* Balance Card */}
+                <div className="relative overflow-hidden rounded-[2rem] p-[1px] bg-gradient-to-br from-cyan-500/50 via-purple-500/50 to-pink-500/50 mb-8 shadow-2xl shadow-purple-900/20">
+                    <div className="bg-[#13131f] rounded-[2rem] p-8 text-center relative overflow-hidden">
+                        {/* Internal Glows */}
+                        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-3/4 h-24 bg-cyan-500/10 blur-[50px] rounded-full"></div>
+
+                        <p className="text-xs font-bold tracking-[0.2em] text-gray-500 uppercase mb-2">Total Balance</p>
+
+                        <h2 className="text-5xl font-bold text-white mb-2 tracking-tighter">
+                            {balance !== null ? balance.toFixed(4) : '0.00'} <span className="text-2xl text-gray-600 font-normal">SOL</span>
+                        </h2>
+
+                        {solPrice && balance !== null && (
+                            <p className="text-cyan-400 font-medium text-sm flex items-center justify-center gap-1">
+                                ≈ ${(balance * solPrice).toFixed(2)} USD
+                            </p>
+                        )}
+                    </div>
                 </div>
 
-                {/* Action Buttons */}
-                <div className="grid grid-cols-3 sm:grid-cols-6 gap-3 md:gap-4 mb-8">
+                {/* Action Grid (3x2) */}
+                <div className="grid grid-cols-3 gap-3 mb-8">
                     <ActionButton
                         icon="receive"
                         label="Receive"
                         active={activeTab === 'receive'}
                         onClick={() => setActiveTab('receive')}
                     />
-                    <ActionButton
-                        icon="send"
-                        label="Send"
-                        active={activeTab === 'send'}
+                    {/* Send Button is highlighted */}
+                    <button
                         onClick={() => setActiveTab('send')}
-                    />
+                        className={`aspect-square rounded-[1.5rem] flex flex-col items-center justify-center gap-2 transition-all duration-300 shadow-lg ${activeTab === 'send'
+                            ? 'bg-gradient-to-br from-cyan-500 to-purple-600 text-white shadow-cyan-500/40 scale-105'
+                            : 'bg-gradient-to-br from-cyan-500 via-purple-600 to-pink-500 p-[1px]'
+                            }`}
+                    >
+                        <div className={`w-full h-full rounded-[1.5rem] flex flex-col items-center justify-center gap-2 ${activeTab === 'send' ? 'bg-transparent' : 'bg-[#1a1a24] hover:bg-[#20202c]'}`}>
+                            <svg className="w-7 h-7 text-white" fill="currentColor" viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z" /></svg>
+                            <span className="text-[10px] font-bold tracking-wide text-white">SEND</span>
+                        </div>
+                    </button>
                     <ActionButton
                         icon="splits"
                         label="Splits"
@@ -343,9 +385,9 @@ export default function Dashboard() {
                 </div>
 
                 {/* Content Area */}
-                <div className="bg-gray-900 p-4 md:p-8 border border-gray-800">
+                <div className="">
                     {activeTab === 'receive' && <ReceiveTab registeredAlias={registeredAlias} linkAmount={linkAmount} setLinkAmount={setLinkAmount} linkConcept={linkConcept} setLinkConcept={setLinkConcept} />}
-                    {activeTab === 'send' && <SendTab sendRecipient={sendRecipient} setSendRecipient={setSendRecipient} sendAlias={sendAlias} setSendAlias={setSendAlias} sendAmount={sendAmount} setSendAmount={setSendAmount} sendNote={sendNote} setSendNote={setSendNote} paymentConcept={paymentConcept} setPaymentConcept={setPaymentConcept} loading={loading} setLoading={setLoading} publicKey={publicKey} wallet={wallet} connection={connection} />}
+                    {activeTab === 'send' && <SendTab sendRecipient={sendRecipient} setSendRecipient={setSendRecipient} sendAlias={sendAlias} setSendAlias={setSendAlias} sendAmount={sendAmount} setSendAmount={setSendAmount} sendNote={sendNote} setSendNote={setSendNote} paymentConcept={paymentConcept} setPaymentConcept={setPaymentConcept} loading={loading} setLoading={setLoading} publicKey={publicKey} wallet={wallet} connection={connection} solPrice={solPrice} balance={balance} />}
                     {activeTab === 'splits' && <SplitsTab splits={splits} setSplits={setSplits} isEditing={isEditing} setIsEditing={setIsEditing} newSplitAddress={newSplitAddress} setNewSplitAddress={setNewSplitAddress} newSplitPercent={newSplitPercent} setNewSplitPercent={setNewSplitPercent} addSplit={addSplit} removeSplit={removeSplit} totalPercent={totalPercent} handleSaveConfig={handleSaveConfig} loading={loading} />}
                     {activeTab === 'alias' && <AliasTab myAliases={myAliases} showRegisterForm={showRegisterForm} setShowRegisterForm={setShowRegisterForm} alias={alias} setAlias={setAlias} handleRegister={handleRegister} loading={loading} setRegisteredAlias={setRegisteredAlias} />}
                     {activeTab === 'contacts' && <ContactsTab setSendRecipient={setSendRecipient} setSendAlias={setSendAlias} setSendNote={setSendNote} setActiveTab={setActiveTab} loading={loading} setLoading={setLoading} connection={connection} wallet={wallet} />}
@@ -359,51 +401,34 @@ export default function Dashboard() {
 function ActionButton({ icon, label, active, onClick }: { icon: string; label: string; active: boolean; onClick: () => void }) {
     const icons: Record<string, React.ReactElement> = {
         receive: (
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4" />
-            </svg>
-        ),
-        send: (
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
-            </svg>
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 14l-7 7m0 0l-7-7m7 7V3" /></svg>
         ),
         splits: (
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
-            </svg>
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" /></svg>
         ),
         alias: (
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 20l4-16m2 16l4-16M6 9h14M4 15h14" />
-            </svg>
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
         ),
         contacts: (
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-            </svg>
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" /></svg>
         ),
         history: (
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
         )
     };
 
     return (
         <button
             onClick={onClick}
-            className={`p-4 md:p-5 font-semibold transition-all ${active
-                ? 'bg-gradient-to-br from-cyan-500 to-purple-500 text-white shadow-lg shadow-purple-500/30'
-                : 'bg-gray-800 text-gray-400 hover:bg-gray-700 border border-gray-700 hover:border-gray-600'
+            className={`aspect-square rounded-[1.5rem] flex flex-col items-center justify-center gap-2 transition-all duration-300 ${active
+                ? 'bg-gray-800 text-white shadow-lg shadow-gray-900/50 scale-95 border border-gray-700'
+                : 'bg-[#13131f] text-gray-400 hover:bg-[#1a1a24] border border-white/5'
                 }`}
         >
-            <div className="flex flex-col items-center gap-2">
-                <div className={active ? 'text-white' : 'text-gray-400'}>
-                    {icons[icon] || icons.receive}
-                </div>
-                <div className="text-xs md:text-sm whitespace-nowrap">{label}</div>
+            <div className={`${active ? 'text-cyan-400' : 'text-gray-500'}`}>
+                {icons[icon]}
             </div>
+            <span className="text-[10px] font-bold tracking-wide uppercase">{label}</span>
         </button>
     );
 }
@@ -993,37 +1018,64 @@ function ContactsTab({ setSendRecipient, setSendAlias, setSendNote, setActiveTab
         setLoading(true);
 
         try {
-            const provider = new AnchorProvider(connection, wallet as any, {});
-            const program = new Program(IDL as any, provider);
+            const inputLower = newContactAlias.trim();
+            let contactEntry: any = null;
 
-            const [aliasPDA] = PublicKey.findProgramAddressSync(
-                [Buffer.from("alias"), Buffer.from(newContactAlias.toLowerCase())],
-                PROGRAM_ID
-            );
+            // Check if input is a raw address (Base58ish check: 32-44 chars)
+            const isAddress = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(inputLower);
 
-            const account = await (program.account as any).aliasAccount.fetch(aliasPDA);
+            if (isAddress) {
+                // Case 1: Raw Address
+                const label = prompt("Enter a name for this wallet address:", "My Wallet");
+                if (!label) {
+                    setLoading(false);
+                    return;
+                }
 
-            const newContact = {
-                alias: newContactAlias.toLowerCase(),
-                address: account.owner.toBase58(),
-                note: '',
-                addedAt: Date.now()
-            };
+                contactEntry = {
+                    alias: label, // Display name
+                    address: inputLower,
+                    note: '',
+                    type: 'address', // New field to distinguish
+                    addedAt: Date.now()
+                };
+            } else {
+                // Case 2: UNIK Alias (On-Chain Lookup)
+                const provider = new AnchorProvider(connection, wallet as any, {});
+                const program = new Program(IDL as any, provider);
+
+                const [aliasPDA] = PublicKey.findProgramAddressSync(
+                    [Buffer.from("alias"), Buffer.from(inputLower.toLowerCase())],
+                    PROGRAM_ID
+                );
+
+                const account = await (program.account as any).aliasAccount.fetch(aliasPDA);
+
+                contactEntry = {
+                    alias: inputLower.toLowerCase(),
+                    address: account.owner.toBase58(),
+                    note: '',
+                    type: 'unik',
+                    addedAt: Date.now()
+                };
+            }
 
             const existing = JSON.parse(localStorage.getItem('unik_contacts') || '[]');
-            if (existing.some((c: any) => c.alias === newContactAlias.toLowerCase())) {
-                alert("Contact already exists!");
+            // Check for duplicates by Address or Alias Name
+            if (existing.some((c: any) => c.address === contactEntry.address || c.alias === contactEntry.alias)) {
+                alert("Contact (or address) already exists!");
                 setLoading(false);
                 return;
             }
 
-            const updated = [...existing, newContact];
+            const updated = [...existing, contactEntry];
             localStorage.setItem('unik_contacts', JSON.stringify(updated));
             window.dispatchEvent(new Event('storage'));
             setNewContactAlias('');
-            alert(`Added @${newContactAlias} to contacts!`);
+            alert(contactEntry.type === 'unik' ? `Added @${contactEntry.alias}!` : `Added "${contactEntry.alias}"!`);
         } catch (e) {
-            alert(`Could not find alias "@${newContactAlias}". Make sure it is registered.`);
+            console.error(e);
+            alert(`Could not verify alias/address. \nIf using an alias, ensure it is registered on-chain.`);
         } finally {
             setLoading(false);
         }
@@ -1075,9 +1127,9 @@ function ContactsTab({ setSendRecipient, setSendAlias, setSendNote, setActiveTab
                 <div className="flex flex-col sm:flex-row gap-3">
                     <input
                         type="text"
-                        placeholder="Enter alias (e.g. alice)"
+                        placeholder="Enter alias OR address (sol...)"
                         value={newContactAlias}
-                        onChange={(e) => setNewContactAlias(e.target.value.toLowerCase())}
+                        onChange={(e) => setNewContactAlias(e.target.value)}
                         className="flex-1 px-4 py-3 rounded-xl bg-gray-900 border border-gray-700 focus:outline-none focus:border-cyan-500 transition-all font-mono text-sm"
                     />
                     <button
@@ -1120,7 +1172,8 @@ function ContactsTab({ setSendRecipient, setSendAlias, setSendNote, setActiveTab
                                     </div>
                                     <div className="flex-1 min-w-0">
                                         <p className="font-bold text-lg flex items-center gap-1">
-                                            @{c.alias}
+                                            {c.type === 'unik' || !c.type ? `@${c.alias}` : c.alias}
+                                            {c.type !== 'unik' && c.type && <span className="px-2 py-0.5 rounded bg-gray-700 text-[10px] text-gray-400 font-normal">ADDR</span>}
                                         </p>
                                         {c.note ? (
                                             <p className="text-xs text-gray-400 truncate italic bg-gray-900/50 px-2 py-0.5 rounded border border-gray-700/50 inline-block mb-1">
@@ -1151,9 +1204,12 @@ function ContactsTab({ setSendRecipient, setSendAlias, setSendNote, setActiveTab
                                     </button>
                                     <button
                                         onClick={() => {
-                                            setSendRecipient(c.address);
-                                            setSendAlias(c.alias);
-                                            setSendNote(c.note || '');
+                                            setSendRecipient(c.address); // Always Pubkey
+                                            setSendAlias(c.type === 'unik' || !c.type ? c.alias : ''); // Only verify if UNIK type
+
+                                            // Pre-fill note if exists
+                                            if (c.note) setSendNote(c.note);
+
                                             setActiveTab('send');
                                         }}
                                         className="px-5 py-2.5 bg-gradient-to-r from-cyan-600/20 to-blue-600/20 hover:from-cyan-600 hover:to-blue-600 text-cyan-400 hover:text-white font-bold text-sm rounded-lg border border-cyan-500/30 transition-all shadow-lg active:scale-95"
