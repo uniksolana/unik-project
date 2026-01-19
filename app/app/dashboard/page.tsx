@@ -7,11 +7,12 @@ import { PublicKey, SystemProgram, Transaction } from '@solana/web3.js';
 import { PROGRAM_ID, IDL } from '../../utils/anchor';
 import { Program, AnchorProvider, BN } from '@coral-xyz/anchor';
 import { useConnection } from '@solana/wallet-adapter-react';
-import { ActionButtonProps, TabType } from '@/types';
 import QRCode from "react-qr-code";
 import { Html5QrcodeScanner } from "html5-qrcode";
 import { Buffer } from 'buffer';
 import Image from 'next/image';
+
+type TabType = 'receive' | 'send' | 'splits' | 'alias' | 'contacts' | 'history';
 
 export default function Dashboard() {
     const { publicKey, connected } = useWallet();
