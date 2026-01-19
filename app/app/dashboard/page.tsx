@@ -289,35 +289,41 @@ export default function Dashboard() {
         <div className="min-h-screen bg-[#0d0d12] text-white selection:bg-cyan-500/30">
             {/* Header / Nav */}
             <nav className="border-b border-white/5 bg-[#0d0d12]/80 backdrop-blur-xl sticky top-0 z-50">
-                <div className="max-w-md mx-auto px-6 py-4 flex justify-between items-center">
+                <div className="max-w-md mx-auto px-4 py-4 grid grid-cols-[auto_1fr_auto] items-center gap-2">
                     <div className="flex items-center gap-2">
                         <div className="w-8 h-8 bg-gradient-to-tr from-cyan-500 to-purple-600 rounded-lg flex items-center justify-center text-xs font-bold shadow-lg shadow-cyan-500/20">U</div>
-                        <span className="font-bold text-xl tracking-wide bg-clip-text text-transparent bg-gradient-to-r from-cyan-400 to-purple-400">UNIK</span>
+                        <span className="font-bold text-xl tracking-wide bg-clip-text text-transparent bg-gradient-to-r from-cyan-400 to-purple-400 hidden sm:inline-block">UNIK</span>
                     </div>
 
-                    {/* Active Alias Capsule */}
-                    <div className="flex items-center gap-2 bg-white/5 border border-white/10 rounded-full px-3 py-1.5 backdrop-blur-md">
-                        <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse shadow-[0_0_8px_limegreen]"></div>
-                        <span className="text-xs font-mono text-gray-300">
-                            {registeredAlias ? `@${registeredAlias}` : 'No Alias'}
-                        </span>
-                        {myAliases.length > 1 && (
-                            <svg className="w-3 h-3 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
-                        )}
-                        {myAliases.length > 1 && (
-                            <select
-                                value={registeredAlias || ''}
-                                onChange={(e) => setRegisteredAlias(e.target.value)}
-                                className="bg-transparent text-transparent w-4 absolute opacity-0 cursor-pointer inset-0"
-                            >
-                                {myAliases.map(a => <option key={a} value={a}>@{a}</option>)}
-                            </select>
-                        )}
+                    {/* Active Alias Capsule (Centered) */}
+                    <div className="flex justify-center w-full">
+                        <div className="relative flex items-center gap-2 bg-white/5 border border-white/10 rounded-full px-4 py-2 backdrop-blur-md hover:bg-white/10 transition-colors cursor-pointer group">
+                            <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse shadow-[0_0_8px_limegreen]"></div>
+                            <span className="text-xs font-mono text-gray-300 font-bold">
+                                {registeredAlias ? `@${registeredAlias}` : 'No Alias'}
+                            </span>
+                            {myAliases.length > 1 && (
+                                <svg className="w-3 h-3 text-gray-400 group-hover:text-white transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+                            )}
+
+                            {/* Full-size trigger for dropdown */}
+                            {myAliases.length > 1 && (
+                                <select
+                                    value={registeredAlias || ''}
+                                    onChange={(e) => setRegisteredAlias(e.target.value)}
+                                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer appearance-none"
+                                >
+                                    {myAliases.map(a => <option key={a} value={a}>@{a}</option>)}
+                                </select>
+                            )}
+                        </div>
                     </div>
 
                     {/* Integrated Wallet Button */}
-                    <div className="scale-75 origin-right">
-                        <WalletMultiButton />
+                    <div className="flex justify-end">
+                        <div className="scale-75 origin-right">
+                            <WalletMultiButton />
+                        </div>
                     </div>
                 </div>
             </nav>
@@ -426,8 +432,8 @@ function ActionButton({ icon, label, active, onClick }: { icon: string; label: s
         <button
             onClick={onClick}
             className={`aspect-square rounded-[1.5rem] flex flex-col items-center justify-center gap-2 transition-all duration-300 shadow-lg ${active
-                    ? 'bg-gradient-to-br from-cyan-500 to-purple-600 text-white shadow-cyan-500/40 scale-105'
-                    : 'bg-[#13131f] text-gray-400 hover:bg-[#1a1a24] border border-white/5'
+                ? 'bg-gradient-to-br from-cyan-500 to-purple-600 text-white shadow-cyan-500/40 scale-105'
+                : 'bg-[#13131f] text-gray-400 hover:bg-[#1a1a24] border border-white/5'
                 }`}
         >
             <div className={`${active ? 'text-white' : 'text-gray-500'}`}>
