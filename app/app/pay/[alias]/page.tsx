@@ -4,6 +4,7 @@ import { useWallet, useConnection } from '@solana/wallet-adapter-react';
 import { WalletMultiButton } from '@solana/wallet-adapter-react-ui';
 import { useState, useEffect } from 'react';
 import toast from 'react-hot-toast';
+import { showTransactionToast, showSimpleToast } from '../../components/CustomToast';
 import { useParams, useSearchParams } from 'next/navigation';
 import { Suspense } from 'react';
 import { PublicKey, SystemProgram, Transaction } from '@solana/web3.js';
@@ -51,6 +52,7 @@ function PaymentContent() {
     const [routeAccount, setRouteAccount] = useState<any>(null);
     const [aliasOwner, setAliasOwner] = useState<PublicKey | null>(null);
     const [recipientAddress, setRecipientAddress] = useState<PublicKey | null>(null);
+    const [lastSignature, setLastSignature] = useState<string | null>(null);
 
     useEffect(() => {
         const queryAmount = searchParams.get('amount');
@@ -131,6 +133,8 @@ function PaymentContent() {
             const normalizedAlias = alias.toLowerCase().trim();
             const lamports = parseFloat(amount) * 1e9;
 
+            let txSignature = '';
+
             // Scenario A: Route Config Exists -> Use Smart Contract
             if (routeAccount) {
                 const [routePDA] = PublicKey.findProgramAddressSync(
@@ -155,6 +159,7 @@ function PaymentContent() {
                     .remainingAccounts(remainingAccounts)
                     .rpc();
 
+                txSignature = tx;
                 console.log("Smart Transfer successful:", tx);
             }
             // Scenario B: No Route Config -> Direct Transfer to Owner
@@ -170,11 +175,18 @@ function PaymentContent() {
                 // Note: Standard wallet adapter might need sendTransaction
                 const signature = await wallet.sendTransaction(transaction, connection);
                 await connection.confirmTransaction(signature, 'confirmed');
+                txSignature = signature;
                 console.log("Direct Transfer successful:", signature);
             } else {
                 throw new Error("Alias not found or invalid.");
             }
 
+            setLastSignature(txSignature);
+            showTransactionToast({
+                signature: txSignature,
+                message: `Successfully sent ${amount} SOL to @${alias}`,
+                type: 'success'
+            });
             setStatus('success');
             setAmount('');
         } catch (error) {
@@ -259,9 +271,33 @@ function PaymentContent() {
                             </div>
                             <h3 className="text-2xl font-bold text-white mb-2">Payment Sent!</h3>
                             <p className="text-gray-400 mb-6">Funds have been routed successfully.</p>
+
+                            {lastSignature && (
+                                <div className="bg-black/20 rounded-xl p-4 mb-6 border border-white/5">
+                                    <p className="text-[10px] text-gray-500 uppercase font-bold tracking-wider mb-2">Transaction Hash</p>
+                                    <code className="text-xs font-mono text-gray-400 block mb-3 bg-black/40 px-3 py-2 rounded-lg border border-white/5">
+                                        {lastSignature.substring(0, 12)}...{lastSignature.substring(lastSignature.length - 12)}
+                                    </code>
+                                    <a
+                                        href={`https://solscan.io/tx/${lastSignature}?cluster=devnet`}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="inline-flex items-center gap-2 px-4 py-2.5 bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-400 border border-cyan-500/30 rounded-xl text-sm font-bold transition-all"
+                                    >
+                                        View on Solscan
+                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                                        </svg>
+                                    </a>
+                                </div>
+                            )}
+
                             {senderNote && <div className="bg-white/5 rounded-xl p-4 mb-8 border border-white/5"><p className="text-white italic text-sm">"{senderNote}"</p></div>}
                             <button
-                                onClick={() => setStatus('idle')}
+                                onClick={() => {
+                                    setStatus('idle');
+                                    setLastSignature(null);
+                                }}
                                 className="w-full py-4 rounded-xl bg-white/5 hover:bg-white/10 text-white font-bold transition-all border border-white/5"
                             >
                                 Send another payment

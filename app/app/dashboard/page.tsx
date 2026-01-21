@@ -4,6 +4,7 @@ import { useWallet } from '@solana/wallet-adapter-react';
 import { WalletMultiButton } from '@solana/wallet-adapter-react-ui';
 import { useState, useEffect, useRef } from 'react';
 import toast from 'react-hot-toast';
+import { showTransactionToast, showSimpleToast } from '../components/CustomToast';
 import { PublicKey, SystemProgram, Transaction } from '@solana/web3.js';
 import { PROGRAM_ID, IDL } from '../../utils/anchor';
 import { Program, AnchorProvider, BN } from '@coral-xyz/anchor';
@@ -828,7 +829,11 @@ function SendTab({ sendRecipient, setSendRecipient, sendAlias, setSendAlias, sen
                                             .remainingAccounts(remainingAccounts)
                                             .rpc();
 
-                                        toast.success(`Sent ${sendAmount} SOL split according to @${targetAlias}'s rules.`);
+                                        showTransactionToast({
+                                            signature,
+                                            message: `Sent ${sendAmount} SOL split according to @${targetAlias}'s rules.`,
+                                            type: 'success'
+                                        });
                                         setSendAmount('');
                                         setPaymentConcept('');
                                         setLoading(false);
@@ -855,7 +860,11 @@ function SendTab({ sendRecipient, setSendRecipient, sendAlias, setSendAlias, sen
                                         const signature = await wallet.sendTransaction(transaction, connection);
                                         await connection.confirmTransaction(signature, 'confirmed');
 
-                                        toast.success(`Sent ${sendAmount} SOL to @${targetAlias}`);
+                                        showTransactionToast({
+                                            signature,
+                                            message: `Sent ${sendAmount} SOL to @${targetAlias}`,
+                                            type: 'success'
+                                        });
                                         setSendAmount('');
                                         setPaymentConcept('');
                                         setLoading(false);
@@ -885,7 +894,11 @@ function SendTab({ sendRecipient, setSendRecipient, sendAlias, setSendAlias, sen
                                 lastValidBlockHeight: latestBlockhash.lastValidBlockHeight
                             });
 
-                            toast.success(`Successfully sent ${sendAmount} SOL!`);
+                            showTransactionToast({
+                                signature,
+                                message: `Successfully sent ${sendAmount} SOL!`,
+                                type: 'success'
+                            });
                             setSendAmount('');
                             setPaymentConcept('');
                         } catch (e: any) {
