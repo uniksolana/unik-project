@@ -123,7 +123,7 @@ function PaymentContent() {
             <div className="w-full max-w-md bg-[#13131f]/80 backdrop-blur-xl rounded-[2rem] shadow-2xl overflow-hidden border border-white/5 z-10 relative">
                 {/* Header Section */}
                 <div className="p-10 text-center bg-gradient-to-b from-cyan-500/10 to-transparent pt-12">
-                    <div className="w-24 h-24 bg-gradient-to-br from-cyan-500/20 to-purple-600/20 rounded-2xl mx-auto flex items-center justify-center shadow-lg shadow-cyan-500/10 mb-6 transform rotate-3 border border-white/10 backdrop-blur-md">
+                    <div className="w-24 h-24 bg-gradient-to-br from-cyan-500/20 to-purple-600/20 rounded-2xl mx-auto flex items-center justify-center shadow-lg shadow-cyan-500/10 mb-6 border border-white/10 backdrop-blur-md">
                         <Image src="/logo-icon.png" alt="UNIK" width={64} height={64} className="w-16 h-16 drop-shadow-[0_0_10px_rgba(255,255,255,0.5)]" />
                     </div>
                     <h1 className="text-3xl font-bold text-white mb-2">Pay @{alias}</h1>
