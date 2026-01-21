@@ -50,6 +50,18 @@ export default function Dashboard() {
         onConfirm: () => { },
     });
 
+    const [noteModal, setNoteModal] = useState<{
+        isOpen: boolean;
+        alias: string;
+        note: string;
+        onSave: (newNote: string) => void;
+    }>({
+        isOpen: false,
+        alias: '',
+        note: '',
+        onSave: () => { },
+    });
+
     useEffect(() => {
         const handleClickOutside = (event: MouseEvent) => {
             if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
@@ -440,7 +452,7 @@ export default function Dashboard() {
                         {activeTab === 'send' && <SendTab sendRecipient={sendRecipient} setSendRecipient={setSendRecipient} sendAlias={sendAlias} setSendAlias={setSendAlias} sendAmount={sendAmount} setSendAmount={setSendAmount} sendNote={sendNote} setSendNote={setSendNote} paymentConcept={paymentConcept} setPaymentConcept={setPaymentConcept} loading={loading} setLoading={setLoading} publicKey={publicKey} wallet={wallet} connection={connection} solPrice={solPrice} balance={balance} />}
                         {activeTab === 'splits' && <SplitsTab splits={splits} setSplits={setSplits} isEditing={isEditing} setIsEditing={setIsEditing} newSplitAddress={newSplitAddress} setNewSplitAddress={setNewSplitAddress} newSplitPercent={newSplitPercent} setNewSplitPercent={setNewSplitPercent} addSplit={addSplit} removeSplit={removeSplit} totalPercent={totalPercent} handleSaveConfig={handleSaveConfig} loading={loading} />}
                         {activeTab === 'alias' && <AliasTab myAliases={myAliases} showRegisterForm={showRegisterForm} setShowRegisterForm={setShowRegisterForm} alias={alias} setAlias={setAlias} handleRegister={handleRegister} loading={loading} setRegisteredAlias={setRegisteredAlias} />}
-                        {activeTab === 'contacts' && <ContactsTab setSendRecipient={setSendRecipient} setSendAlias={setSendAlias} setSendNote={setSendNote} setActiveTab={setActiveTab} loading={loading} setLoading={setLoading} connection={connection} wallet={wallet} confirmModal={confirmModal} setConfirmModal={setConfirmModal} />}
+                        {activeTab === 'contacts' && <ContactsTab setSendRecipient={setSendRecipient} setSendAlias={setSendAlias} setSendNote={setSendNote} setActiveTab={setActiveTab} loading={loading} setLoading={setLoading} connection={connection} wallet={wallet} confirmModal={confirmModal} setConfirmModal={setConfirmModal} noteModal={noteModal} setNoteModal={setNoteModal} />}
                         {activeTab === 'history' && <HistoryTab publicKey={publicKey} connection={connection} />}
                     </div>
                 </div>
@@ -480,6 +492,18 @@ export default function Dashboard() {
                         </div>
                     </div>
                 )}
+
+                {/* Note Modal (Global) */}
+                <NoteModal
+                    isOpen={noteModal.isOpen}
+                    alias={noteModal.alias}
+                    initialNote={noteModal.note}
+                    onClose={() => setNoteModal({ ...noteModal, isOpen: false })}
+                    onSave={(newNote: string) => {
+                        noteModal.onSave(newNote);
+                        setNoteModal({ ...noteModal, isOpen: false });
+                    }}
+                />
 
                 {/* Footer */}
                 <div className="mt-12 pt-8 border-t border-white/5 text-center text-gray-500">
@@ -1164,7 +1188,57 @@ function AliasTab({ myAliases, showRegisterForm, setShowRegisterForm, alias, set
     );
 }
 
-function ContactsTab({ setSendRecipient, setSendAlias, setSendNote, setActiveTab, loading, setLoading, connection, wallet, confirmModal, setConfirmModal }: any) {
+function NoteModal({ isOpen, alias, initialNote, onSave, onClose }: any) {
+    const [tempNote, setTempNote] = useState(initialNote);
+    useEffect(() => {
+        if (isOpen) setTempNote(initialNote);
+    }, [initialNote, isOpen]);
+
+    if (!isOpen) return null;
+
+    return (
+        <div className="fixed inset-0 z-[1001] flex items-center justify-center p-4">
+            <div className="absolute inset-0 bg-black/90 backdrop-blur-md transition-opacity duration-300" onClick={onClose}></div>
+            <div className="relative w-full max-w-sm bg-[#0d0d15] border border-cyan-500/30 rounded-[2.5rem] shadow-[0_0_50px_rgba(6,182,212,0.15)] overflow-hidden animate-in zoom-in-95 duration-300">
+                <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-cyan-500 to-transparent"></div>
+                <div className="p-8">
+                    <div className="w-12 h-12 bg-cyan-500/10 rounded-2xl flex items-center justify-center text-cyan-400 mb-6 border border-cyan-500/20">
+                        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                        </svg>
+                    </div>
+                    <h3 className="text-2xl font-black text-white mb-1 tracking-tight">Edit Note</h3>
+                    <p className="text-xs text-gray-500 mb-6 font-medium uppercase tracking-widest">Contact: @{alias}</p>
+
+                    <textarea
+                        className="w-full bg-black/40 border border-white/10 rounded-2xl p-4 text-white text-sm focus:outline-none focus:border-cyan-500/50 min-h-[140px] mb-8 placeholder:text-gray-700 transition-all font-medium"
+                        placeholder="Add a private note for this contact..."
+                        value={tempNote}
+                        onChange={(e) => setTempNote(e.target.value)}
+                        autoFocus
+                    />
+
+                    <div className="flex gap-3">
+                        <button
+                            onClick={onClose}
+                            className="flex-1 py-4 bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white font-bold rounded-2xl border border-white/5 transition-all text-xs uppercase tracking-widest"
+                        >
+                            Cancel
+                        </button>
+                        <button
+                            onClick={() => onSave(tempNote)}
+                            className="flex-1 py-4 bg-gradient-to-tr from-cyan-600 to-purple-600 hover:from-cyan-500 hover:to-purple-500 text-white font-bold rounded-2xl shadow-lg shadow-cyan-500/20 transition-all text-xs uppercase tracking-widest active:scale-95"
+                        >
+                            Save Note
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+}
+
+function ContactsTab({ setSendRecipient, setSendAlias, setSendNote, setActiveTab, loading, setLoading, connection, wallet, confirmModal, setConfirmModal, noteModal, setNoteModal }: any) {
     const [contacts, setContacts] = useState<any[]>([]);
     const [newContactAlias, setNewContactAlias] = useState('');
     const [filter, setFilter] = useState('recent');
@@ -1380,12 +1454,17 @@ function ContactsTab({ setSendRecipient, setSendAlias, setSendNote, setActiveTab
                                 <div className="flex gap-2">
                                     <button
                                         onClick={() => {
-                                            const note = prompt(`Note for @${c.alias}:`, c.note || '');
-                                            if (note !== null) {
-                                                const updated = contacts.map((x: any) => x.alias === c.alias ? { ...x, note: note.trim() } : x);
-                                                localStorage.setItem('unik_contacts', JSON.stringify(updated));
-                                                window.dispatchEvent(new Event('storage'));
-                                            }
+                                            setNoteModal({
+                                                isOpen: true,
+                                                alias: c.alias,
+                                                note: c.note || '',
+                                                onSave: (newNote: string) => {
+                                                    const updated = contacts.map((x: any) => x.alias === c.alias ? { ...x, note: newNote.trim() } : x);
+                                                    localStorage.setItem('unik_contacts', JSON.stringify(updated));
+                                                    window.dispatchEvent(new Event('storage'));
+                                                    toast.success(`Note for @${c.alias} updated!`);
+                                                }
+                                            });
                                         }}
                                         className="p-2.5 bg-gray-700/50 hover:bg-gray-700 rounded-lg text-gray-300 hover:text-white transition-colors border border-gray-600/50 shadow-sm"
                                         title="Edit note"
