@@ -440,10 +440,46 @@ export default function Dashboard() {
                         {activeTab === 'send' && <SendTab sendRecipient={sendRecipient} setSendRecipient={setSendRecipient} sendAlias={sendAlias} setSendAlias={setSendAlias} sendAmount={sendAmount} setSendAmount={setSendAmount} sendNote={sendNote} setSendNote={setSendNote} paymentConcept={paymentConcept} setPaymentConcept={setPaymentConcept} loading={loading} setLoading={setLoading} publicKey={publicKey} wallet={wallet} connection={connection} solPrice={solPrice} balance={balance} />}
                         {activeTab === 'splits' && <SplitsTab splits={splits} setSplits={setSplits} isEditing={isEditing} setIsEditing={setIsEditing} newSplitAddress={newSplitAddress} setNewSplitAddress={setNewSplitAddress} newSplitPercent={newSplitPercent} setNewSplitPercent={setNewSplitPercent} addSplit={addSplit} removeSplit={removeSplit} totalPercent={totalPercent} handleSaveConfig={handleSaveConfig} loading={loading} />}
                         {activeTab === 'alias' && <AliasTab myAliases={myAliases} showRegisterForm={showRegisterForm} setShowRegisterForm={setShowRegisterForm} alias={alias} setAlias={setAlias} handleRegister={handleRegister} loading={loading} setRegisteredAlias={setRegisteredAlias} />}
-                        {activeTab === 'contacts' && <ContactsTab setSendRecipient={setSendRecipient} setSendAlias={setSendAlias} setSendNote={setSendNote} setActiveTab={setActiveTab} loading={loading} setLoading={setLoading} connection={connection} wallet={wallet} />}
+                        {activeTab === 'contacts' && <ContactsTab setSendRecipient={setSendRecipient} setSendAlias={setSendAlias} setSendNote={setSendNote} setActiveTab={setActiveTab} loading={loading} setLoading={setLoading} connection={connection} wallet={wallet} confirmModal={confirmModal} setConfirmModal={setConfirmModal} />}
                         {activeTab === 'history' && <HistoryTab publicKey={publicKey} connection={connection} />}
                     </div>
                 </div>
+
+                {/* Confirm Modal (Global) */}
+                {confirmModal.isOpen && (
+                    <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4">
+                        <div
+                            className="absolute inset-0 bg-black/80 backdrop-blur-sm animate-in fade-in duration-300"
+                            onClick={() => setConfirmModal({ ...confirmModal, isOpen: false })}
+                        ></div>
+                        <div className="relative w-full max-w-sm bg-[#13131f] border border-white/10 rounded-[2rem] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-300">
+                            <div className="p-8 text-center text-white">
+                                <div className="w-16 h-16 bg-red-500/20 border border-red-500/30 rounded-full flex items-center justify-center mx-auto mb-6 text-red-500 shadow-[0_0_20px_rgba(239,68,68,0.2)]">
+                                    <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
+                                </div>
+                                <h3 className="text-xl font-bold mb-2 tracking-tight">{confirmModal.title}</h3>
+                                <p className="text-gray-400 text-sm mb-8 leading-relaxed">{confirmModal.message}</p>
+                                <div className="flex gap-3">
+                                    <button
+                                        onClick={() => setConfirmModal({ ...confirmModal, isOpen: false })}
+                                        className="flex-1 py-3.5 bg-white/5 hover:bg-white/10 text-white font-bold rounded-xl border border-white/5 transition-all text-sm"
+                                    >
+                                        Cancel
+                                    </button>
+                                    <button
+                                        onClick={() => {
+                                            confirmModal.onConfirm();
+                                            setConfirmModal({ ...confirmModal, isOpen: false });
+                                        }}
+                                        className="flex-1 py-3.5 bg-red-600 hover:bg-red-500 text-white font-bold rounded-xl shadow-xl shadow-red-900/20 transition-all text-sm active:scale-95"
+                                    >
+                                        Confirm
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                )}
 
                 {/* Footer */}
                 <div className="mt-12 pt-8 border-t border-white/5 text-center text-gray-500">
@@ -1049,7 +1085,7 @@ function AliasTab({ myAliases, showRegisterForm, setShowRegisterForm, alias, set
     );
 }
 
-function ContactsTab({ setSendRecipient, setSendAlias, setSendNote, setActiveTab, loading, setLoading, connection, wallet }: any) {
+function ContactsTab({ setSendRecipient, setSendAlias, setSendNote, setActiveTab, loading, setLoading, connection, wallet, confirmModal, setConfirmModal }: any) {
     const [contacts, setContacts] = useState<any[]>([]);
     const [newContactAlias, setNewContactAlias] = useState('');
     const [filter, setFilter] = useState('recent');
@@ -1339,7 +1375,7 @@ function ContactsTab({ setSendRecipient, setSendAlias, setSendNote, setActiveTab
     );
 }
 
-function HistoryTab({ publicKey, connection }: any) {
+function HistoryTab({ publicKey, connection, confirmModal, setConfirmModal }: any) {
     const [history, setHistory] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
 
@@ -1470,40 +1506,6 @@ function HistoryTab({ publicKey, connection }: any) {
                     ))
                 )}
             </div>
-            {confirmModal.isOpen && (
-                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-                    <div
-                        className="absolute inset-0 bg-black/80 backdrop-blur-sm animate-in fade-in duration-300"
-                        onClick={() => setConfirmModal({ ...confirmModal, isOpen: false })}
-                    ></div>
-                    <div className="relative w-full max-w-sm bg-[#13131f] border border-white/10 rounded-[2rem] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-300">
-                        <div className="p-8 text-center text-white">
-                            <div className="w-16 h-16 bg-red-500/20 border border-red-500/30 rounded-full flex items-center justify-center mx-auto mb-6 text-red-500 shadow-[0_0_20px_rgba(239,68,68,0.2)]">
-                                <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
-                            </div>
-                            <h3 className="text-xl font-bold mb-2 tracking-tight">{confirmModal.title}</h3>
-                            <p className="text-gray-400 text-sm mb-8 leading-relaxed">{confirmModal.message}</p>
-                            <div className="flex gap-3">
-                                <button
-                                    onClick={() => setConfirmModal({ ...confirmModal, isOpen: false })}
-                                    className="flex-1 py-3.5 bg-white/5 hover:bg-white/10 text-white font-bold rounded-xl border border-white/5 transition-all text-sm"
-                                >
-                                    Cancel
-                                </button>
-                                <button
-                                    onClick={() => {
-                                        confirmModal.onConfirm();
-                                        setConfirmModal({ ...confirmModal, isOpen: false });
-                                    }}
-                                    className="flex-1 py-3.5 bg-red-600 hover:bg-red-500 text-white font-bold rounded-xl shadow-xl shadow-red-900/20 transition-all text-sm active:scale-95"
-                                >
-                                    Confirm
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            )}
         </div>
     );
 }
