@@ -2,6 +2,7 @@
 
 import { useParams, useRouter } from 'next/navigation';
 import { useState, useEffect } from 'react';
+import toast from 'react-hot-toast';
 import { PublicKey } from '@solana/web3.js';
 import { PROGRAM_ID, IDL } from '../../../utils/anchor';
 import { Program, AnchorProvider } from '@coral-xyz/anchor';
@@ -56,7 +57,7 @@ export default function AddContactPage() {
 
     const handleAddContact = () => {
         if (!publicKey) {
-            alert("Please connect your wallet first!");
+            toast.error("Please connect your wallet first!");
             return;
         }
 
@@ -66,7 +67,7 @@ export default function AddContactPage() {
             const existing = JSON.parse(localStorage.getItem('unik_contacts') || '[]');
 
             if (existing.some((c: any) => c.alias === aliasData.alias)) {
-                alert("Contact already exists in your list!");
+                toast.error("Contact already exists!");
                 return;
             }
 
@@ -81,10 +82,10 @@ export default function AddContactPage() {
             localStorage.setItem('unik_contacts', JSON.stringify(updated));
             window.dispatchEvent(new Event('storage'));
 
-            alert(`Added @${aliasData.alias} to your contacts!`);
+            toast.success(`Added @${aliasData.alias}!`);
             router.push('/dashboard?tab=contacts');
         } catch (e) {
-            alert("Failed to add contact. Please try again.");
+            toast.error("Failed to add contact.");
         }
     };
 

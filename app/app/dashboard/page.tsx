@@ -3,6 +3,7 @@
 import { useWallet } from '@solana/wallet-adapter-react';
 import { WalletMultiButton } from '@solana/wallet-adapter-react-ui';
 import { useState, useEffect, useRef } from 'react';
+import toast from 'react-hot-toast';
 import { PublicKey, SystemProgram, Transaction } from '@solana/web3.js';
 import { PROGRAM_ID, IDL } from '../../utils/anchor';
 import { Program, AnchorProvider, BN } from '@coral-xyz/anchor';
@@ -35,6 +36,18 @@ export default function Dashboard() {
     const [paymentConcept, setPaymentConcept] = useState('');
     const [aliasDropdownOpen, setAliasDropdownOpen] = useState(false);
     const dropdownRef = useRef<HTMLDivElement>(null);
+
+    const [confirmModal, setConfirmModal] = useState<{
+        isOpen: boolean;
+        title: string;
+        message: string;
+        onConfirm: () => void;
+    }>({
+        isOpen: false,
+        title: '',
+        message: '',
+        onConfirm: () => { },
+    });
 
     useEffect(() => {
         const handleClickOutside = (event: MouseEvent) => {
@@ -167,7 +180,7 @@ export default function Dashboard() {
             setRegisteredAlias(normalizedAlias);
             setMyAliases([...myAliases, normalizedAlias]);
             setShowRegisterForm(false);
-            alert(`Success! Alias @${normalizedAlias} registered on-chain.\nSignature: ${tx}`);
+            toast.success(`Alias @${normalizedAlias} registered!`);
         } catch (error: any) {
             console.error("Error registering:", error);
             let message = "Transaction failed.";
@@ -179,7 +192,7 @@ export default function Dashboard() {
                 if (error.logs.some((l: string) => l.includes("InvalidAliasCharacters"))) message = "Alias only allowed a-z, 0-9 and _";
             }
 
-            alert(`Error: ${message}`);
+            toast.error(message);
         } finally {
             setLoading(false);
         }
@@ -218,13 +231,13 @@ export default function Dashboard() {
                 })
                 .rpc();
 
-            alert(`Success! Routing rules saved on-chain.\nSignature: ${tx}`);
+            toast.success(`Routing rules saved!`);
             setIsEditing(false);
         } catch (error: any) {
             console.error("Error saving config:", error);
             let message = "Failed to save config.";
             if (error.message?.includes("User rejected")) message = "Rejected by user.";
-            alert(`${message} Check console for details.`);
+            toast.error(message);
         } finally {
             setLoading(false);
         }
@@ -259,7 +272,7 @@ export default function Dashboard() {
         if (isNaN(percent) || percent <= 0 || percent >= 100) return;
 
         if (totalPercent + percent > 100) {
-            alert(`Cannot add split. Total would exceed 100%.`);
+            toast.error(`Cannot add split. Total would exceed 100%.`);
             return;
         }
 
@@ -553,7 +566,7 @@ function ReceiveTab({ registeredAlias, linkAmount, setLinkAmount, linkConcept, s
                     <button
                         onClick={() => {
                             navigator.clipboard.writeText(getPaymentUrl());
-                            alert("Link copied to clipboard!");
+                            toast.success("Link copied to clipboard!");
                         }}
                         className="flex items-center justify-center gap-2 px-4 py-3 bg-gray-700 hover:bg-gray-600 font-semibold transition-colors"
                     >
@@ -597,7 +610,7 @@ function ReceiveTab({ registeredAlias, linkAmount, setLinkAmount, linkConcept, s
                         onClick={() => {
                             const contactUrl = `${typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000'}/add-contact/${registeredAlias}`;
                             navigator.clipboard.writeText(contactUrl);
-                            alert("Contact link copied! Share it so others can add you.");
+                            toast.success("Contact link copied!");
                         }}
                         className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-purple-600 hover:bg-purple-700 font-semibold transition-colors"
                     >
@@ -662,7 +675,7 @@ function SendTab({ sendRecipient, setSendRecipient, sendAlias, setSendAlias, sen
 
                             } catch (e) {
                                 console.error("Error parsing QR", e);
-                                alert("Invalid QR Code format");
+                                toast.error("Invalid QR Code format");
                             }
                         },
                         (errorMessage) => {
@@ -670,7 +683,7 @@ function SendTab({ sendRecipient, setSendRecipient, sendAlias, setSendAlias, sen
                         }
                     ).catch(err => {
                         console.error("Error starting scanner", err);
-                        alert("Camera error: " + (err.message || "Permission denied"));
+                        toast.error("Camera error: " + (err.message || "Permission denied"));
                         setScanning(false);
                         scannerRef.current = null;
                     });
@@ -815,7 +828,7 @@ function SendTab({ sendRecipient, setSendRecipient, sendAlias, setSendAlias, sen
                                             .remainingAccounts(remainingAccounts)
                                             .rpc();
 
-                                        alert(`Intelligent Routing Success!\n${sendAmount} SOL split according to @${targetAlias}'s rules.${paymentConcept ? `\nConcept: ${paymentConcept}` : ''}\nSig: ${signature}`);
+                                        toast.success(`Sent ${sendAmount} SOL split according to @${targetAlias}'s rules.`);
                                         setSendAmount('');
                                         setPaymentConcept('');
                                         setLoading(false);
@@ -842,7 +855,7 @@ function SendTab({ sendRecipient, setSendRecipient, sendAlias, setSendAlias, sen
                                         const signature = await wallet.sendTransaction(transaction, connection);
                                         await connection.confirmTransaction(signature, 'confirmed');
 
-                                        alert(`Sent ${sendAmount} SOL to @${targetAlias} (${aliasAccount.owner.toBase58()})${paymentConcept ? `\nConcept: ${paymentConcept}` : ''}`);
+                                        toast.success(`Sent ${sendAmount} SOL to @${targetAlias}`);
                                         setSendAmount('');
                                         setPaymentConcept('');
                                         setLoading(false);
@@ -872,11 +885,11 @@ function SendTab({ sendRecipient, setSendRecipient, sendAlias, setSendAlias, sen
                                 lastValidBlockHeight: latestBlockhash.lastValidBlockHeight
                             });
 
-                            alert(`Successfully sent ${sendAmount} SOL!${paymentConcept ? `\nConcept: ${paymentConcept}` : ''}\nSignature: ${signature}`);
+                            toast.success(`Successfully sent ${sendAmount} SOL!`);
                             setSendAmount('');
                             setPaymentConcept('');
                         } catch (e: any) {
-                            alert(`Send failed: ${e.message}`);
+                            toast.error(`Send failed: ${e.message}`);
                         } finally {
                             setLoading(false);
                         }
@@ -1114,7 +1127,7 @@ function ContactsTab({ setSendRecipient, setSendAlias, setSendNote, setActiveTab
             const existing = JSON.parse(localStorage.getItem('unik_contacts') || '[]');
             // Check for duplicates by Address or Alias Name
             if (existing.some((c: any) => c.address === contactEntry.address || c.alias === contactEntry.alias)) {
-                alert("Contact (or address) already exists!");
+                toast.error("Contact already exists!");
                 setLoading(false);
                 return;
             }
@@ -1123,10 +1136,10 @@ function ContactsTab({ setSendRecipient, setSendAlias, setSendNote, setActiveTab
             localStorage.setItem('unik_contacts', JSON.stringify(updated));
             window.dispatchEvent(new Event('storage'));
             setNewContactAlias('');
-            alert(contactEntry.type === 'unik' ? `Added @${contactEntry.alias}!` : `Added "${contactEntry.alias}"!`);
+            toast.success(contactEntry.type === 'unik' ? `Added @${contactEntry.alias}!` : `Added "${contactEntry.alias}"!`);
         } catch (e) {
             console.error(e);
-            alert(`Could not verify alias/address. \nIf using an alias, ensure it is registered on-chain.`);
+            toast.error(`Could not verify alias/address.`);
         } finally {
             setLoading(false);
         }
@@ -1269,11 +1282,17 @@ function ContactsTab({ setSendRecipient, setSendAlias, setSendNote, setActiveTab
                                     </button>
                                     <button
                                         onClick={() => {
-                                            if (confirm(`Delete @${c.alias} from contacts?`)) {
-                                                const updated = contacts.filter((x: any) => x.alias !== c.alias);
-                                                localStorage.setItem('unik_contacts', JSON.stringify(updated));
-                                                window.dispatchEvent(new Event('storage'));
-                                            }
+                                            setConfirmModal({
+                                                isOpen: true,
+                                                title: 'Delete Contact',
+                                                message: `Are you sure you want to remove @${c.alias} from your contacts?`,
+                                                onConfirm: () => {
+                                                    const updated = contacts.filter((x: any) => x.alias !== c.alias);
+                                                    localStorage.setItem('unik_contacts', JSON.stringify(updated));
+                                                    window.dispatchEvent(new Event('storage'));
+                                                    toast.success("Contact removed");
+                                                }
+                                            });
                                         }}
                                         className="p-2.5 text-gray-500 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-all"
                                         title="Delete contact"
@@ -1438,6 +1457,40 @@ function HistoryTab({ publicKey, connection }: any) {
                     ))
                 )}
             </div>
+            {confirmModal.isOpen && (
+                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+                    <div
+                        className="absolute inset-0 bg-black/80 backdrop-blur-sm animate-in fade-in duration-300"
+                        onClick={() => setConfirmModal({ ...confirmModal, isOpen: false })}
+                    ></div>
+                    <div className="relative w-full max-w-sm bg-[#13131f] border border-white/10 rounded-[2rem] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-300">
+                        <div className="p-8 text-center text-white">
+                            <div className="w-16 h-16 bg-red-500/20 border border-red-500/30 rounded-full flex items-center justify-center mx-auto mb-6 text-red-500 shadow-[0_0_20px_rgba(239,68,68,0.2)]">
+                                <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
+                            </div>
+                            <h3 className="text-xl font-bold mb-2 tracking-tight">{confirmModal.title}</h3>
+                            <p className="text-gray-400 text-sm mb-8 leading-relaxed">{confirmModal.message}</p>
+                            <div className="flex gap-3">
+                                <button
+                                    onClick={() => setConfirmModal({ ...confirmModal, isOpen: false })}
+                                    className="flex-1 py-3.5 bg-white/5 hover:bg-white/10 text-white font-bold rounded-xl border border-white/5 transition-all text-sm"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    onClick={() => {
+                                        confirmModal.onConfirm();
+                                        setConfirmModal({ ...confirmModal, isOpen: false });
+                                    }}
+                                    className="flex-1 py-3.5 bg-red-600 hover:bg-red-500 text-white font-bold rounded-xl shadow-xl shadow-red-900/20 transition-all text-sm active:scale-95"
+                                >
+                                    Confirm
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

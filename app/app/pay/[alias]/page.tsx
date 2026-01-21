@@ -3,6 +3,7 @@
 import { useWallet, useConnection } from '@solana/wallet-adapter-react';
 import { WalletMultiButton } from '@solana/wallet-adapter-react-ui';
 import { useState, useEffect } from 'react';
+import toast from 'react-hot-toast';
 import { useParams, useSearchParams } from 'next/navigation';
 import { Suspense } from 'react';
 import { PublicKey, SystemProgram, Transaction } from '@solana/web3.js';
@@ -178,7 +179,7 @@ function PaymentContent() {
             setAmount('');
         } catch (error) {
             console.error("Payment failed:", error);
-            alert("Payment failed: " + (error instanceof Error ? error.message : "Unknown error"));
+            toast.error("Payment failed: " + (error instanceof Error ? error.message : "Unknown error"));
             setStatus('error');
         } finally {
             setLoading(false);
