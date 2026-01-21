@@ -113,7 +113,7 @@ function PaymentContent() {
             <nav className="absolute top-0 w-full p-6 flex justify-between items-center z-10">
                 <div className="flex items-center gap-2">
                     <Image src="/logo-icon.png" alt="UNIK" width={32} height={32} className="w-8 h-8" />
-                    <span className="font-bold text-xl tracking-wide bg-clip-text text-transparent bg-gradient-to-r from-cyan-400 to-purple-400">UNIK</span>
+                    <Image src="/logo-text.png" alt="UNIK" width={80} height={24} className="h-6 w-auto" />
                 </div>
                 <div className="scale-90 origin-right">
                     <WalletMultiButton />
@@ -123,8 +123,8 @@ function PaymentContent() {
             <div className="w-full max-w-md bg-[#13131f]/80 backdrop-blur-xl rounded-[2rem] shadow-2xl overflow-hidden border border-white/5 z-10 relative">
                 {/* Header Section */}
                 <div className="p-10 text-center bg-gradient-to-b from-cyan-500/10 to-transparent pt-12">
-                    <div className="w-20 h-20 bg-gradient-to-br from-cyan-500 to-purple-600 rounded-2xl mx-auto flex items-center justify-center shadow-lg shadow-cyan-500/20 mb-6 transform rotate-3 text-white">
-                        <span className="text-3xl">👋</span>
+                    <div className="w-24 h-24 bg-gradient-to-br from-cyan-500/20 to-purple-600/20 rounded-2xl mx-auto flex items-center justify-center shadow-lg shadow-cyan-500/10 mb-6 transform rotate-3 border border-white/10 backdrop-blur-md">
+                        <Image src="/logo-icon.png" alt="UNIK" width={64} height={64} className="w-16 h-16 drop-shadow-[0_0_10px_rgba(255,255,255,0.5)]" />
                     </div>
                     <h1 className="text-3xl font-bold text-white mb-2">Pay @{alias}</h1>
                     <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-green-500/10 rounded-full border border-green-500/20">

@@ -22,9 +22,9 @@ export default function Home() {
 
       {/* Navigation */}
       <nav className="relative z-50 container mx-auto px-6 py-6 flex justify-between items-center backdrop-blur-sm">
-        <div className="flex items-center gap-2">
-          <Image src="/logo-icon.png" alt="UNIK" width={40} height={40} className="w-10 h-10" />
-          <span className="text-2xl font-bold tracking-tight text-white hidden sm:block">UNIK</span>
+        <div className="flex items-center gap-3">
+          <Image src="/logo-icon.png" alt="UNIK" width={48} height={48} className="w-12 h-12" />
+          <Image src="/logo-text.png" alt="UNIK" width={96} height={28} className="h-7 w-auto hidden sm:block" />
         </div>
         <div className="flex items-center gap-4">
           <Link href="https://docs.unik.app" className="hidden md:block text-gray-400 hover:text-white transition-colors text-sm font-medium">Documentation</Link>
@@ -36,10 +36,10 @@ export default function Home() {
       <div className="relative z-10 container mx-auto px-4 pt-20 pb-32">
         <div className="text-center max-w-4xl mx-auto">
 
-          <div className="relative w-24 h-24 mx-auto mb-12 group perspective-1000">
-            <div className="absolute inset-0 bg-gradient-to-br from-cyan-500 to-purple-600 rounded-2xl blur opacity-40 group-hover:opacity-60 transition-opacity duration-500 animate-tilt"></div>
-            <div className="relative w-full h-full bg-[#13131f] rounded-2xl border border-white/10 flex items-center justify-center p-4 shadow-2xl transform transition-transform duration-500 hover:scale-110 hover:rotate-3">
-              <Image src="/logo-icon.png" alt="UNIK" width={80} height={80} priority className="drop-shadow-[0_0_15px_rgba(255,255,255,0.3)]" />
+          <div className="relative w-40 h-40 mx-auto mb-12 group perspective-1000">
+            <div className="absolute inset-0 bg-gradient-to-br from-cyan-500 to-purple-600 rounded-3xl blur opacity-40 group-hover:opacity-60 transition-opacity duration-500 animate-tilt"></div>
+            <div className="relative w-full h-full bg-[#13131f] rounded-3xl border border-white/10 flex items-center justify-center p-6 shadow-2xl transform transition-transform duration-500 hover:scale-105 hover:rotate-3">
+              <Image src="/logo-icon.png" alt="UNIK" width={120} height={120} priority className="drop-shadow-[0_0_25px_rgba(255,255,255,0.3)] w-full h-full object-contain" />
             </div>
           </div>
 

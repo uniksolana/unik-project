@@ -291,8 +291,8 @@ export default function Dashboard() {
             <nav className="border-b border-white/5 bg-[#0d0d12]/80 backdrop-blur-xl sticky top-0 z-50">
                 <div className="max-w-md mx-auto px-4 py-4 grid grid-cols-[auto_1fr_auto] items-center gap-2">
                     <div className="flex items-center gap-2">
-                        <div className="w-8 h-8 bg-gradient-to-tr from-cyan-500 to-purple-600 rounded-lg flex items-center justify-center text-xs font-bold shadow-lg shadow-cyan-500/20">U</div>
-                        <span className="font-bold text-xl tracking-wide bg-clip-text text-transparent bg-gradient-to-r from-cyan-400 to-purple-400 hidden sm:inline-block">UNIK</span>
+                        <Image src="/logo-icon.png" alt="UNIK" width={32} height={32} className="w-8 h-auto" />
+                        <Image src="/logo-text.png" alt="UNIK" width={64} height={20} className="h-5 w-auto hidden sm:inline-block" />
                     </div>
 
                     {/* Active Alias Capsule (Centered) */}
