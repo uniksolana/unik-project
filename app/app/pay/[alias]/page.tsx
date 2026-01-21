@@ -26,6 +26,27 @@ function PaymentContent() {
     const [isLocked, setIsLocked] = useState(false);
     const [concept, setConcept] = useState<string | null>(null);
     const [senderNote, setSenderNote] = useState('');
+    const [solPrice, setSolPrice] = useState<number | null>(null);
+
+    useEffect(() => {
+        // Fetch SOL price from CoinGecko
+        const fetchPrice = async () => {
+            try {
+                const response = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=solana&vs_currencies=usd');
+                const data = await response.json();
+                if (data.solana && data.solana.usd) {
+                    setSolPrice(data.solana.usd);
+                }
+            } catch (error) {
+                console.error("Failed to fetch SOL price", error);
+            }
+        };
+
+        fetchPrice();
+        const interval = setInterval(fetchPrice, 60000); // Update every minute
+        return () => clearInterval(interval);
+    }, []);
+
     const [routeAccount, setRouteAccount] = useState<any>(null);
     const [aliasOwner, setAliasOwner] = useState<PublicKey | null>(null);
     const [recipientAddress, setRecipientAddress] = useState<PublicKey | null>(null);
@@ -262,6 +283,11 @@ function PaymentContent() {
                                     />
                                     <span className="absolute right-6 top-1/2 -translate-y-1/2 text-gray-500 font-bold text-lg group-focus-within:text-cyan-400 transition-colors">SOL</span>
                                 </div>
+                                {amount && solPrice && (
+                                    <p className="text-right text-gray-400 text-sm mt-2 font-mono">
+                                        ≈ ${(parseFloat(amount) * solPrice).toFixed(2)} USD
+                                    </p>
+                                )}
                             </div>
 
                             {concept && (
