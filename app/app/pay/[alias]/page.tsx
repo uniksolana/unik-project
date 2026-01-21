@@ -5,7 +5,7 @@ import { WalletMultiButton } from '@solana/wallet-adapter-react-ui';
 import { useState, useEffect } from 'react';
 import { useParams, useSearchParams } from 'next/navigation';
 import { Suspense } from 'react';
-import { PublicKey, SystemProgram } from '@solana/web3.js';
+import { PublicKey, SystemProgram, Transaction } from '@solana/web3.js';
 import { PROGRAM_ID, IDL } from '../../../utils/anchor';
 import { Program, AnchorProvider, BN } from '@coral-xyz/anchor';
 import { Buffer } from 'buffer';
@@ -137,7 +137,7 @@ function PaymentContent() {
             }
             // Scenario B: No Route Config -> Direct Transfer to Owner
             else if (aliasOwner) {
-                const transaction = new window.solana.Transaction().add(
+                const transaction = new Transaction().add(
                     SystemProgram.transfer({
                         fromPubkey: publicKey,
                         toPubkey: aliasOwner,
