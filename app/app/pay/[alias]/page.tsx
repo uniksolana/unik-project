@@ -26,6 +26,9 @@ function PaymentContent() {
     const [isLocked, setIsLocked] = useState(false);
     const [concept, setConcept] = useState<string | null>(null);
     const [senderNote, setSenderNote] = useState('');
+    const [routeAccount, setRouteAccount] = useState<any>(null);
+    const [aliasOwner, setAliasOwner] = useState<PublicKey | null>(null);
+    const [recipientAddress, setRecipientAddress] = useState<PublicKey | null>(null);
 
     useEffect(() => {
         const queryAmount = searchParams.get('amount');
@@ -44,7 +47,54 @@ function PaymentContent() {
         if (connected && publicKey) {
             connection.getBalance(publicKey).then(b => setBalance(b / 1e9));
         }
+        if (alias) {
+            checkAlias();
+        }
     }, [alias, connected, publicKey, connection]);
+
+    const checkAlias = async () => {
+        if (!alias) return;
+        try {
+            const provider = new AnchorProvider(connection, { publicKey: PublicKey.default } as any, {});
+            const program = new Program(IDL as any, provider);
+            const normalizedAlias = (alias as string).toLowerCase().trim();
+
+            // 1. Check for Route Account
+            const [routePDA] = PublicKey.findProgramAddressSync(
+                [Buffer.from("route"), Buffer.from(normalizedAlias)],
+                PROGRAM_ID
+            );
+
+            try {
+                const routeAcc = await (program.account as any).routeAccount.fetch(routePDA);
+                setRouteAccount(routeAcc);
+                setRecipientAddress(routePDA); // Just for reference, payment goes via CPI
+                console.log("Route account found active");
+            } catch (e) {
+                console.log("No route account found, checking alias owner...");
+                setRouteAccount(null);
+            }
+
+            // 2. Check for Alias Account (Owner)
+            const [aliasPDA] = PublicKey.findProgramAddressSync(
+                [Buffer.from("alias"), Buffer.from(normalizedAlias)],
+                PROGRAM_ID
+            );
+
+            try {
+                const aliasAcc = await (program.account as any).aliasAccount.fetch(aliasPDA);
+                setAliasOwner(aliasAcc.owner);
+                if (!recipientAddress) setRecipientAddress(aliasAcc.owner);
+                console.log("Alias owner found:", aliasAcc.owner.toBase58());
+            } catch (e) {
+                console.error("Alias does not exist");
+                setAliasOwner(null);
+            }
+
+        } catch (error) {
+            console.error("Error checking alias:", error);
+        }
+    };
 
     const handlePayment = async () => {
         if (!amount || !publicKey) return;
@@ -56,41 +106,53 @@ function PaymentContent() {
 
             const provider = new AnchorProvider(connection, wallet as any, {});
             const program = new Program(IDL as any, provider);
-
             const normalizedAlias = alias.toLowerCase().trim();
-
-            const [routePDA] = PublicKey.findProgramAddressSync(
-                [Buffer.from("route"), Buffer.from(normalizedAlias)],
-                PROGRAM_ID
-            );
-
-            console.log(`Sending ${amount} SOL to ${normalizedAlias} (Route: ${routePDA.toBase58()})`);
-
-            // 1. Fetch the Route Account to get recipients
-            const routeAccount = await (program.account as any).routeAccount.fetch(routePDA);
-
-            // 2. Map recipients to Remaining Accounts
-            const remainingAccounts = (routeAccount.splits as any[]).map(split => ({
-                pubkey: split.recipient,
-                isWritable: true,
-                isSigner: false,
-            }));
-
-            // 3. Convert SOL to Lamports
             const lamports = parseFloat(amount) * 1e9;
 
-            // 4. Execute Transfer
-            const tx = await program.methods
-                .executeTransfer(normalizedAlias, new BN(lamports))
-                .accounts({
-                    routeAccount: routePDA,
-                    user: publicKey,
-                    systemProgram: SystemProgram.programId,
-                })
-                .remainingAccounts(remainingAccounts)
-                .rpc();
+            // Scenario A: Route Config Exists -> Use Smart Contract
+            if (routeAccount) {
+                const [routePDA] = PublicKey.findProgramAddressSync(
+                    [Buffer.from("route"), Buffer.from(normalizedAlias)],
+                    PROGRAM_ID
+                );
 
-            console.log("Transfer successful. Signature:", tx);
+                // Map recipients
+                const remainingAccounts = (routeAccount.splits as any[]).map(split => ({
+                    pubkey: split.recipient,
+                    isWritable: true,
+                    isSigner: false,
+                }));
+
+                const tx = await program.methods
+                    .executeTransfer(normalizedAlias, new BN(lamports))
+                    .accounts({
+                        routeAccount: routePDA,
+                        user: publicKey,
+                        systemProgram: SystemProgram.programId,
+                    })
+                    .remainingAccounts(remainingAccounts)
+                    .rpc();
+
+                console.log("Smart Transfer successful:", tx);
+            }
+            // Scenario B: No Route Config -> Direct Transfer to Owner
+            else if (aliasOwner) {
+                const transaction = new window.solana.Transaction().add(
+                    SystemProgram.transfer({
+                        fromPubkey: publicKey,
+                        toPubkey: aliasOwner,
+                        lamports: BigInt(lamports),
+                    })
+                );
+
+                // Note: Standard wallet adapter might need sendTransaction
+                const signature = await wallet.sendTransaction(transaction, connection);
+                await connection.confirmTransaction(signature, 'confirmed');
+                console.log("Direct Transfer successful:", signature);
+            } else {
+                throw new Error("Alias not found or invalid.");
+            }
+
             setStatus('success');
             setAmount('');
         } catch (error) {
@@ -127,9 +189,11 @@ function PaymentContent() {
                         <Image src="/logo-icon.png" alt="UNIK" width={64} height={64} className="w-16 h-16 drop-shadow-[0_0_10px_rgba(255,255,255,0.5)]" />
                     </div>
                     <h1 className="text-3xl font-bold text-white mb-2">Pay @{alias}</h1>
-                    <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-green-500/10 rounded-full border border-green-500/20">
-                        <span className="w-1.5 h-1.5 bg-green-400 rounded-full animate-pulse"></span>
-                        <p className="text-green-400 text-xs font-bold tracking-wide uppercase">Valid Alias</p>
+                    <div className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full border ${aliasOwner || routeAccount ? 'bg-green-500/10 border-green-500/20' : 'bg-red-500/10 border-red-500/20'}`}>
+                        <span className={`w-1.5 h-1.5 rounded-full ${aliasOwner || routeAccount ? 'bg-green-400 animate-pulse' : 'bg-red-400'}`}></span>
+                        <p className={`text-xs font-bold tracking-wide uppercase ${aliasOwner || routeAccount ? 'text-green-400' : 'text-red-400'}`}>
+                            {aliasOwner || routeAccount ? 'Valid Alias' : 'Alias Not Found'}
+                        </p>
                     </div>
                 </div>
 
@@ -232,10 +296,19 @@ function PaymentContent() {
                                 </div>
                                 <div className="flex justify-between items-center">
                                     <span className="text-gray-400">Routing</span>
-                                    <span className="text-cyan-400 flex items-center gap-1 font-medium bg-cyan-950/30 px-2 py-0.5 rounded border border-cyan-500/20 text-xs">
-                                        <span className="w-1.5 h-1.5 bg-cyan-400 rounded-full animate-pulse"></span>
-                                        Smart Routing Active
-                                    </span>
+                                    {routeAccount ? (
+                                        <span className="text-cyan-400 flex items-center gap-1 font-medium bg-cyan-950/30 px-2 py-0.5 rounded border border-cyan-500/20 text-xs">
+                                            <span className="w-1.5 h-1.5 bg-cyan-400 rounded-full animate-pulse"></span>
+                                            Smart Routing Active
+                                        </span>
+                                    ) : aliasOwner ? (
+                                        <span className="text-purple-400 flex items-center gap-1 font-medium bg-purple-950/30 px-2 py-0.5 rounded border border-purple-500/20 text-xs">
+                                            <span className="w-1.5 h-1.5 bg-purple-400 rounded-full"></span>
+                                            Direct Transfer
+                                        </span>
+                                    ) : (
+                                        <span className="text-red-400 text-xs">Invalid</span>
+                                    )}
                                 </div>
                             </div>
 
