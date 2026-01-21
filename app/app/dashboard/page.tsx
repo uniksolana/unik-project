@@ -33,6 +33,18 @@ export default function Dashboard() {
     const [sendAmount, setSendAmount] = useState('');
     const [sendNote, setSendNote] = useState('');
     const [paymentConcept, setPaymentConcept] = useState('');
+    const [aliasDropdownOpen, setAliasDropdownOpen] = useState(false);
+    const dropdownRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+                setAliasDropdownOpen(false);
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
 
 
 
@@ -296,25 +308,40 @@ export default function Dashboard() {
                     </div>
 
                     {/* Active Alias Capsule (Centered) */}
-                    <div className="flex justify-center w-full">
-                        <div className="relative flex items-center gap-2 bg-white/5 border border-white/10 rounded-full px-4 py-2 backdrop-blur-md hover:bg-white/10 transition-colors cursor-pointer group">
+                    <div className="flex justify-center w-full" ref={dropdownRef}>
+                        <div
+                            onClick={() => myAliases.length > 1 && setAliasDropdownOpen(!aliasDropdownOpen)}
+                            className="relative flex items-center gap-2 bg-white/5 border border-white/10 rounded-full px-4 py-2 backdrop-blur-md hover:bg-white/10 transition-colors cursor-pointer group"
+                        >
                             <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse shadow-[0_0_8px_limegreen]"></div>
                             <span className="text-xs font-mono text-gray-300 font-bold">
                                 {registeredAlias ? `@${registeredAlias}` : 'No Alias'}
                             </span>
                             {myAliases.length > 1 && (
-                                <svg className="w-3 h-3 text-gray-400 group-hover:text-white transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+                                <svg className={`w-3 h-3 text-gray-400 group-hover:text-white transition-transform ${aliasDropdownOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
                             )}
 
-                            {/* Full-size trigger for dropdown */}
-                            {myAliases.length > 1 && (
-                                <select
-                                    value={registeredAlias || ''}
-                                    onChange={(e) => setRegisteredAlias(e.target.value)}
-                                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer appearance-none"
-                                >
-                                    {myAliases.map(a => <option key={a} value={a}>@{a}</option>)}
-                                </select>
+                            {/* Custom Dropdown Menu */}
+                            {aliasDropdownOpen && myAliases.length > 1 && (
+                                <div className="absolute top-[calc(100%+8px)] left-0 right-0 min-w-[140px] bg-[#1a1a2e]/95 backdrop-blur-xl border border-white/10 rounded-2xl overflow-hidden shadow-[0_20px_50px_rgba(0,0,0,0.5)] z-[100] py-2 animate-in fade-in zoom-in-95 duration-200 origin-top">
+                                    <div className="px-3 py-1 mb-1">
+                                        <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Switch Alias</p>
+                                    </div>
+                                    {myAliases.map(a => (
+                                        <button
+                                            key={a}
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                setRegisteredAlias(a);
+                                                setAliasDropdownOpen(false);
+                                            }}
+                                            className={`w-full text-left px-4 py-2.5 text-xs font-mono transition-all flex items-center gap-2 hover:bg-white/10 group/item ${registeredAlias === a ? 'text-cyan-400 bg-cyan-500/10' : 'text-gray-400 hover:text-white'}`}
+                                        >
+                                            <span className={`w-1.5 h-1.5 rounded-full transition-all ${registeredAlias === a ? 'bg-cyan-400 shadow-[0_0_8px_rgba(6,182,212,0.8)]' : 'bg-transparent group-hover/item:bg-white/20'}`}></span>
+                                            @{a}
+                                        </button>
+                                    ))}
+                                </div>
                             )}
                         </div>
                     </div>
