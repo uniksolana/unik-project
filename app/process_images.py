@@ -37,6 +37,6 @@ def remove_background(input_path, output_path, fuzzing=10):
         print(f"Error processing {input_path}: {e}")
 
 if __name__ == "__main__":
-    remove_background("public/sol_raw.png", "public/sol.png", fuzzing=30)
-    remove_background("public/usdc_raw.png", "public/usdc.png", fuzzing=30)
-    remove_background("public/eurc_raw.png", "public/eurc.png", fuzzing=30)
+    remove_background("public/sol_input.png", "public/sol.png", fuzzing=50) # Increased fuzz for white BG
+    # USDC remains unchanged from previous step (public/usdc.png)
+    remove_background("public/eurc_input.png", "public/eurc.png", fuzzing=50)
