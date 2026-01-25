@@ -34,6 +34,7 @@ export default function Dashboard() {
     const [showRegisterForm, setShowRegisterForm] = useState(false);
     const [linkAmount, setLinkAmount] = useState('');
     const [linkConcept, setLinkConcept] = useState('');
+    const [requestToken, setRequestToken] = useState<any>(TOKEN_OPTIONS[0]); // Default SOL
 
 
     // Send Feature State
@@ -490,7 +491,7 @@ export default function Dashboard() {
 
                     {/* RIGHT COLUMN: Content Area */}
                     <div className="flex-1 w-full bg-[#13131f]/50 backdrop-blur-sm rounded-[2rem] border border-white/5 p-4 lg:p-8 min-h-[500px]">
-                        {activeTab === 'receive' && <ReceiveTab registeredAlias={registeredAlias} linkAmount={linkAmount} setLinkAmount={setLinkAmount} linkConcept={linkConcept} setLinkConcept={setLinkConcept} />}
+                        {activeTab === 'receive' && <ReceiveTab registeredAlias={registeredAlias} linkAmount={linkAmount} setLinkAmount={setLinkAmount} linkConcept={linkConcept} setLinkConcept={setLinkConcept} requestToken={requestToken} setRequestToken={setRequestToken} />}
                         {activeTab === 'send' && <SendTab sendRecipient={sendRecipient} setSendRecipient={setSendRecipient} sendAlias={sendAlias} setSendAlias={setSendAlias} sendAmount={sendAmount} setSendAmount={setSendAmount} sendNote={sendNote} setSendNote={setSendNote} paymentConcept={paymentConcept} setPaymentConcept={setPaymentConcept} loading={loading} setLoading={setLoading} publicKey={publicKey} wallet={wallet} connection={connection} solPrice={solPrice} balance={balance} sendToken={sendToken} setSendToken={setSendToken} />}
                         {activeTab === 'splits' && <SplitsTab splits={splits} setSplits={setSplits} isEditing={isEditing} setIsEditing={setIsEditing} newSplitAddress={newSplitAddress} setNewSplitAddress={setNewSplitAddress} newSplitPercent={newSplitPercent} setNewSplitPercent={setNewSplitPercent} addSplit={addSplit} removeSplit={removeSplit} totalPercent={totalPercent} handleSaveConfig={handleSaveConfig} loading={loading} />}
                         {activeTab === 'alias' && <AliasTab myAliases={myAliases} showRegisterForm={showRegisterForm} setShowRegisterForm={setShowRegisterForm} alias={alias} setAlias={setAlias} handleRegister={handleRegister} loading={loading} setRegisteredAlias={setRegisteredAlias} />}
@@ -600,19 +601,32 @@ function ActionButton({ icon, label, active, onClick }: { icon: string; label: s
     );
 }
 
-function ReceiveTab({ registeredAlias, linkAmount, setLinkAmount, linkConcept, setLinkConcept }: any) {
+function ReceiveTab({ registeredAlias, linkAmount, setLinkAmount, linkConcept, setLinkConcept, requestToken, setRequestToken }: any) {
+    if (!registeredAlias) return (
+        <div className="flex flex-col items-center justify-center h-full text-center p-8">
+            <div className="w-20 h-20 bg-gray-800 rounded-full flex items-center justify-center mb-6">
+                <svg className="w-10 h-10 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>
+            </div>
+            <h3 className="text-xl font-bold mb-2">Alias Required</h3>
+            <p className="text-gray-400 mb-6">You need to register a UNIK alias to receive payments.</p>
+        </div>
+    );
     const [isPayShareOpen, setIsPayShareOpen] = useState(false);
     const [isContactShareOpen, setIsContactShareOpen] = useState(false);
     const getPaymentUrl = () => {
         const origin = typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000';
-        let url = `${origin}/pay/${registeredAlias}?`;
-        if (linkAmount) url += `amount=${linkAmount}&`;
-        if (linkConcept) url += `concept=${encodeURIComponent(linkConcept)}`;
-        return url.endsWith('?') ? url.slice(0, -1) : url.endsWith('&') ? url.slice(0, -1) : url;
+        let url = `${origin}/pay/${registeredAlias}`;
+        const params = new URLSearchParams();
+        if (linkAmount) params.append('amount', linkAmount);
+        if (linkConcept) params.append('concept', encodeURIComponent(linkConcept));
+        if (requestToken.symbol !== 'SOL') params.append('token', requestToken.symbol);
+
+        if (params.toString()) url += `?${params.toString()}`;
+        return url;
     };
 
     const getShareMessage = () => {
-        const amount = linkAmount ? ` ${linkAmount} SOL` : '';
+        const amount = linkAmount ? ` ${linkAmount} ${requestToken.symbol}` : '';
         return `💸 Pay me${amount} via UNIK: ${getPaymentUrl()}`;
     };
 
@@ -640,7 +654,22 @@ function ReceiveTab({ registeredAlias, linkAmount, setLinkAmount, linkConcept, s
                         className="w-32 px-4 py-3 text-lg font-bold bg-gray-800 border border-gray-700 rounded-xl text-white focus:outline-none focus:border-cyan-500"
                         onChange={(e) => setLinkAmount(e.target.value)}
                     />
-                    <span className="text-lg font-bold text-gray-400">SOL</span>
+                    <span className="text-lg font-bold text-gray-400">{requestToken.symbol}</span>
+                </div>
+            </div>
+
+            <div className="mb-6">
+                <label className="text-sm text-gray-400 block mb-2">Select Token</label>
+                <div className="flex gap-2">
+                    {TOKEN_OPTIONS.map(token => (
+                        <button
+                            key={token.symbol}
+                            onClick={() => setRequestToken(token)}
+                            className={`px-3 py-1.5 rounded-lg text-xs font-bold border ${requestToken.symbol === token.symbol ? 'bg-cyan-500/20 border-cyan-500 text-cyan-400' : 'bg-gray-800 border-gray-700 text-gray-500 hover:text-white'}`}
+                        >
+                            {token.symbol}
+                        </button>
+                    ))}
                 </div>
             </div>
 
@@ -672,7 +701,7 @@ function ReceiveTab({ registeredAlias, linkAmount, setLinkAmount, linkConcept, s
 
                 <div className="mb-4">
                     <code className="block p-4 bg-black text-cyan-400 font-mono text-sm break-all border border-gray-700">
-                        {typeof window !== 'undefined' ? window.location.host : 'unik.app'}/pay/{registeredAlias}{linkAmount ? `?amount=${linkAmount}` : ''}
+                        {getPaymentUrl().replace(/^https?:\/\//, '')}
                     </code>
                 </div>
 
@@ -718,7 +747,7 @@ function ReceiveTab({ registeredAlias, linkAmount, setLinkAmount, linkConcept, s
 
                         <button
                             onClick={() => {
-                                const telegramUrl = `https://t.me/share/url?url=${encodeURIComponent(getPaymentUrl())}&text=${encodeURIComponent(`💸 Pay me${linkAmount ? ` ${linkAmount} SOL` : ''} via UNIK`)}`;
+                                const telegramUrl = `https://t.me/share/url?url=${encodeURIComponent(getPaymentUrl())}&text=${encodeURIComponent(`💸 Pay me${linkAmount ? ` ${linkAmount} ${requestToken.symbol}` : ''} via UNIK`)}`;
                                 window.open(telegramUrl, '_blank');
                             }}
                             className="flex items-center justify-center gap-2 px-4 py-3 bg-blue-600/20 hover:bg-blue-600/30 text-blue-400 border border-blue-600/30 rounded-xl font-semibold transition-colors"

@@ -12,6 +12,13 @@ import { PROGRAM_ID, IDL } from '../../../utils/anchor';
 import { Program, AnchorProvider, BN } from '@coral-xyz/anchor';
 import { Buffer } from 'buffer';
 import Image from 'next/image';
+import { TOKEN_PROGRAM_ID, ASSOCIATED_TOKEN_PROGRAM_ID, getAssociatedTokenAddress } from '@solana/spl-token';
+
+const TOKEN_OPTIONS_MAP: any = {
+    'SOL': { label: 'SOL', symbol: 'SOL', mint: null, decimals: 9 },
+    'USDC': { label: 'USDC (Devnet)', symbol: 'USDC', mint: new PublicKey('4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU'), decimals: 6 },
+    'EURC': { label: 'EURC (Devnet)', symbol: 'EURC', mint: new PublicKey('HzwqbKZw8JxJGHz3tYkXyVvV4yT9WDvF9d1t1zX5T2W'), decimals: 6 }
+};
 
 function PaymentContent() {
     const { alias } = useParams();
@@ -29,6 +36,8 @@ function PaymentContent() {
     const [concept, setConcept] = useState<string | null>(null);
     const [senderNote, setSenderNote] = useState('');
     const [solPrice, setSolPrice] = useState<number | null>(null);
+    const [selectedToken, setSelectedToken] = useState<any>(TOKEN_OPTIONS_MAP['SOL']);
+    const [tokenLocked, setTokenLocked] = useState(false);
 
     useEffect(() => {
         // Fetch SOL price from CoinGecko
@@ -64,12 +73,32 @@ function PaymentContent() {
         if (queryConcept) {
             setConcept(decodeURIComponent(queryConcept));
         }
+        const queryToken = searchParams.get('token');
+        if (queryToken && TOKEN_OPTIONS_MAP[queryToken.toUpperCase()]) {
+            setSelectedToken(TOKEN_OPTIONS_MAP[queryToken.toUpperCase()]);
+            setTokenLocked(true);
+        }
     }, [searchParams]);
 
     useEffect(() => {
         setIsMounted(true);
         if (connected && publicKey) {
-            connection.getBalance(publicKey).then(b => setBalance(b / 1e9));
+            if (selectedToken.symbol === 'SOL') {
+                connection.getBalance(publicKey).then(b => setBalance(b / 1e9));
+            } else {
+                // Fetch SPL Balance
+                const fetchSplBalance = async () => {
+                    try {
+                        const accounts = await connection.getParsedTokenAccountsByOwner(publicKey, { mint: selectedToken.mint });
+                        if (accounts.value.length > 0) {
+                            setBalance(accounts.value[0].account.data.parsed.info.tokenAmount.uiAmount);
+                        } else {
+                            setBalance(0);
+                        }
+                    } catch (e) { setBalance(0); }
+                };
+                fetchSplBalance();
+            }
         }
         if (alias) {
             checkAlias();
@@ -131,7 +160,7 @@ function PaymentContent() {
             const provider = new AnchorProvider(connection, wallet as any, {});
             const program = new Program(IDL as any, provider);
             const normalizedAlias = alias.toLowerCase().trim();
-            const lamports = parseFloat(amount) * 1e9;
+            const amountBN = new BN(Math.floor(parseFloat(amount) * Math.pow(10, selectedToken.decimals)));
 
             let txSignature = '';
 
@@ -142,41 +171,68 @@ function PaymentContent() {
                     PROGRAM_ID
                 );
 
-                // Map recipients
-                const remainingAccounts = (routeAccount.splits as any[]).map(split => ({
-                    pubkey: split.recipient,
-                    isWritable: true,
-                    isSigner: false,
-                }));
-
-                const tx = await program.methods
-                    .executeTransfer(normalizedAlias, new BN(lamports))
-                    .accounts({
-                        routeAccount: routePDA,
-                        user: publicKey,
-                        systemProgram: SystemProgram.programId,
-                    })
-                    .remainingAccounts(remainingAccounts)
-                    .rpc();
-
-                txSignature = tx;
-                console.log("Smart Transfer successful:", tx);
+                if (selectedToken.symbol === 'SOL') {
+                    // SOL Routing
+                    const remainingAccounts = (routeAccount.splits as any[]).map(split => ({
+                        pubkey: split.recipient, isWritable: true, isSigner: false,
+                    }));
+                    const tx = await program.methods
+                        .executeTransfer(normalizedAlias, amountBN)
+                        .accounts({
+                            routeAccount: routePDA, user: publicKey, systemProgram: SystemProgram.programId,
+                        })
+                        .remainingAccounts(remainingAccounts)
+                        .rpc();
+                    txSignature = tx;
+                } else {
+                    // SPL Token Routing
+                    const userATA = await getAssociatedTokenAddress(selectedToken.mint, publicKey);
+                    const remainingAccounts = [];
+                    for (const split of routeAccount.splits) {
+                        const destATA = await getAssociatedTokenAddress(selectedToken.mint, split.recipient);
+                        remainingAccounts.push({ pubkey: destATA, isSigner: false, isWritable: true });
+                    }
+                    const tx = await program.methods
+                        .executeTokenTransfer(normalizedAlias, amountBN)
+                        .accounts({
+                            routeAccount: routePDA,
+                            user: publicKey,
+                            userTokenAccount: userATA,
+                            tokenProgram: TOKEN_PROGRAM_ID,
+                            systemProgram: SystemProgram.programId
+                        })
+                        .remainingAccounts(remainingAccounts)
+                        .rpc();
+                    txSignature = tx;
+                }
             }
             // Scenario B: No Route Config -> Direct Transfer to Owner
             else if (aliasOwner) {
-                const transaction = new Transaction().add(
-                    SystemProgram.transfer({
-                        fromPubkey: publicKey,
-                        toPubkey: aliasOwner,
-                        lamports: BigInt(lamports),
-                    })
-                );
+                if (selectedToken.symbol === 'SOL') {
+                    const transaction = new Transaction().add(
+                        SystemProgram.transfer({
+                            fromPubkey: publicKey,
+                            toPubkey: aliasOwner,
+                            lamports: BigInt(amountBN.toNumber()),
+                        })
+                    );
+                    const signature = await wallet.sendTransaction(transaction, connection);
+                    await connection.confirmTransaction(signature, 'confirmed');
+                    txSignature = signature;
+                } else {
+                    // Direct SPL Transfer
+                    const sourceATA = await getAssociatedTokenAddress(selectedToken.mint, publicKey);
+                    const destATA = await getAssociatedTokenAddress(selectedToken.mint, aliasOwner);
+                    const { createTransferInstruction } = await import('@solana/spl-token');
 
-                // Note: Standard wallet adapter might need sendTransaction
-                const signature = await wallet.sendTransaction(transaction, connection);
-                await connection.confirmTransaction(signature, 'confirmed');
-                txSignature = signature;
-                console.log("Direct Transfer successful:", signature);
+                    // Assuming Account Exists for MVP
+                    const transaction = new Transaction().add(
+                        createTransferInstruction(sourceATA, destATA, publicKey, amountBN.toNumber())
+                    );
+                    const signature = await wallet.sendTransaction(transaction, connection);
+                    await connection.confirmTransaction(signature, 'confirmed');
+                    txSignature = signature;
+                }
             } else {
                 throw new Error("Alias not found or invalid.");
             }
@@ -184,7 +240,7 @@ function PaymentContent() {
             setLastSignature(txSignature);
             showTransactionToast({
                 signature: txSignature,
-                message: `Successfully sent ${amount} SOL to @${alias}`,
+                message: `Successfully sent ${amount} ${selectedToken.symbol} to @${alias}`,
                 type: 'success'
             });
             setStatus('success');
@@ -307,7 +363,7 @@ function PaymentContent() {
                         <div className="space-y-6">
                             <div>
                                 <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">
-                                    Amount (SOL) {isLocked && <span className="text-yellow-500 ml-2">🔒 Locked</span>}
+                                    Amount ({selectedToken.symbol}) {isLocked && <span className="text-yellow-500 ml-2">🔒 Locked</span>}
                                 </label>
                                 <div className="relative group">
                                     <input
@@ -318,12 +374,27 @@ function PaymentContent() {
                                         placeholder="0.00"
                                         className={`w-full pl-6 pr-16 py-5 text-3xl font-bold bg-black/30 border rounded-2xl text-white outline-none transition-all ${isLocked ? 'border-yellow-500/30 text-gray-400 cursor-not-allowed' : 'border-white/10 focus:border-cyan-500/50 focus:bg-black/40 focus:shadow-[0_0_20px_rgba(6,182,212,0.1)]'}`}
                                     />
-                                    <span className="absolute right-6 top-1/2 -translate-y-1/2 text-gray-500 font-bold text-lg group-focus-within:text-cyan-400 transition-colors">SOL</span>
+                                    <span className="absolute right-6 top-1/2 -translate-y-1/2 text-gray-500 font-bold text-lg group-focus-within:text-cyan-400 transition-colors">
+                                        {selectedToken.symbol}
+                                    </span>
                                 </div>
-                                {amount && solPrice && (
+                                {amount && solPrice && selectedToken.symbol === 'SOL' && (
                                     <p className="text-right text-gray-400 text-sm mt-2 font-mono">
                                         ≈ ${(parseFloat(amount) * solPrice).toFixed(2)} USD
                                     </p>
+                                )}
+                                {!tokenLocked && (
+                                    <div className="flex gap-2 mt-3 justify-end">
+                                        {Object.values(TOKEN_OPTIONS_MAP).map((t: any) => (
+                                            <button
+                                                key={t.symbol}
+                                                onClick={() => setSelectedToken(t)}
+                                                className={`px-3 py-1 rounded-lg text-xs font-bold border transition-all ${selectedToken.symbol === t.symbol ? 'bg-cyan-500/20 border-cyan-500 text-cyan-400' : 'bg-white/5 border-white/10 text-gray-500'}`}
+                                            >
+                                                {t.symbol}
+                                            </button>
+                                        ))}
+                                    </div>
                                 )}
                             </div>
 
@@ -385,12 +456,12 @@ function PaymentContent() {
                                         <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
                                         Processing...
                                     </span>
-                                ) : `Swipe to Pay ${amount ? amount : '0'} SOL`}
+                                ) : `Swipe to Pay ${amount ? amount : '0'} ${selectedToken.symbol}`}
                             </button>
 
                             {balance !== null && balance < parseFloat(amount || '0') && (
                                 <p className="text-red-400 text-xs text-center font-medium bg-red-500/10 py-2 rounded-lg border border-red-500/20">
-                                    Insufficient balance: {balance.toFixed(4)} SOL
+                                    Insufficient balance: {balance.toFixed(4)} {selectedToken.symbol}
                                 </p>
                             )}
                         </div>
