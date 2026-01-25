@@ -30,7 +30,8 @@ export default function Dashboard() {
     const [loading, setLoading] = useState(false);
     const [registeredAlias, setRegisteredAlias] = useState<string | null>(null);
     const [myAliases, setMyAliases] = useState<string[]>([]);
-    const [balance, setBalance] = useState<number | null>(null);
+    const [balances, setBalances] = useState<{ symbol: string; amount: number; valueUsd: number | null; icon: string }[]>([]);
+    const [solPrice, setSolPrice] = useState<number | null>(null);
     const [showRegisterForm, setShowRegisterForm] = useState(false);
     const [linkAmount, setLinkAmount] = useState('');
     const [linkConcept, setLinkConcept] = useState('');
@@ -96,14 +97,54 @@ export default function Dashboard() {
     useEffect(() => setIsMounted(true), []);
 
     useEffect(() => {
+        const fetchAllBalances = async () => {
+            if (!connected || !publicKey) return;
+
+            try {
+                // 1. SOL Balance
+                const solLamports = await connection.getBalance(publicKey);
+                const solAmount = solLamports / 1e9;
+
+                // 2. SPL Token Balances
+                const tokenBalancesData = [];
+                for (const token of TOKEN_OPTIONS.slice(1)) { // Skip SOL (index 0)
+                    try {
+                        if (!token.mint) continue;
+                        const accounts = await connection.getParsedTokenAccountsByOwner(publicKey, { mint: token.mint });
+                        let amount = 0;
+                        if (accounts.value.length > 0) {
+                            amount = accounts.value[0].account.data.parsed.info.tokenAmount.uiAmount || 0;
+                        }
+                        tokenBalancesData.push({ ...token, amount });
+                    } catch (e) {
+                        console.error(`Failed to fetch ${token.symbol} balance`, e);
+                        tokenBalancesData.push({ ...token, amount: 0 });
+                    }
+                }
+
+                // Construct Balance State
+                const newBalances = [
+                    { symbol: 'SOL', amount: solAmount, valueUsd: solPrice ? solAmount * solPrice : null, icon: TOKEN_OPTIONS[0].icon },
+                    ...tokenBalancesData.map(t => ({
+                        symbol: t.symbol,
+                        amount: t.amount,
+                        valueUsd: null, // Would need price feed for USDC/EURC
+                        icon: t.icon
+                    }))
+                ];
+                setBalances(newBalances);
+
+            } catch (e) {
+                console.error("Error fetching balances", e);
+            }
+        };
+
         if (connected && publicKey) {
-            connection.getBalance(publicKey).then(b => setBalance(b / 1e9));
-            const timer = setInterval(() => {
-                connection.getBalance(publicKey).then(b => setBalance(b / 1e9));
-            }, 10000);
+            fetchAllBalances();
+            const timer = setInterval(fetchAllBalances, 10000);
             return () => clearInterval(timer);
         }
-    }, [connected, publicKey, connection]);
+    }, [connected, publicKey, connection, solPrice]);
 
     useEffect(() => {
         const checkExistingAlias = async () => {
@@ -299,8 +340,6 @@ export default function Dashboard() {
         }
     };
 
-    // Price State
-    const [solPrice, setSolPrice] = useState<number | null>(null);
 
     useEffect(() => {
         // Fetch SOL price
@@ -434,17 +473,34 @@ export default function Dashboard() {
                     <div className="w-full lg:w-[350px] flex-shrink-0 space-y-6">
                         {/* Balance Card */}
                         <div className="relative overflow-hidden rounded-[2rem] p-[1px] bg-gradient-to-br from-cyan-500/50 via-purple-500/50 to-pink-500/50 shadow-2xl shadow-purple-900/20">
-                            <div className="bg-[#13131f] rounded-[2rem] p-8 text-center relative overflow-hidden">
+                            <div className="bg-[#13131f] rounded-[2rem] p-6 text-center relative overflow-hidden">
                                 <div className="absolute top-0 left-1/2 -translate-x-1/2 w-3/4 h-24 bg-cyan-500/10 blur-[50px] rounded-full"></div>
-                                <p className="text-xs font-bold tracking-[0.2em] text-gray-500 uppercase mb-2">Total Balance</p>
-                                <h2 className="text-4xl lg:text-5xl font-bold text-white mb-2 tracking-tighter">
-                                    {balance !== null ? balance.toFixed(4) : '0.00'} <span className="text-xl lg:text-2xl text-gray-600 font-normal">SOL</span>
-                                </h2>
-                                {solPrice && balance !== null && (
-                                    <p className="text-cyan-400 font-medium text-sm flex items-center justify-center gap-1">
-                                        ≈ ${(balance * solPrice).toFixed(2)} USD
-                                    </p>
-                                )}
+                                <p className="text-xs font-bold tracking-[0.2em] text-gray-500 uppercase mb-4">Portfolio</p>
+
+                                <div className="space-y-4">
+                                    {balances.length > 0 ? balances.map((b) => (
+                                        <div key={b.symbol} className="flex justify-between items-center bg-white/5 rounded-xl p-3 border border-white/5">
+                                            <div className="flex items-center gap-3">
+                                                {b.icon && (
+                                                    <div className="w-8 h-8 rounded-full overflow-hidden bg-black/20">
+                                                        <Image src={b.icon} alt={b.symbol} width={32} height={32} />
+                                                    </div>
+                                                )}
+                                                <div className="text-left">
+                                                    <p className="font-bold text-white leading-none">{b.symbol}</p>
+                                                </div>
+                                            </div>
+                                            <div className="text-right">
+                                                <p className="font-bold text-white">{b.amount.toLocaleString(undefined, { maximumFractionDigits: 4 })}</p>
+                                                {b.symbol === 'SOL' && b.valueUsd !== null && (
+                                                    <p className="text-[10px] text-cyan-400">≈ ${b.valueUsd.toFixed(2)}</p>
+                                                )}
+                                            </div>
+                                        </div>
+                                    )) : (
+                                        <p className="text-gray-500 text-sm">Loading balances...</p>
+                                    )}
+                                </div>
                             </div>
                         </div>
 
@@ -492,7 +548,7 @@ export default function Dashboard() {
                     {/* RIGHT COLUMN: Content Area */}
                     <div className="flex-1 w-full bg-[#13131f]/50 backdrop-blur-sm rounded-[2rem] border border-white/5 p-4 lg:p-8 min-h-[500px]">
                         {activeTab === 'receive' && <ReceiveTab registeredAlias={registeredAlias} linkAmount={linkAmount} setLinkAmount={setLinkAmount} linkConcept={linkConcept} setLinkConcept={setLinkConcept} requestToken={requestToken} setRequestToken={setRequestToken} />}
-                        {activeTab === 'send' && <SendTab sendRecipient={sendRecipient} setSendRecipient={setSendRecipient} sendAlias={sendAlias} setSendAlias={setSendAlias} sendAmount={sendAmount} setSendAmount={setSendAmount} sendNote={sendNote} setSendNote={setSendNote} paymentConcept={paymentConcept} setPaymentConcept={setPaymentConcept} loading={loading} setLoading={setLoading} publicKey={publicKey} wallet={wallet} connection={connection} solPrice={solPrice} balance={balance} sendToken={sendToken} setSendToken={setSendToken} />}
+                        {activeTab === 'send' && <SendTab sendRecipient={sendRecipient} setSendRecipient={setSendRecipient} sendAlias={sendAlias} setSendAlias={setSendAlias} sendAmount={sendAmount} setSendAmount={setSendAmount} sendNote={sendNote} setSendNote={setSendNote} paymentConcept={paymentConcept} setPaymentConcept={setPaymentConcept} loading={loading} setLoading={setLoading} publicKey={publicKey} wallet={wallet} connection={connection} solPrice={solPrice} balance={balances.find(b => b.symbol === 'SOL')?.amount || 0} sendToken={sendToken} setSendToken={setSendToken} />}
                         {activeTab === 'splits' && <SplitsTab splits={splits} setSplits={setSplits} isEditing={isEditing} setIsEditing={setIsEditing} newSplitAddress={newSplitAddress} setNewSplitAddress={setNewSplitAddress} newSplitPercent={newSplitPercent} setNewSplitPercent={setNewSplitPercent} addSplit={addSplit} removeSplit={removeSplit} totalPercent={totalPercent} handleSaveConfig={handleSaveConfig} loading={loading} />}
                         {activeTab === 'alias' && <AliasTab myAliases={myAliases} showRegisterForm={showRegisterForm} setShowRegisterForm={setShowRegisterForm} alias={alias} setAlias={setAlias} handleRegister={handleRegister} loading={loading} setRegisteredAlias={setRegisteredAlias} />}
                         {activeTab === 'contacts' && <ContactsTab setSendRecipient={setSendRecipient} setSendAlias={setSendAlias} setSendNote={setSendNote} setActiveTab={setActiveTab} loading={loading} setLoading={setLoading} connection={connection} wallet={wallet} confirmModal={confirmModal} setConfirmModal={setConfirmModal} noteModal={noteModal} setNoteModal={setNoteModal} />}
