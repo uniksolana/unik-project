@@ -965,7 +965,7 @@ function SendTab({ sendRecipient, setSendRecipient, sendAlias, setSendAlias, sen
                                             isWritable: true
                                         }));
 
-                                        const signature = await (program.methods as any)
+                                        const tx = await (program.methods as any)
                                             .executeTransfer(targetAlias, amountLamportsBN)
                                             .accounts({
                                                 routeAccount: routePDA,
@@ -973,7 +973,21 @@ function SendTab({ sendRecipient, setSendRecipient, sendAlias, setSendAlias, sen
                                                 systemProgram: SystemProgram.programId,
                                             })
                                             .remainingAccounts(remainingAccounts)
-                                            .rpc();
+                                            .transaction();
+
+                                        const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash('finalized');
+                                        tx.recentBlockhash = blockhash;
+                                        tx.feePayer = publicKey;
+
+                                        const signature = await wallet.sendTransaction(tx, connection, {
+                                            preflightCommitment: 'confirmed'
+                                        });
+
+                                        await connection.confirmTransaction({
+                                            signature,
+                                            blockhash,
+                                            lastValidBlockHeight
+                                        });
 
                                         showTransactionToast({
                                             signature,
@@ -995,7 +1009,7 @@ function SendTab({ sendRecipient, setSendRecipient, sendAlias, setSendAlias, sen
                                         const aliasAccount: any = await (program.account as any).aliasAccount.fetch(aliasPDA);
 
                                         // Fallback to direct transfer to owner
-                                        const { blockhash } = await connection.getLatestBlockhash('confirmed');
+                                        const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash('finalized');
                                         const transaction = new Transaction();
                                         transaction.recentBlockhash = blockhash;
                                         transaction.feePayer = publicKey;
@@ -1008,12 +1022,14 @@ function SendTab({ sendRecipient, setSendRecipient, sendAlias, setSendAlias, sen
                                             })
                                         );
 
-                                        const signature = await wallet.sendTransaction(transaction, connection);
-                                        const latestB = await connection.getLatestBlockhash();
+                                        const signature = await wallet.sendTransaction(transaction, connection, {
+                                            preflightCommitment: 'confirmed'
+                                        });
+
                                         await connection.confirmTransaction({
                                             signature,
-                                            blockhash: latestB.blockhash,
-                                            lastValidBlockHeight: latestB.lastValidBlockHeight
+                                            blockhash,
+                                            lastValidBlockHeight
                                         });
 
                                         showTransactionToast({
@@ -1034,7 +1050,7 @@ function SendTab({ sendRecipient, setSendRecipient, sendAlias, setSendAlias, sen
 
                             // Standard Direct Transfer (for plain addresses)
                             console.log("Executing standard direct transfer...");
-                            const { blockhash } = await connection.getLatestBlockhash('confirmed');
+                            const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash('finalized');
                             const transaction = new Transaction();
                             transaction.recentBlockhash = blockhash;
                             transaction.feePayer = publicKey;
@@ -1047,12 +1063,14 @@ function SendTab({ sendRecipient, setSendRecipient, sendAlias, setSendAlias, sen
                                 })
                             );
 
-                            const signature = await wallet.sendTransaction(transaction, connection);
-                            const latestBlockhash = await connection.getLatestBlockhash();
+                            const signature = await wallet.sendTransaction(transaction, connection, {
+                                preflightCommitment: 'confirmed'
+                            });
+
                             await connection.confirmTransaction({
                                 signature,
-                                blockhash: latestBlockhash.blockhash,
-                                lastValidBlockHeight: latestBlockhash.lastValidBlockHeight
+                                blockhash,
+                                lastValidBlockHeight
                             });
 
                             showTransactionToast({
