@@ -1430,28 +1430,28 @@ function ContactsTab({ setSendRecipient, setSendAlias, setSendNote, setActiveTab
                 <div className="space-y-3">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         {displayedContacts.map((c: any, i: number) => (
-                            <div key={i} className="group flex items-center justify-between p-3 sm:p-4 bg-gray-800 rounded-xl border border-gray-700 hover:border-cyan-500/50 hover:bg-gray-750 transition-all duration-300 relative overflow-hidden">
+                            <div key={i} className="group flex items-center justify-between p-2.5 sm:p-4 bg-gray-800 rounded-xl border border-gray-700 hover:border-cyan-500/50 hover:bg-gray-750 transition-all duration-300 relative overflow-hidden">
                                 <div className="absolute top-0 left-0 w-1 h-full bg-cyan-500 opacity-0 group-hover:opacity-100 transition-opacity"></div>
-                                <div className="flex items-center gap-4">
-                                    <div className="w-12 h-12 rounded-full bg-gradient-to-br from-cyan-500 to-purple-600 flex items-center justify-center text-white text-lg font-bold shadow-lg shadow-cyan-500/20">
+                                <div className="flex items-center gap-2 sm:gap-4 min-w-0">
+                                    <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-gradient-to-br from-cyan-500 to-purple-600 flex-shrink-0 flex items-center justify-center text-white text-base sm:text-lg font-bold shadow-lg shadow-cyan-500/20">
                                         {c.alias[0].toUpperCase()}
                                     </div>
                                     <div className="flex-1 min-w-0">
-                                        <p className="font-bold text-lg flex items-center gap-1">
-                                            {c.type === 'unik' || !c.type ? `@${c.alias}` : c.alias}
-                                            {c.type !== 'unik' && c.type && <span className="px-2 py-0.5 rounded bg-gray-700 text-[10px] text-gray-400 font-normal">ADDR</span>}
+                                        <p className="font-bold text-base sm:text-lg flex items-center gap-1 truncate">
+                                            <span className="truncate">{c.type === 'unik' || !c.type ? `@${c.alias}` : c.alias}</span>
+                                            {c.type !== 'unik' && c.type && <span className="flex-shrink-0 px-1.5 py-0.5 rounded bg-gray-700 text-[8px] sm:text-[10px] text-gray-400 font-normal">ADDR</span>}
                                         </p>
                                         {c.note ? (
                                             <p className="text-xs text-gray-400 truncate italic bg-gray-900/50 px-2 py-0.5 rounded border border-gray-700/50 inline-block mb-1">
                                                 "{c.note}"
                                             </p>
                                         ) : null}
-                                        <p className="text-[10px] text-gray-500 font-mono tracking-tighter opacity-60 group-hover:opacity-100 transition-opacity">
-                                            {c.address.slice(0, 10)}...{c.address.slice(-10)}
+                                        <p className="text-[9px] sm:text-[10px] text-gray-500 font-mono tracking-tighter opacity-60 group-hover:opacity-100 transition-opacity truncate">
+                                            {c.address.slice(0, 8)}...{c.address.slice(-8)}
                                         </p>
                                     </div>
                                 </div>
-                                <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0 ml-2">
+                                <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0 ml-1.5">
                                     <button
                                         onClick={() => {
                                             setNoteModal({
