@@ -5,7 +5,7 @@ import { WalletMultiButton } from '@solana/wallet-adapter-react-ui';
 import { useState, useEffect, useRef } from 'react';
 import toast from 'react-hot-toast';
 import { showTransactionToast, showSimpleToast } from '../components/CustomToast';
-import { PublicKey, SystemProgram, Transaction } from '@solana/web3.js';
+import { PublicKey, SystemProgram, Transaction, VersionedTransaction, TransactionMessage, ComputeBudgetProgram } from '@solana/web3.js';
 import { PROGRAM_ID, IDL } from '../../utils/anchor';
 import { Program, AnchorProvider, BN } from '@coral-xyz/anchor';
 import { useConnection } from '@solana/wallet-adapter-react';
@@ -965,7 +965,7 @@ function SendTab({ sendRecipient, setSendRecipient, sendAlias, setSendAlias, sen
                                             isWritable: true
                                         }));
 
-                                        const tx = await (program.methods as any)
+                                        const ix = await (program.methods as any)
                                             .executeTransfer(targetAlias, amountLamportsBN)
                                             .accounts({
                                                 routeAccount: routePDA,
@@ -973,15 +973,22 @@ function SendTab({ sendRecipient, setSendRecipient, sendAlias, setSendAlias, sen
                                                 systemProgram: SystemProgram.programId,
                                             })
                                             .remainingAccounts(remainingAccounts)
-                                            .transaction();
+                                            .instruction();
 
                                         const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash('finalized');
-                                        tx.recentBlockhash = blockhash;
-                                        tx.feePayer = publicKey;
 
-                                        const signature = await wallet.sendTransaction(tx, connection, {
-                                            preflightCommitment: 'confirmed'
-                                        });
+                                        const messageV0 = new TransactionMessage({
+                                            payerKey: publicKey,
+                                            recentBlockhash: blockhash,
+                                            instructions: [
+                                                ComputeBudgetProgram.setComputeUnitLimit({ units: 300_000 }),
+                                                ix
+                                            ],
+                                        }).compileToV0Message();
+
+                                        const transaction = new VersionedTransaction(messageV0);
+
+                                        const signature = await wallet.sendTransaction(transaction, connection);
 
                                         await connection.confirmTransaction({
                                             signature,
@@ -1010,21 +1017,23 @@ function SendTab({ sendRecipient, setSendRecipient, sendAlias, setSendAlias, sen
 
                                         // Fallback to direct transfer to owner
                                         const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash('finalized');
-                                        const transaction = new Transaction();
-                                        transaction.recentBlockhash = blockhash;
-                                        transaction.feePayer = publicKey;
 
-                                        transaction.add(
-                                            SystemProgram.transfer({
-                                                fromPubkey: publicKey,
-                                                toPubkey: aliasAccount.owner,
-                                                lamports: amountLamportsBN.toNumber(),
-                                            })
-                                        );
+                                        const messageV0 = new TransactionMessage({
+                                            payerKey: publicKey,
+                                            recentBlockhash: blockhash,
+                                            instructions: [
+                                                ComputeBudgetProgram.setComputeUnitLimit({ units: 10_000 }), // Simple transfer needs very little
+                                                SystemProgram.transfer({
+                                                    fromPubkey: publicKey,
+                                                    toPubkey: aliasAccount.owner,
+                                                    lamports: amountLamportsBN.toNumber(),
+                                                })
+                                            ],
+                                        }).compileToV0Message();
 
-                                        const signature = await wallet.sendTransaction(transaction, connection, {
-                                            preflightCommitment: 'confirmed'
-                                        });
+                                        const transaction = new VersionedTransaction(messageV0);
+
+                                        const signature = await wallet.sendTransaction(transaction, connection);
 
                                         await connection.confirmTransaction({
                                             signature,
@@ -1051,21 +1060,23 @@ function SendTab({ sendRecipient, setSendRecipient, sendAlias, setSendAlias, sen
                             // Standard Direct Transfer (for plain addresses)
                             console.log("Executing standard direct transfer...");
                             const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash('finalized');
-                            const transaction = new Transaction();
-                            transaction.recentBlockhash = blockhash;
-                            transaction.feePayer = publicKey;
 
-                            transaction.add(
-                                SystemProgram.transfer({
-                                    fromPubkey: publicKey,
-                                    toPubkey: new PublicKey(sendRecipient),
-                                    lamports: amountLamportsBN.toNumber(),
-                                })
-                            );
+                            const messageV0 = new TransactionMessage({
+                                payerKey: publicKey,
+                                recentBlockhash: blockhash,
+                                instructions: [
+                                    ComputeBudgetProgram.setComputeUnitLimit({ units: 10_000 }),
+                                    SystemProgram.transfer({
+                                        fromPubkey: publicKey,
+                                        toPubkey: new PublicKey(sendRecipient),
+                                        lamports: amountLamportsBN.toNumber(),
+                                    })
+                                ],
+                            }).compileToV0Message();
 
-                            const signature = await wallet.sendTransaction(transaction, connection, {
-                                preflightCommitment: 'confirmed'
-                            });
+                            const transaction = new VersionedTransaction(messageV0);
+
+                            const signature = await wallet.sendTransaction(transaction, connection);
 
                             await connection.confirmTransaction({
                                 signature,
