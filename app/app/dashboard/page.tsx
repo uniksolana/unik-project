@@ -181,14 +181,31 @@ export default function Dashboard() {
                 PROGRAM_ID
             );
 
-            const tx = await program.methods
+            const instruction = await program.methods
                 .registerAlias(normalizedAlias, "https://unik.to/metadata_placeholder")
                 .accounts({
                     aliasAccount: aliasPDA,
                     user: publicKey,
-                    systemProgram: PublicKey.default,
+                    systemProgram: SystemProgram.programId,
                 })
-                .rpc();
+                .instruction();
+
+            const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash('finalized');
+
+            const messageV0 = new TransactionMessage({
+                payerKey: publicKey,
+                recentBlockhash: blockhash,
+                instructions: [
+                    ComputeBudgetProgram.setComputeUnitLimit({ units: 50_000 }),
+                    ComputeBudgetProgram.setComputeUnitPrice({ microLamports: 1000 }),
+                    instruction
+                ],
+            }).compileToV0Message();
+
+            const transaction = new VersionedTransaction(messageV0);
+
+            const signature = await wallet.sendTransaction(transaction, connection);
+            await connection.confirmTransaction({ signature, blockhash, lastValidBlockHeight });
 
             setRegisteredAlias(normalizedAlias);
             setMyAliases([...myAliases, normalizedAlias]);
@@ -234,7 +251,7 @@ export default function Dashboard() {
                 percentage: s.percent * 100
             }));
 
-            const tx = await program.methods
+            const instruction = await program.methods
                 .setRouteConfig(normalizedAlias, idlSplits)
                 .accounts({
                     routeAccount: routePDA,
@@ -242,7 +259,24 @@ export default function Dashboard() {
                     user: publicKey,
                     systemProgram: SystemProgram.programId,
                 })
-                .rpc();
+                .instruction();
+
+            const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash('finalized');
+
+            const messageV0 = new TransactionMessage({
+                payerKey: publicKey,
+                recentBlockhash: blockhash,
+                instructions: [
+                    ComputeBudgetProgram.setComputeUnitLimit({ units: 50_000 }),
+                    ComputeBudgetProgram.setComputeUnitPrice({ microLamports: 1000 }),
+                    instruction
+                ],
+            }).compileToV0Message();
+
+            const transaction = new VersionedTransaction(messageV0);
+
+            const signature = await wallet.sendTransaction(transaction, connection);
+            await connection.confirmTransaction({ signature, blockhash, lastValidBlockHeight });
 
             toast.success(`Routing rules saved!`);
             setIsEditing(false);
@@ -982,6 +1016,7 @@ function SendTab({ sendRecipient, setSendRecipient, sendAlias, setSendAlias, sen
                                             recentBlockhash: blockhash,
                                             instructions: [
                                                 ComputeBudgetProgram.setComputeUnitLimit({ units: 300_000 }),
+                                                ComputeBudgetProgram.setComputeUnitPrice({ microLamports: 1000 }),
                                                 ix
                                             ],
                                         }).compileToV0Message();
@@ -1023,6 +1058,7 @@ function SendTab({ sendRecipient, setSendRecipient, sendAlias, setSendAlias, sen
                                             recentBlockhash: blockhash,
                                             instructions: [
                                                 ComputeBudgetProgram.setComputeUnitLimit({ units: 10_000 }), // Simple transfer needs very little
+                                                ComputeBudgetProgram.setComputeUnitPrice({ microLamports: 1000 }),
                                                 SystemProgram.transfer({
                                                     fromPubkey: publicKey,
                                                     toPubkey: aliasAccount.owner,
@@ -1066,6 +1102,7 @@ function SendTab({ sendRecipient, setSendRecipient, sendAlias, setSendAlias, sen
                                 recentBlockhash: blockhash,
                                 instructions: [
                                     ComputeBudgetProgram.setComputeUnitLimit({ units: 10_000 }),
+                                    ComputeBudgetProgram.setComputeUnitPrice({ microLamports: 1000 }),
                                     SystemProgram.transfer({
                                         fromPubkey: publicKey,
                                         toPubkey: new PublicKey(sendRecipient),
