@@ -924,9 +924,16 @@ function SendTab({ sendRecipient, setSendRecipient, sendAlias, setSendAlias, sen
                         if (!sendRecipient || !sendAmount || !publicKey || !wallet) return;
                         setLoading(true);
                         try {
+                            const amountLamportsBN = new BN(Math.floor(parseFloat(sendAmount) * 1e9));
+
+                            // Pre-flight balance check
+                            const currentBalanceLamports = await connection.getBalance(publicKey);
+                            if (currentBalanceLamports < amountLamportsBN.toNumber() + 5000) {
+                                throw new Error("Insufficient balance for transaction and network fee (0.000005 SOL).");
+                            }
+
                             const provider = new AnchorProvider(connection, wallet as any, {});
                             const program = new Program(IDL as any, provider);
-                            const amountLamportsBN = new BN(Math.floor(parseFloat(sendAmount) * 1e9));
 
                             // intelligent routing logic
                             let targetAlias = sendAlias;
@@ -988,7 +995,12 @@ function SendTab({ sendRecipient, setSendRecipient, sendAlias, setSendAlias, sen
                                         const aliasAccount: any = await (program.account as any).aliasAccount.fetch(aliasPDA);
 
                                         // Fallback to direct transfer to owner
-                                        const transaction = new Transaction().add(
+                                        const { blockhash } = await connection.getLatestBlockhash('confirmed');
+                                        const transaction = new Transaction();
+                                        transaction.recentBlockhash = blockhash;
+                                        transaction.feePayer = publicKey;
+
+                                        transaction.add(
                                             SystemProgram.transfer({
                                                 fromPubkey: publicKey,
                                                 toPubkey: aliasAccount.owner,
@@ -997,7 +1009,12 @@ function SendTab({ sendRecipient, setSendRecipient, sendAlias, setSendAlias, sen
                                         );
 
                                         const signature = await wallet.sendTransaction(transaction, connection);
-                                        await connection.confirmTransaction(signature, 'confirmed');
+                                        const latestB = await connection.getLatestBlockhash();
+                                        await connection.confirmTransaction({
+                                            signature,
+                                            blockhash: latestB.blockhash,
+                                            lastValidBlockHeight: latestB.lastValidBlockHeight
+                                        });
 
                                         showTransactionToast({
                                             signature,
@@ -1017,7 +1034,12 @@ function SendTab({ sendRecipient, setSendRecipient, sendAlias, setSendAlias, sen
 
                             // Standard Direct Transfer (for plain addresses)
                             console.log("Executing standard direct transfer...");
-                            const transaction = new Transaction().add(
+                            const { blockhash } = await connection.getLatestBlockhash('confirmed');
+                            const transaction = new Transaction();
+                            transaction.recentBlockhash = blockhash;
+                            transaction.feePayer = publicKey;
+
+                            transaction.add(
                                 SystemProgram.transfer({
                                     fromPubkey: publicKey,
                                     toPubkey: new PublicKey(sendRecipient),
