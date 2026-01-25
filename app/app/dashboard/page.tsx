@@ -13,6 +13,13 @@ import QRCode from "react-qr-code";
 import { Html5Qrcode } from "html5-qrcode";
 import { Buffer } from 'buffer';
 import Image from 'next/image';
+import { TOKEN_PROGRAM_ID, ASSOCIATED_TOKEN_PROGRAM_ID, getAssociatedTokenAddress } from '@solana/spl-token';
+
+const TOKEN_OPTIONS = [
+    { label: 'SOL', symbol: 'SOL', mint: null, decimals: 9, icon: 'https://raw.githubusercontent.com/solana-labs/token-list/main/assets/mainnet/So11111111111111111111111111111111111111112/logo.png' },
+    { label: 'USDC (Devnet)', symbol: 'USDC', mint: new PublicKey('4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU'), decimals: 6, icon: 'https://raw.githubusercontent.com/solana-labs/token-list/main/assets/mainnet/EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v/logo.png' },
+    { label: 'EURC (Devnet)', symbol: 'EURC', mint: new PublicKey('HzwqbKZw8JxJGHz3tYkXyVvV4yT9WDvF9d1t1zX5T2W'), decimals: 6, icon: 'https://raw.githubusercontent.com/solana-labs/token-list/main/assets/mainnet/HzwqbKZw8JxJGHz3tYkXyVvV4yT9WDvF9d1t1zX5T2W/logo.png' } // Placeholder EURC Devnet Mint
+];
 
 type TabType = 'receive' | 'send' | 'splits' | 'alias' | 'contacts' | 'history';
 
@@ -35,6 +42,7 @@ export default function Dashboard() {
     const [sendAmount, setSendAmount] = useState('');
     const [sendNote, setSendNote] = useState('');
     const [paymentConcept, setPaymentConcept] = useState('');
+    const [sendToken, setSendToken] = useState(TOKEN_OPTIONS[0]); // Default to SOL
     const [aliasDropdownOpen, setAliasDropdownOpen] = useState(false);
     const dropdownRef = useRef<HTMLDivElement>(null);
 
@@ -483,7 +491,7 @@ export default function Dashboard() {
                     {/* RIGHT COLUMN: Content Area */}
                     <div className="flex-1 w-full bg-[#13131f]/50 backdrop-blur-sm rounded-[2rem] border border-white/5 p-4 lg:p-8 min-h-[500px]">
                         {activeTab === 'receive' && <ReceiveTab registeredAlias={registeredAlias} linkAmount={linkAmount} setLinkAmount={setLinkAmount} linkConcept={linkConcept} setLinkConcept={setLinkConcept} />}
-                        {activeTab === 'send' && <SendTab sendRecipient={sendRecipient} setSendRecipient={setSendRecipient} sendAlias={sendAlias} setSendAlias={setSendAlias} sendAmount={sendAmount} setSendAmount={setSendAmount} sendNote={sendNote} setSendNote={setSendNote} paymentConcept={paymentConcept} setPaymentConcept={setPaymentConcept} loading={loading} setLoading={setLoading} publicKey={publicKey} wallet={wallet} connection={connection} solPrice={solPrice} balance={balance} />}
+                        {activeTab === 'send' && <SendTab sendRecipient={sendRecipient} setSendRecipient={setSendRecipient} sendAlias={sendAlias} setSendAlias={setSendAlias} sendAmount={sendAmount} setSendAmount={setSendAmount} sendNote={sendNote} setSendNote={setSendNote} paymentConcept={paymentConcept} setPaymentConcept={setPaymentConcept} loading={loading} setLoading={setLoading} publicKey={publicKey} wallet={wallet} connection={connection} solPrice={solPrice} balance={balance} sendToken={sendToken} setSendToken={setSendToken} />}
                         {activeTab === 'splits' && <SplitsTab splits={splits} setSplits={setSplits} isEditing={isEditing} setIsEditing={setIsEditing} newSplitAddress={newSplitAddress} setNewSplitAddress={setNewSplitAddress} newSplitPercent={newSplitPercent} setNewSplitPercent={setNewSplitPercent} addSplit={addSplit} removeSplit={removeSplit} totalPercent={totalPercent} handleSaveConfig={handleSaveConfig} loading={loading} />}
                         {activeTab === 'alias' && <AliasTab myAliases={myAliases} showRegisterForm={showRegisterForm} setShowRegisterForm={setShowRegisterForm} alias={alias} setAlias={setAlias} handleRegister={handleRegister} loading={loading} setRegisteredAlias={setRegisteredAlias} />}
                         {activeTab === 'contacts' && <ContactsTab setSendRecipient={setSendRecipient} setSendAlias={setSendAlias} setSendNote={setSendNote} setActiveTab={setActiveTab} loading={loading} setLoading={setLoading} connection={connection} wallet={wallet} confirmModal={confirmModal} setConfirmModal={setConfirmModal} noteModal={noteModal} setNoteModal={setNoteModal} />}
@@ -799,112 +807,265 @@ function ReceiveTab({ registeredAlias, linkAmount, setLinkAmount, linkConcept, s
     );
 }
 
-function SendTab({ sendRecipient, setSendRecipient, sendAlias, setSendAlias, sendAmount, setSendAmount, sendNote, setSendNote, paymentConcept, setPaymentConcept, loading, setLoading, publicKey, wallet, connection }: any) {
+function SendTab({ sendRecipient, setSendRecipient, sendAlias, setSendAlias, sendAmount, setSendAmount, sendNote, setSendNote, paymentConcept, setPaymentConcept, loading, setLoading, publicKey, wallet, connection, solPrice, balance, sendToken, setSendToken }: any) {
+    // QR Scanner State
     const [scanning, setScanning] = useState(false);
     const scannerRef = useRef<Html5Qrcode | null>(null);
 
+    // Token Balance State
+    const [tokenBalance, setTokenBalance] = useState<number | null>(null);
+    useEffect(() => {
+        if (!publicKey || !sendToken.mint) {
+            setTokenBalance(null);
+            return;
+        }
+        const fetchTokenBalance = async () => {
+            try {
+                const accounts = await connection.getParsedTokenAccountsByOwner(publicKey, { mint: sendToken.mint });
+                if (accounts.value.length > 0) {
+                    const amount = accounts.value[0].account.data.parsed.info.tokenAmount.uiAmount;
+                    setTokenBalance(amount);
+                } else {
+                    setTokenBalance(0);
+                }
+            } catch (error) {
+                console.error("Error fetching token balance", error);
+                setTokenBalance(0);
+            }
+        };
+        fetchTokenBalance();
+    }, [sendToken, publicKey, connection]);
+
+    const activeBalance = sendToken.symbol === 'SOL' ? balance : tokenBalance;
+
     useEffect(() => {
         if (scanning) {
-            // Give the DOM a moment to render the #reader div
             const timer = setTimeout(() => {
                 if (!scannerRef.current) {
                     const html5QrCode = new Html5Qrcode("reader");
                     scannerRef.current = html5QrCode;
-
                     const config = { fps: 10, qrbox: { width: 250, height: 250 } };
-
                     html5QrCode.start(
                         { facingMode: "environment" },
                         config,
                         (decodedText) => {
-                            console.log("Scanned:", decodedText);
                             try {
-                                // Handle URL format: domain/pay/alias?amount=X&concept=Y
                                 if (decodedText.includes('/pay/')) {
                                     const url = new URL(decodedText);
                                     const pathParts = url.pathname.split('/');
                                     const aliasIndex = pathParts.indexOf('pay') + 1;
                                     if (aliasIndex < pathParts.length) {
-                                        const alias = pathParts[aliasIndex];
-                                        setSendRecipient(`@${alias}`);
-                                        setSendAlias(alias);
-
+                                        setSendRecipient(`@${pathParts[aliasIndex]}`);
+                                        setSendAlias(pathParts[aliasIndex]);
                                         const amount = url.searchParams.get('amount');
                                         if (amount) setSendAmount(amount);
-
                                         const concept = url.searchParams.get('concept');
                                         if (concept) setSendNote(concept);
                                     }
                                 } else {
-                                    // Assume it's a direct address or alias
                                     setSendRecipient(decodedText);
                                     setSendAlias('');
                                 }
-
                                 html5QrCode.stop().then(() => {
                                     html5QrCode.clear();
                                     scannerRef.current = null;
                                     setScanning(false);
                                 }).catch(err => console.error("Failed to stop after scan", err));
-
                             } catch (e) {
-                                console.error("Error parsing QR", e);
-                                toast.error("Invalid QR Code format");
+                                toast.error("Invalid QR Code");
                             }
                         },
-                        (errorMessage) => {
-                            // parse error, ignore usually
-                        }
+                        () => { }
                     ).catch(err => {
-                        console.error("Error starting scanner", err);
-                        toast.error("Camera error: " + (err.message || "Permission denied"));
+                        toast.error("Camera error");
                         setScanning(false);
                         scannerRef.current = null;
                     });
                 }
-            }, 100); // 100ms delay to ensure div exists
-
+            }, 100);
             return () => {
                 clearTimeout(timer);
                 if (scannerRef.current) {
                     scannerRef.current.stop().then(() => {
                         scannerRef.current?.clear();
                         scannerRef.current = null;
-                    }).catch(err => {
-                        console.error("Failed to stop scanner on cleanup", err);
-                    });
+                    }).catch(console.error);
                 }
             };
         }
     }, [scanning]);
 
+    const handleSend = async () => {
+        if (!sendRecipient || !sendAmount || !publicKey || !wallet) return;
+        setLoading(true);
+        try {
+            const amountBN = new BN(Math.floor(parseFloat(sendAmount) * Math.pow(10, sendToken.decimals)));
+
+            const provider = new AnchorProvider(connection, wallet as any, {});
+            const program = new Program(IDL as any, provider);
+
+            let targetAlias = sendAlias;
+            if (!targetAlias && sendRecipient.startsWith('@')) targetAlias = sendRecipient.substring(1);
+            else if (!targetAlias && !sendRecipient.startsWith('@') && sendRecipient.length < 32) targetAlias = sendRecipient;
+            targetAlias = targetAlias ? targetAlias.toLowerCase().trim() : null;
+
+            if (targetAlias) {
+                // ROUTED TRANSFER (Token or SOL)
+                try {
+                    const [routePDA] = PublicKey.findProgramAddressSync([Buffer.from("route"), Buffer.from(targetAlias)], PROGRAM_ID);
+                    const routeAccount: any = await (program.account as any).routeAccount.fetch(routePDA);
+
+                    if (routeAccount && routeAccount.splits && routeAccount.splits.length > 0) {
+                        if (sendToken.symbol === 'SOL') {
+                            // --- SOL ROUTING ---
+                            const remainingAccounts = routeAccount.splits.map((s: any) => ({
+                                pubkey: s.recipient, isSigner: false, isWritable: true
+                            }));
+                            const ix = await (program.methods as any).executeTransfer(targetAlias, amountBN).accounts({
+                                routeAccount: routePDA, user: publicKey, systemProgram: SystemProgram.programId
+                            }).remainingAccounts(remainingAccounts).instruction();
+
+                            const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash('finalized');
+                            const messageV0 = new TransactionMessage({
+                                payerKey: publicKey, recentBlockhash: blockhash,
+                                instructions: [
+                                    ComputeBudgetProgram.setComputeUnitLimit({ units: 300_000 }),
+                                    ComputeBudgetProgram.setComputeUnitPrice({ microLamports: 1000 }),
+                                    ix
+                                ]
+                            }).compileToV0Message();
+                            const transaction = new VersionedTransaction(messageV0);
+                            const signature = await wallet.sendTransaction(transaction, connection);
+                            await connection.confirmTransaction({ signature, blockhash, lastValidBlockHeight });
+                            showTransactionToast({ signature, message: `Sent ${sendAmount} SOL via @${targetAlias}`, type: 'success' });
+
+                        } else {
+                            // --- SPL TOKEN ROUTING ---
+                            const userATA = await getAssociatedTokenAddress(sendToken.mint, publicKey);
+                            const remainingAccounts = [];
+                            for (const split of routeAccount.splits) {
+                                const destATA = await getAssociatedTokenAddress(sendToken.mint, split.recipient);
+                                remainingAccounts.push({ pubkey: destATA, isSigner: false, isWritable: true });
+                            }
+
+                            const ix = await (program.methods as any)
+                                .executeTokenTransfer(targetAlias, amountBN)
+                                .accounts({
+                                    routeAccount: routePDA,
+                                    user: publicKey,
+                                    userTokenAccount: userATA,
+                                    tokenProgram: TOKEN_PROGRAM_ID,
+                                    systemProgram: SystemProgram.programId
+                                })
+                                .remainingAccounts(remainingAccounts)
+                                .instruction();
+
+                            const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash('finalized');
+                            const messageV0 = new TransactionMessage({
+                                payerKey: publicKey, recentBlockhash: blockhash,
+                                instructions: [
+                                    ComputeBudgetProgram.setComputeUnitLimit({ units: 400_000 }),
+                                    ComputeBudgetProgram.setComputeUnitPrice({ microLamports: 1000 }),
+                                    ix
+                                ]
+                            }).compileToV0Message();
+                            const transaction = new VersionedTransaction(messageV0);
+                            const signature = await wallet.sendTransaction(transaction, connection);
+                            await connection.confirmTransaction({ signature, blockhash, lastValidBlockHeight });
+                            showTransactionToast({ signature, message: `Sent ${sendAmount} ${sendToken.symbol} via @${targetAlias}`, type: 'success' });
+                        }
+                        setLoading(false); setSendAmount(''); setPaymentConcept(''); return;
+                    }
+                } catch (e) {
+                    console.log("Routing failed/skipped", e);
+                }
+            }
+
+            // DIRECT TRANSFER
+            let recipientPubkey;
+            if (targetAlias) {
+                const [aliasPDA] = PublicKey.findProgramAddressSync([Buffer.from("alias"), Buffer.from(targetAlias)], PROGRAM_ID);
+                const aliasAccount = await (program.account as any).aliasAccount.fetch(aliasPDA);
+                recipientPubkey = aliasAccount.owner;
+            } else {
+                recipientPubkey = new PublicKey(sendRecipient);
+            }
+
+            const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash('finalized');
+            let ix;
+
+            if (sendToken.symbol === 'SOL') {
+                ix = SystemProgram.transfer({
+                    fromPubkey: publicKey, toPubkey: recipientPubkey, lamports: amountBN.toNumber(),
+                });
+            } else {
+                const sourceATA = await getAssociatedTokenAddress(sendToken.mint, publicKey);
+                const destATA = await getAssociatedTokenAddress(sendToken.mint, recipientPubkey);
+                const { createTransferInstruction } = await import('@solana/spl-token');
+
+                // Assumption: Dest ATA exists. MVP limitation.
+                ix = createTransferInstruction(sourceATA, destATA, publicKey, amountBN.toNumber());
+            }
+
+            const messageV0 = new TransactionMessage({
+                payerKey: publicKey, recentBlockhash: blockhash,
+                instructions: [
+                    ComputeBudgetProgram.setComputeUnitLimit({ units: 100_000 }),
+                    ComputeBudgetProgram.setComputeUnitPrice({ microLamports: 1000 }),
+                    ix
+                ]
+            }).compileToV0Message();
+            const transaction = new VersionedTransaction(messageV0);
+            const signature = await wallet.sendTransaction(transaction, connection);
+            await connection.confirmTransaction({ signature, blockhash, lastValidBlockHeight });
+            showTransactionToast({ signature, message: `Sent ${sendAmount} ${sendToken.symbol}`, type: 'success' });
+
+            setLoading(false); setSendAmount(''); setPaymentConcept('');
+
+        } catch (e: any) {
+            console.error("Transfer failed", e);
+            toast.error("Transfer failed: " + (e.message || "Unknown error"));
+            setLoading(false);
+        }
+    };
+
     return (
         <div>
             <div className="flex justify-between items-center mb-6">
-                <h3 className="text-2xl font-bold">Send SOL</h3>
+                <h3 className="text-2xl font-bold">Send Payment</h3>
+                <div className="flex gap-2">
+                    {TOKEN_OPTIONS.map(token => (
+                        <button
+                            key={token.symbol}
+                            onClick={() => setSendToken(token)}
+                            className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition-colors ${sendToken.symbol === token.symbol ? 'bg-cyan-500/20 border-cyan-500 text-cyan-400' : 'bg-gray-800 border-gray-700 text-gray-500 hover:text-white'}`}
+                        >
+                            {token.symbol}
+                        </button>
+                    ))}
+                </div>
+            </div>
+
+            <div className="flex justify-end mb-4">
                 <button
                     onClick={() => setScanning(!scanning)}
-                    className="flex items-center gap-2 text-cyan-400 hover:text-cyan-300 font-bold bg-cyan-900/30 px-3 py-1.5 rounded-lg transition-colors border border-cyan-500/30"
+                    className="flex items-center gap-2 text-cyan-400 hover:text-cyan-300 font-bold bg-cyan-900/30 px-3 py-1.5 rounded-lg transition-colors border border-cyan-500/30 text-xs"
                 >
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" />
                     </svg>
-                    {scanning ? 'Cancel Scan' : 'Scan QR'}
+                    {scanning ? 'Cancel Scan' : 'Scan a QR'}
                 </button>
             </div>
 
             {scanning && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
                     <div className="bg-gray-900 p-6 rounded-2xl w-full max-w-sm border border-gray-700 shadow-2xl relative">
-                        <button
-                            onClick={() => setScanning(false)}
-                            className="absolute top-4 right-4 text-gray-400 hover:text-white"
-                        >
+                        <button onClick={() => setScanning(false)} className="absolute top-4 right-4 text-gray-400 hover:text-white">
                             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
                         </button>
                         <h4 className="text-xl font-bold mb-4 text-center">Scan Payment QR</h4>
                         <div id="reader" className="overflow-hidden rounded-lg"></div>
-                        <p className="text-center text-xs text-gray-500 mt-4">Point your camera at a UNIK payment QR code</p>
                     </div>
                 </div>
             )}
@@ -931,10 +1092,14 @@ function SendTab({ sendRecipient, setSendRecipient, sendAlias, setSendAlias, sen
                 </div>
 
                 <div>
-                    <label className="text-sm text-gray-400 block mb-2">Amount (SOL)</label>
+                    <label className="text-sm text-gray-400 block mb-2">Amount ({sendToken.symbol})
+                        <span className="float-right text-xs text-gray-500">
+                            Balance: {activeBalance !== null ? activeBalance.toFixed(sendToken.symbol === 'SOL' ? 4 : 2) : 'Loading...'}
+                        </span>
+                    </label>
                     <input
                         type="number"
-                        step="0.01"
+                        step={sendToken.symbol === 'SOL' ? "0.000000001" : "0.000001"}
                         placeholder="0.00"
                         value={sendAmount}
                         onChange={(e) => setSendAmount(e.target.value)}
@@ -943,7 +1108,7 @@ function SendTab({ sendRecipient, setSendRecipient, sendAlias, setSendAlias, sen
                 </div>
 
                 <div>
-                    <label className="text-sm text-gray-400 block mb-2">Payment Concept (optional, off-chain)</label>
+                    <label className="text-sm text-gray-400 block mb-2">Payment Concept (optional)</label>
                     <input
                         type="text"
                         placeholder="What's this for?"
@@ -954,190 +1119,11 @@ function SendTab({ sendRecipient, setSendRecipient, sendAlias, setSendAlias, sen
                 </div>
 
                 <button
-                    onClick={async () => {
-                        if (!sendRecipient || !sendAmount || !publicKey || !wallet) return;
-                        setLoading(true);
-                        try {
-                            const amountLamportsBN = new BN(Math.floor(parseFloat(sendAmount) * 1e9));
-
-                            // Pre-flight balance check
-                            const currentBalanceLamports = await connection.getBalance(publicKey);
-                            if (currentBalanceLamports < amountLamportsBN.toNumber() + 5000) {
-                                throw new Error("Insufficient balance for transaction and network fee (0.000005 SOL).");
-                            }
-
-                            const provider = new AnchorProvider(connection, wallet as any, {});
-                            const program = new Program(IDL as any, provider);
-
-                            // intelligent routing logic
-                            let targetAlias = sendAlias;
-                            if (!targetAlias && sendRecipient.startsWith('@')) {
-                                targetAlias = sendRecipient.substring(1);
-                            } else if (!targetAlias && !sendRecipient.startsWith('@') && sendRecipient.length < 32) {
-                                // could be an alias typed without @
-                                targetAlias = sendRecipient;
-                            }
-
-                            if (targetAlias) {
-                                targetAlias = targetAlias.toLowerCase().trim();
-                                console.log("Attempting routed transfer for alias:", targetAlias);
-
-                                try {
-                                    const [routePDA] = PublicKey.findProgramAddressSync(
-                                        [Buffer.from("route"), Buffer.from(targetAlias)],
-                                        PROGRAM_ID
-                                    );
-
-                                    const routeAccount: any = await (program.account as any).routeAccount.fetch(routePDA);
-
-                                    if (routeAccount && routeAccount.splits && routeAccount.splits.length > 0) {
-                                        console.log("Found routing rules, executing intelligent transfer...");
-
-                                        const remainingAccounts = routeAccount.splits.map((s: any) => ({
-                                            pubkey: s.recipient,
-                                            isSigner: false,
-                                            isWritable: true
-                                        }));
-
-                                        const ix = await (program.methods as any)
-                                            .executeTransfer(targetAlias, amountLamportsBN)
-                                            .accounts({
-                                                routeAccount: routePDA,
-                                                user: publicKey,
-                                                systemProgram: SystemProgram.programId,
-                                            })
-                                            .remainingAccounts(remainingAccounts)
-                                            .instruction();
-
-                                        const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash('finalized');
-
-                                        const messageV0 = new TransactionMessage({
-                                            payerKey: publicKey,
-                                            recentBlockhash: blockhash,
-                                            instructions: [
-                                                ComputeBudgetProgram.setComputeUnitLimit({ units: 300_000 }),
-                                                ComputeBudgetProgram.setComputeUnitPrice({ microLamports: 1000 }),
-                                                ix
-                                            ],
-                                        }).compileToV0Message();
-
-                                        const transaction = new VersionedTransaction(messageV0);
-
-                                        const signature = await wallet.sendTransaction(transaction, connection);
-
-                                        await connection.confirmTransaction({
-                                            signature,
-                                            blockhash,
-                                            lastValidBlockHeight
-                                        });
-
-                                        showTransactionToast({
-                                            signature,
-                                            message: `Sent ${sendAmount} SOL split according to @${targetAlias}'s rules.`,
-                                            type: 'success'
-                                        });
-                                        setSendAmount('');
-                                        setPaymentConcept('');
-                                        setLoading(false);
-                                        return;
-                                    }
-                                } catch (e) {
-                                    console.log("No routing rules found or alias invalid, checking alias owner...");
-                                    try {
-                                        const [aliasPDA] = PublicKey.findProgramAddressSync(
-                                            [Buffer.from("alias"), Buffer.from(targetAlias)],
-                                            PROGRAM_ID
-                                        );
-                                        const aliasAccount: any = await (program.account as any).aliasAccount.fetch(aliasPDA);
-
-                                        // Fallback to direct transfer to owner
-                                        const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash('finalized');
-
-                                        const messageV0 = new TransactionMessage({
-                                            payerKey: publicKey,
-                                            recentBlockhash: blockhash,
-                                            instructions: [
-                                                ComputeBudgetProgram.setComputeUnitLimit({ units: 10_000 }), // Simple transfer needs very little
-                                                ComputeBudgetProgram.setComputeUnitPrice({ microLamports: 1000 }),
-                                                SystemProgram.transfer({
-                                                    fromPubkey: publicKey,
-                                                    toPubkey: aliasAccount.owner,
-                                                    lamports: amountLamportsBN.toNumber(),
-                                                })
-                                            ],
-                                        }).compileToV0Message();
-
-                                        const transaction = new VersionedTransaction(messageV0);
-
-                                        const signature = await wallet.sendTransaction(transaction, connection);
-
-                                        await connection.confirmTransaction({
-                                            signature,
-                                            blockhash,
-                                            lastValidBlockHeight
-                                        });
-
-                                        showTransactionToast({
-                                            signature,
-                                            message: `Sent ${sendAmount} SOL to @${targetAlias}`,
-                                            type: 'success'
-                                        });
-                                        setSendAmount('');
-                                        setPaymentConcept('');
-                                        setLoading(false);
-                                        return;
-                                    } catch (err) {
-                                        console.error("Alias resolution failed", err);
-                                        throw new Error(`Could not resolve alias @${targetAlias}`);
-                                    }
-                                }
-                            }
-
-                            // Standard Direct Transfer (for plain addresses)
-                            console.log("Executing standard direct transfer...");
-                            const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash('finalized');
-
-                            const messageV0 = new TransactionMessage({
-                                payerKey: publicKey,
-                                recentBlockhash: blockhash,
-                                instructions: [
-                                    ComputeBudgetProgram.setComputeUnitLimit({ units: 10_000 }),
-                                    ComputeBudgetProgram.setComputeUnitPrice({ microLamports: 1000 }),
-                                    SystemProgram.transfer({
-                                        fromPubkey: publicKey,
-                                        toPubkey: new PublicKey(sendRecipient),
-                                        lamports: amountLamportsBN.toNumber(),
-                                    })
-                                ],
-                            }).compileToV0Message();
-
-                            const transaction = new VersionedTransaction(messageV0);
-
-                            const signature = await wallet.sendTransaction(transaction, connection);
-
-                            await connection.confirmTransaction({
-                                signature,
-                                blockhash,
-                                lastValidBlockHeight
-                            });
-
-                            showTransactionToast({
-                                signature,
-                                message: `Successfully sent ${sendAmount} SOL!`,
-                                type: 'success'
-                            });
-                            setSendAmount('');
-                            setPaymentConcept('');
-                        } catch (e: any) {
-                            toast.error(`Send failed: ${e.message}`);
-                        } finally {
-                            setLoading(false);
-                        }
-                    }}
-                    disabled={loading || !sendRecipient || !sendAmount}
+                    onClick={handleSend}
+                    disabled={loading || !sendRecipient || !sendAmount || parseFloat(sendAmount) <= 0 || activeBalance === null || parseFloat(sendAmount) > activeBalance}
                     className="w-full py-5 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 rounded-xl font-bold text-lg shadow-lg disabled:opacity-50 disabled:cursor-not-allowed transition-all transform active:scale-95"
                 >
-                    {loading ? 'Sending...' : 'Send SOL Now'}
+                    {loading ? 'Sending...' : `Send ${sendToken.symbol} Now`}
                 </button>
             </div>
         </div>
