@@ -16,8 +16,8 @@ import Image from 'next/image';
 import { TOKEN_PROGRAM_ID, ASSOCIATED_TOKEN_PROGRAM_ID, getAssociatedTokenAddress } from '@solana/spl-token';
 
 const TOKEN_OPTIONS = [
-    { label: 'SOL', symbol: 'SOL', mint: null, decimals: 9, icon: 'https://raw.githubusercontent.com/solana-labs/token-list/main/assets/mainnet/So11111111111111111111111111111111111111112/logo.png' },
-    { label: 'USDC (Devnet)', symbol: 'USDC', mint: new PublicKey('4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU'), decimals: 6, icon: 'https://raw.githubusercontent.com/solana-labs/token-list/main/assets/mainnet/EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v/logo.png' },
+    { label: 'SOL', symbol: 'SOL', mint: null, decimals: 9, icon: '/sol.svg' },
+    { label: 'USDC (Devnet)', symbol: 'USDC', mint: new PublicKey('4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU'), decimals: 6, icon: '/usdc.svg' },
     { label: 'EURC (Devnet)', symbol: 'EURC', mint: new PublicKey('HzwqbKZw8JxJGHz3tYkXyVvV4yT9WDvF9d1t1zX5T2W'), decimals: 6, icon: '/eurc.svg' } // Placeholder EURC Devnet Mint
 ];
 
