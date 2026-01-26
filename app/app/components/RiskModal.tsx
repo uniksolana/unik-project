@@ -7,8 +7,7 @@ import { supabase } from '../../utils/supabaseClient';
 import { showSimpleToast } from './CustomToast';
 import { deriveKeyFromSignature } from '../../utils/crypto';
 
-// Global state to hold the encryption key (in memory only, never saved to disk)
-export let sessionEncryptionKey: CryptoKey | null = null;
+import { getSessionKey, setSessionKey } from '../../utils/sessionState';
 
 export default function RiskModal() {
     const { publicKey, signMessage, connected } = useWallet();
@@ -51,19 +50,11 @@ Timestamp: ${Date.now()}
                     // Not found or error -> Need to sign
                     setIsOpen(true);
                 } else {
-                    // 2. Found! But we still need to derive the encryption key for privacy.
-                    // Ideally, we would ask for a "decrypt" signature here if it's a new session,
-                    // but for this MVP, we will only derive if they just signed.
-                    // TODO: For full persistence of encrypted data across sessions without re-signing consent,
-                    // we would need a separate "Login" signature request.
-                    // For now, if they accepted, we let them in. 
-                    // (Note: Encrypted notes won't be decryptable unless we regenerate the key.
-                    // We will handle key regeneration on-demand in the dashboard if needed).
+                    // 2. Already signed. Ideally we would need to login to decrypt.
                     setIsOpen(false);
                 }
             } catch (err) {
                 console.error("Consent check failed:", err);
-                // Fail safe: If we can't check, assume not signed to be safe
                 setIsOpen(true);
             } finally {
                 setChecking(false);
@@ -83,7 +74,8 @@ Timestamp: ${Date.now()}
             const signatureBase64 = Buffer.from(signatureBytes).toString('base64');
 
             // 1. Generar clave de cifrado (Privacy)
-            sessionEncryptionKey = await deriveKeyFromSignature(signatureBase64);
+            const key = await deriveKeyFromSignature(signatureBase64);
+            setSessionKey(key);
 
             // 2. Guardar en Supabase (Legal)
             const { error } = await supabase

@@ -1414,7 +1414,8 @@ function ContactsTab({ setSendRecipient, setSendAlias, setSendNote, setActiveTab
 
     const loadContacts = async () => {
         try {
-            const loaded = await contactStorage.getContacts();
+            const owner = wallet?.publicKey?.toBase58();
+            const loaded = await contactStorage.getContacts(owner);
             setContacts(loaded);
         } catch (e) {
             console.error("Failed to load contacts", e);
@@ -1422,11 +1423,19 @@ function ContactsTab({ setSendRecipient, setSendAlias, setSendNote, setActiveTab
     };
 
     useEffect(() => {
-        loadContacts();
+        if (wallet?.publicKey) {
+            loadContacts();
+        }
         const listener = () => loadContacts();
         window.addEventListener('storage', listener);
-        return () => window.removeEventListener('storage', listener);
-    }, []);
+        // Custom event for re-encryption or updates
+        window.addEventListener('unik-contacts-updated', listener);
+
+        return () => {
+            window.removeEventListener('storage', listener);
+            window.removeEventListener('unik-contacts-updated', listener);
+        };
+    }, [wallet?.publicKey]);
 
     const filteredContacts = contacts.filter(c =>
         c.alias.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -1452,7 +1461,8 @@ function ContactsTab({ setSendRecipient, setSendAlias, setSendNote, setActiveTab
 
         try {
             const inputLower = newContactAlias.trim();
-            let contactEntry: any = null;
+            const ownerKey = wallet?.publicKey?.toBase58();
+            if (!ownerKey) return;
 
             // Check if input is a raw address (Base58ish check: 32-44 chars)
             const isAddress = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(inputLower);
@@ -1465,54 +1475,62 @@ function ContactsTab({ setSendRecipient, setSendAlias, setSendNote, setActiveTab
                     return;
                 }
 
-                contactEntry = {
-                    alias: label, // Display name
-                    address: inputLower,
-                    note: '',
-                    type: 'address', // New field to distinguish
-                    addedAt: Date.now()
-                };
+                await contactStorage.saveContact({
+                    alias: label,
+                    aliasOwner: inputLower,
+                    savedAt: Date.now(),
+                    notes: `Address: ${inputLower.slice(0, 4)}...${inputLower.slice(-4)}`
+                }, ownerKey);
+
+                showTransactionToast({ signature: '', message: `Address added as ${label}`, type: 'success' });
             } else {
-                // Case 2: UNIK Alias (On-Chain Lookup)
-                const provider = new AnchorProvider(connection, wallet as any, {});
-                const program = new Program(IDL as any, provider);
+                // Case 2: UNIK Alias - Verify on-chain using connection directly
+                try {
+                    // Using connection directly instead of Anchor provider to fetch account info
+                    // because we might not be connected or signed in yet if just browsing
+                    const [aliasPDA] = PublicKey.findProgramAddressSync(
+                        [Buffer.from("alias"), Buffer.from(inputLower)],
+                        PROGRAM_ID
+                    );
 
-                const [aliasPDA] = PublicKey.findProgramAddressSync(
-                    [Buffer.from("alias"), Buffer.from(inputLower.toLowerCase())],
-                    PROGRAM_ID
-                );
+                    // We need to decode the account manually or use the Program if available
+                    // For simplicity, let's use the Anchor Program from the hook context if possible
+                    const provider = new AnchorProvider(connection, wallet as any, {});
+                    const program = new Program(IDL as any, provider);
 
-                const account = await (program.account as any).aliasAccount.fetch(aliasPDA);
+                    const account = await (program.account as any).aliasAccount.fetch(aliasPDA);
+                    const realOwner = account.owner.toBase58();
+                    const version = account.version ? account.version.toNumber() : 1;
 
-                contactEntry = {
-                    alias: inputLower.toLowerCase(),
-                    address: account.owner.toBase58(),
-                    note: '',
-                    type: 'unik',
-                    addedAt: Date.now()
-                };
+                    await contactStorage.saveContact({
+                        alias: inputLower,
+                        aliasOwner: realOwner,
+                        version: version,
+                        savedAt: Date.now(),
+                        notes: ''
+                    }, ownerKey);
+
+                    showTransactionToast({ signature: '', message: `Contact @${inputLower} added`, type: 'success' });
+                } catch (err) {
+                    console.error("Lookup failed", err);
+                    showTransactionToast({ signature: '', message: `Alias @${inputLower} not found on-chain`, type: 'error' });
+                    setLoading(false);
+                    return;
+                }
             }
 
-            const existing = JSON.parse(localStorage.getItem('unik_contacts') || '[]');
-            // Check for duplicates by Address or Alias Name
-            if (existing.some((c: any) => c.address === contactEntry.address || c.alias === contactEntry.alias)) {
-                toast.error("Contact already exists!");
-                setLoading(false);
-                return;
-            }
-
-            const updated = [...existing, contactEntry];
-            localStorage.setItem('unik_contacts', JSON.stringify(updated));
-            window.dispatchEvent(new Event('storage'));
             setNewContactAlias('');
-            toast.success(contactEntry.type === 'unik' ? `Added @${contactEntry.alias}!` : `Added "${contactEntry.alias}"!`);
+            // Trigger update
+            window.dispatchEvent(new Event('unik-contacts-updated'));
+            loadContacts();
         } catch (e) {
             console.error(e);
-            toast.error(`Could not verify alias/address.`);
+            showTransactionToast({ signature: '', message: 'Failed to add contact', type: 'error' });
         } finally {
             setLoading(false);
         }
     };
+
 
     return (
         <div>
@@ -1624,11 +1642,16 @@ function ContactsTab({ setSendRecipient, setSendAlias, setSendNote, setActiveTab
                                             setNoteModal({
                                                 isOpen: true,
                                                 alias: c.alias,
-                                                note: c.note || '',
-                                                onSave: (newNote: string) => {
-                                                    const updated = contacts.map((x: any) => x.alias === c.alias ? { ...x, note: newNote.trim() } : x);
-                                                    localStorage.setItem('unik_contacts', JSON.stringify(updated));
-                                                    window.dispatchEvent(new Event('storage'));
+                                                note: c.notes || '',
+                                                onSave: async (newNote: string) => {
+                                                    const owner = wallet?.publicKey?.toBase58();
+                                                    if (!owner) return;
+
+                                                    await contactStorage.updateContact(c.alias, { notes: newNote.trim() }, owner);
+
+                                                    // Trigger update
+                                                    window.dispatchEvent(new Event('unik-contacts-updated'));
+                                                    loadContacts();
                                                     toast.success(`Note for @${c.alias} updated!`);
                                                 }
                                             });
@@ -1662,10 +1685,14 @@ function ContactsTab({ setSendRecipient, setSendAlias, setSendNote, setActiveTab
                                                 isOpen: true,
                                                 title: 'Delete Contact',
                                                 message: `Are you sure you want to remove @${c.alias} from your contacts?`,
-                                                onConfirm: () => {
-                                                    const updated = contacts.filter((x: any) => x.alias !== c.alias);
-                                                    localStorage.setItem('unik_contacts', JSON.stringify(updated));
-                                                    window.dispatchEvent(new Event('storage'));
+                                                onConfirm: async () => {
+                                                    const owner = wallet?.publicKey?.toBase58();
+                                                    if (!owner) return;
+
+                                                    await contactStorage.removeContact(c.alias, owner);
+
+                                                    window.dispatchEvent(new Event('unik-contacts-updated'));
+                                                    loadContacts();
                                                     toast.success("Contact removed");
                                                 }
                                             });
