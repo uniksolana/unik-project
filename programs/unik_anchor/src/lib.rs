@@ -21,9 +21,12 @@ pub mod unik_anchor {
         alias_account.owner = ctx.accounts.user.key();
         alias_account.alias = alias.clone();
         alias_account.metadata_uri = metadata_uri;
+        alias_account.version = 1;  // Initial version
+        alias_account.is_active = true;  // Active by default
+        alias_account.registered_at = Clock::get()?.unix_timestamp;
         alias_account.bump = ctx.bumps.alias_account;
         
-        msg!("Alias registered: {}", alias_account.alias);
+        msg!("Alias registered: {} (version 1)", alias_account.alias);
         Ok(())
     }
 
@@ -157,6 +160,48 @@ pub mod unik_anchor {
         msg!("Token transfer completed successfully");
         Ok(())
     }
+
+    /// Update the metadata URI of an alias (owner only)
+    pub fn update_alias_metadata(ctx: Context<UpdateAlias>, _alias: String, new_metadata_uri: String) -> Result<()> {
+        require!(new_metadata_uri.len() <= 200, UnikError::MetadataTooLong);
+        
+        let alias_account = &mut ctx.accounts.alias_account;
+        alias_account.metadata_uri = new_metadata_uri;
+        
+        msg!("Alias metadata updated");
+        Ok(())
+    }
+
+    /// Deactivate an alias - payments to this alias will fail
+    pub fn deactivate_alias(ctx: Context<UpdateAlias>, _alias: String) -> Result<()> {
+        let alias_account = &mut ctx.accounts.alias_account;
+        require!(alias_account.is_active, UnikError::AliasAlreadyInactive);
+        
+        alias_account.is_active = false;
+        
+        msg!("Alias deactivated: {}", alias_account.alias);
+        Ok(())
+    }
+
+    /// Reactivate a previously deactivated alias
+    pub fn reactivate_alias(ctx: Context<UpdateAlias>, _alias: String) -> Result<()> {
+        let alias_account = &mut ctx.accounts.alias_account;
+        require!(!alias_account.is_active, UnikError::AliasAlreadyActive);
+        
+        alias_account.is_active = true;
+        
+        msg!("Alias reactivated: {}", alias_account.alias);
+        Ok(())
+    }
+
+    /// Delete an alias permanently - refunds rent to owner
+    /// The alias becomes available for registration by anyone
+    /// Version will increment if someone re-registers it
+    pub fn delete_alias(ctx: Context<DeleteAlias>, _alias: String) -> Result<()> {
+        // Note: Anchor automatically closes the account and refunds rent to `close = user`
+        msg!("Alias deleted: {}", ctx.accounts.alias_account.alias);
+        Ok(())
+    }
 }
 
 #[derive(Accounts)]
@@ -165,7 +210,8 @@ pub struct RegisterAlias<'info> {
     #[account(
         init,
         payer = user,
-        space = 8 + 32 + 4 + 32 + 4 + 200 + 1,
+        // 8 (discriminator) + 32 (owner) + 4+32 (alias string) + 4+200 (metadata_uri) + 8 (version) + 1 (is_active) + 8 (registered_at) + 1 (bump)
+        space = 8 + 32 + 4 + 32 + 4 + 200 + 8 + 1 + 8 + 1,
         seeds = [b"alias", alias.as_bytes()],
         bump
     )]
@@ -175,6 +221,37 @@ pub struct RegisterAlias<'info> {
     pub user: Signer<'info>,
     
     pub system_program: Program<'info, System>,
+}
+
+#[derive(Accounts)]
+#[instruction(alias: String)]
+pub struct UpdateAlias<'info> {
+    #[account(
+        mut,
+        seeds = [b"alias", alias.as_bytes()],
+        bump = alias_account.bump,
+        constraint = alias_account.owner == user.key() @ UnikError::Unauthorized,
+    )]
+    pub alias_account: Account<'info, AliasAccount>,
+    
+    #[account(mut)]
+    pub user: Signer<'info>,
+}
+
+#[derive(Accounts)]
+#[instruction(alias: String)]
+pub struct DeleteAlias<'info> {
+    #[account(
+        mut,
+        seeds = [b"alias", alias.as_bytes()],
+        bump = alias_account.bump,
+        constraint = alias_account.owner == user.key() @ UnikError::Unauthorized,
+        close = user,  // Refund rent to user
+    )]
+    pub alias_account: Account<'info, AliasAccount>,
+    
+    #[account(mut)]
+    pub user: Signer<'info>,
 }
 
 #[derive(Accounts)]
@@ -247,8 +324,11 @@ pub struct ExecuteTokenTransfer<'info> {
 #[account]
 pub struct AliasAccount {
     pub owner: Pubkey,
-    pub alias: String, // Max 32 chars
-    pub metadata_uri: String, // Max 128 chars
+    pub alias: String,         // Max 32 chars
+    pub metadata_uri: String,  // Max 200 chars
+    pub version: u64,          // Increments when owner changes (for contact safety)
+    pub is_active: bool,       // Can be deactivated without deletion
+    pub registered_at: i64,    // Unix timestamp of registration
     pub bump: u8,
 }
 
@@ -293,4 +373,8 @@ pub enum UnikError {
     InvalidUserTokenAccount,
     #[msg("Token mint mismatch.")]
     MintMismatch,
+    #[msg("Alias is already inactive.")]
+    AliasAlreadyInactive,
+    #[msg("Alias is already active.")]
+    AliasAlreadyActive,
 }

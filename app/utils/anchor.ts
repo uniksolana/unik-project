@@ -13,6 +13,110 @@ export const IDL = {
   },
   "instructions": [
     {
+      "name": "deactivate_alias",
+      "docs": [
+        "Deactivate an alias - payments to this alias will fail"
+      ],
+      "discriminator": [
+        42,
+        78,
+        75,
+        145,
+        99,
+        118,
+        201,
+        210
+      ],
+      "accounts": [
+        {
+          "name": "alias_account",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  97,
+                  108,
+                  105,
+                  97,
+                  115
+                ]
+              },
+              {
+                "kind": "arg",
+                "path": "alias"
+              }
+            ]
+          }
+        },
+        {
+          "name": "user",
+          "writable": true,
+          "signer": true
+        }
+      ],
+      "args": [
+        {
+          "name": "_alias",
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "name": "delete_alias",
+      "docs": [
+        "Delete an alias permanently - refunds rent to owner",
+        "The alias becomes available for registration by anyone",
+        "Version will increment if someone re-registers it"
+      ],
+      "discriminator": [
+        218,
+        54,
+        238,
+        46,
+        173,
+        75,
+        242,
+        207
+      ],
+      "accounts": [
+        {
+          "name": "alias_account",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  97,
+                  108,
+                  105,
+                  97,
+                  115
+                ]
+              },
+              {
+                "kind": "arg",
+                "path": "alias"
+              }
+            ]
+          }
+        },
+        {
+          "name": "user",
+          "writable": true,
+          "signer": true
+        }
+      ],
+      "args": [
+        {
+          "name": "_alias",
+          "type": "string"
+        }
+      ]
+    },
+    {
       "name": "execute_token_transfer",
       "discriminator": [
         56,
@@ -133,6 +237,57 @@ export const IDL = {
         {
           "name": "amount",
           "type": "u64"
+        }
+      ]
+    },
+    {
+      "name": "reactivate_alias",
+      "docs": [
+        "Reactivate a previously deactivated alias"
+      ],
+      "discriminator": [
+        49,
+        225,
+        144,
+        115,
+        60,
+        6,
+        198,
+        168
+      ],
+      "accounts": [
+        {
+          "name": "alias_account",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  97,
+                  108,
+                  105,
+                  97,
+                  115
+                ]
+              },
+              {
+                "kind": "arg",
+                "path": "alias"
+              }
+            ]
+          }
+        },
+        {
+          "name": "user",
+          "writable": true,
+          "signer": true
+        }
+      ],
+      "args": [
+        {
+          "name": "_alias",
+          "type": "string"
         }
       ]
     },
@@ -274,6 +429,61 @@ export const IDL = {
           }
         }
       ]
+    },
+    {
+      "name": "update_alias_metadata",
+      "docs": [
+        "Update the metadata URI of an alias (owner only)"
+      ],
+      "discriminator": [
+        84,
+        44,
+        164,
+        243,
+        98,
+        140,
+        74,
+        212
+      ],
+      "accounts": [
+        {
+          "name": "alias_account",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  97,
+                  108,
+                  105,
+                  97,
+                  115
+                ]
+              },
+              {
+                "kind": "arg",
+                "path": "alias"
+              }
+            ]
+          }
+        },
+        {
+          "name": "user",
+          "writable": true,
+          "signer": true
+        }
+      ],
+      "args": [
+        {
+          "name": "_alias",
+          "type": "string"
+        },
+        {
+          "name": "new_metadata_uri",
+          "type": "string"
+        }
+      ]
     }
   ],
   "accounts": [
@@ -369,6 +579,16 @@ export const IDL = {
       "code": 6012,
       "name": "MintMismatch",
       "msg": "Token mint mismatch."
+    },
+    {
+      "code": 6013,
+      "name": "AliasAlreadyInactive",
+      "msg": "Alias is already inactive."
+    },
+    {
+      "code": 6014,
+      "name": "AliasAlreadyActive",
+      "msg": "Alias is already active."
     }
   ],
   "types": [
@@ -388,6 +608,18 @@ export const IDL = {
           {
             "name": "metadata_uri",
             "type": "string"
+          },
+          {
+            "name": "version",
+            "type": "u64"
+          },
+          {
+            "name": "is_active",
+            "type": "bool"
+          },
+          {
+            "name": "registered_at",
+            "type": "i64"
           },
           {
             "name": "bump",

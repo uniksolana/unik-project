@@ -13,6 +13,7 @@ import QRCode from "react-qr-code";
 import { Html5Qrcode } from "html5-qrcode";
 import { Buffer } from 'buffer';
 import Image from 'next/image';
+import { contactStorage, Contact } from '../../utils/contacts';
 import { TOKEN_PROGRAM_ID, ASSOCIATED_TOKEN_PROGRAM_ID, getAssociatedTokenAddress } from '@solana/spl-token';
 
 const TOKEN_OPTIONS = [
@@ -1411,10 +1412,10 @@ function ContactsTab({ setSendRecipient, setSendAlias, setSendNote, setActiveTab
     const [searchTerm, setSearchTerm] = useState('');
     const [showAll, setShowAll] = useState(false);
 
-    const loadContacts = () => {
+    const loadContacts = async () => {
         try {
-            const raw = localStorage.getItem('unik_contacts');
-            if (raw) setContacts(JSON.parse(raw));
+            const loaded = await contactStorage.getContacts();
+            setContacts(loaded);
         } catch (e) {
             console.error("Failed to load contacts", e);
         }
@@ -1429,18 +1430,18 @@ function ContactsTab({ setSendRecipient, setSendAlias, setSendNote, setActiveTab
 
     const filteredContacts = contacts.filter(c =>
         c.alias.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (c.note && c.note.toLowerCase().includes(searchTerm.toLowerCase()))
+        (c.notes && c.notes.toLowerCase().includes(searchTerm.toLowerCase()))
     );
 
     const sortedContacts = [...filteredContacts].sort((a, b) => {
         if (filter === 'alpha') return a.alias.localeCompare(b.alias);
         if (filter === 'notes') {
-            const aNote = a.note ? 1 : 0;
-            const bNote = b.note ? 1 : 0;
+            const aNote = a.notes ? 1 : 0;
+            const bNote = b.notes ? 1 : 0;
             if (aNote !== bNote) return bNote - aNote;
             return a.alias.localeCompare(b.alias);
         }
-        return (b.addedAt || 0) - (a.addedAt || 0); // recent
+        return (b.savedAt || 0) - (a.savedAt || 0); // recent
     });
 
     const displayedContacts = showAll ? sortedContacts : sortedContacts.slice(0, 4);
