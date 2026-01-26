@@ -197,6 +197,7 @@ function PaymentContent() {
                         .accounts({
                             routeAccount: routePDA,
                             user: publicKey,
+                            mint: selectedToken.mint,
                             userTokenAccount: userATA,
                             tokenProgram: TOKEN_PROGRAM_ID,
                             systemProgram: SystemProgram.programId

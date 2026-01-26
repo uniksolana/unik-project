@@ -1,9 +1,4 @@
-import { PublicKey } from '@solana/web3.js';
-
-// Replaced automatically during build/deployment
-export const PROGRAM_ID = new PublicKey('ASA8xRVPFBQLo3dLJQH2NedBKJWsVXGu46radY6oRX6i');
-
-export const IDL = {
+{
   "address": "ASA8xRVPFBQLo3dLJQH2NedBKJWsVXGu46radY6oRX6i",
   "metadata": {
     "name": "unik_anchor",
@@ -439,5 +434,4 @@ export const IDL = {
       }
     }
   ]
-} as const;
-
+}

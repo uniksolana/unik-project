@@ -1044,6 +1044,7 @@ function SendTab({ sendRecipient, setSendRecipient, sendAlias, setSendAlias, sen
                                 .accounts({
                                     routeAccount: routePDA,
                                     user: publicKey,
+                                    mint: sendToken.mint,
                                     userTokenAccount: userATA,
                                     tokenProgram: TOKEN_PROGRAM_ID,
                                     systemProgram: SystemProgram.programId
