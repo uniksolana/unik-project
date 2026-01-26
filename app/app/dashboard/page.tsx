@@ -1614,99 +1614,102 @@ function ContactsTab({ setSendRecipient, setSendAlias, setSendNote, setActiveTab
             ) : (
                 <div className="space-y-3">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        {displayedContacts.map((c: any, i: number) => (
-                            <div key={i} className="group flex items-center justify-between p-2.5 sm:p-4 bg-gray-800 rounded-xl border border-gray-700 hover:border-cyan-500/50 hover:bg-gray-750 transition-all duration-300 relative overflow-hidden">
-                                <div className="absolute top-0 left-0 w-1 h-full bg-cyan-500 opacity-0 group-hover:opacity-100 transition-opacity"></div>
-                                <div className="flex items-center gap-2 sm:gap-4 min-w-0">
-                                    <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-gradient-to-br from-cyan-500 to-purple-600 flex-shrink-0 flex items-center justify-center text-white text-base sm:text-lg font-bold shadow-lg shadow-cyan-500/20">
-                                        {c.alias[0].toUpperCase()}
-                                    </div>
-                                    <div className="flex-1 min-w-0">
-                                        <p className="font-bold text-base sm:text-lg flex items-center gap-1 truncate">
-                                            <span className="truncate">{c.type === 'unik' || !c.type ? `@${c.alias}` : c.alias}</span>
-                                            {c.type !== 'unik' && c.type && <span className="flex-shrink-0 px-1.5 py-0.5 rounded bg-gray-700 text-[8px] sm:text-[10px] text-gray-400 font-normal">ADDR</span>}
-                                        </p>
-                                        {c.note ? (
-                                            <p className="text-xs text-gray-400 truncate italic bg-gray-900/50 px-2 py-0.5 rounded border border-gray-700/50 inline-block mb-1">
-                                                "{c.note}"
+                        {displayedContacts.map((c: any, i: number) => {
+                            const ownerAddr = c.aliasOwner || c.address || '';
+                            const noteText = c.notes || c.note || '';
+                            return (
+                                <div key={i} className="group flex items-center justify-between p-2.5 sm:p-4 bg-gray-800 rounded-xl border border-gray-700 hover:border-cyan-500/50 hover:bg-gray-750 transition-all duration-300 relative overflow-hidden">
+                                    <div className="absolute top-0 left-0 w-1 h-full bg-cyan-500 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                                    <div className="flex items-center gap-2 sm:gap-4 min-w-0">
+                                        <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-gradient-to-br from-cyan-500 to-purple-600 flex-shrink-0 flex items-center justify-center text-white text-base sm:text-lg font-bold shadow-lg shadow-cyan-500/20">
+                                            {(c.alias || '?')[0].toUpperCase()}
+                                        </div>
+                                        <div className="flex-1 min-w-0">
+                                            <p className="font-bold text-base sm:text-lg flex items-center gap-1 truncate">
+                                                <span className="truncate">@{c.alias}</span>
                                             </p>
-                                        ) : null}
-                                        <p className="text-[9px] sm:text-[10px] text-gray-500 font-mono tracking-tighter opacity-60 group-hover:opacity-100 transition-opacity truncate">
-                                            {c.address.slice(0, 8)}...{c.address.slice(-8)}
-                                        </p>
+                                            {noteText ? (
+                                                <p className="text-xs text-gray-400 truncate italic bg-gray-900/50 px-2 py-0.5 rounded border border-gray-700/50 inline-block mb-1">
+                                                    "{noteText}"
+                                                </p>
+                                            ) : null}
+                                            <p className="text-[9px] sm:text-[10px] text-gray-500 font-mono tracking-tighter opacity-60 group-hover:opacity-100 transition-opacity truncate">
+                                                {ownerAddr.slice(0, 8)}...{ownerAddr.slice(-8)}
+                                            </p>
+                                        </div>
+                                    </div>
+                                    <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0 ml-1.5">
+                                        <button
+                                            onClick={() => {
+                                                setNoteModal({
+                                                    isOpen: true,
+                                                    alias: c.alias,
+                                                    note: noteText,
+                                                    onSave: async (newNote: string) => {
+                                                        const owner = wallet?.publicKey?.toBase58();
+                                                        if (!owner) return;
+
+                                                        await contactStorage.updateContact(c.alias, { notes: newNote.trim() }, owner);
+
+                                                        // Trigger update
+                                                        window.dispatchEvent(new Event('unik-contacts-updated'));
+                                                        loadContacts();
+                                                        toast.success(`Note for @${c.alias} updated!`);
+                                                    }
+                                                });
+                                            }}
+                                            className="p-2 sm:p-2.5 bg-gray-700/50 hover:bg-gray-700 rounded-lg text-gray-300 hover:text-white transition-colors border border-gray-600/50 shadow-sm"
+                                            title="Edit note"
+                                        >
+                                            <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                            </svg>
+                                        </button>
+                                        <button
+                                            onClick={() => {
+                                                setSendRecipient(ownerAddr); // Always Pubkey
+                                                setSendAlias(c.alias); // Assume everything is alias for simplicity or check regex if needed
+
+                                                // Pre-fill note if exists
+                                                if (noteText) setSendNote(noteText);
+
+                                                setActiveTab('send');
+                                            }}
+                                            className="px-3 sm:px-5 py-2 sm:py-2.5 bg-gradient-to-r from-cyan-600/20 to-blue-600/20 hover:from-cyan-600 hover:to-blue-600 text-cyan-400 hover:text-white font-bold text-xs sm:text-sm rounded-lg border border-cyan-500/30 transition-all shadow-lg active:scale-95 flex items-center gap-1.5"
+                                        >
+                                            <svg className="w-4 h-4 sm:hidden" fill="currentColor" viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z" /></svg>
+                                            <span className="hidden sm:inline">Pay</span>
+                                            <span className="sm:hidden text-[10px]">PAY</span>
+                                        </button>
+                                        <button
+                                            onClick={() => {
+                                                setConfirmModal({
+                                                    isOpen: true,
+                                                    title: 'Delete Contact',
+                                                    message: `Are you sure you want to remove @${c.alias} from your contacts?`,
+                                                    onConfirm: async () => {
+                                                        const owner = wallet?.publicKey?.toBase58();
+                                                        if (!owner) return;
+
+                                                        await contactStorage.removeContact(c.alias, owner);
+
+                                                        window.dispatchEvent(new Event('unik-contacts-updated'));
+                                                        loadContacts();
+                                                        toast.success("Contact removed");
+                                                    }
+                                                });
+                                            }}
+                                            className="p-2 sm:p-2.5 text-gray-500 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-all"
+                                            title="Delete contact"
+                                        >
+                                            <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                            </svg>
+                                        </button>
                                     </div>
                                 </div>
-                                <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0 ml-1.5">
-                                    <button
-                                        onClick={() => {
-                                            setNoteModal({
-                                                isOpen: true,
-                                                alias: c.alias,
-                                                note: c.notes || '',
-                                                onSave: async (newNote: string) => {
-                                                    const owner = wallet?.publicKey?.toBase58();
-                                                    if (!owner) return;
-
-                                                    await contactStorage.updateContact(c.alias, { notes: newNote.trim() }, owner);
-
-                                                    // Trigger update
-                                                    window.dispatchEvent(new Event('unik-contacts-updated'));
-                                                    loadContacts();
-                                                    toast.success(`Note for @${c.alias} updated!`);
-                                                }
-                                            });
-                                        }}
-                                        className="p-2 sm:p-2.5 bg-gray-700/50 hover:bg-gray-700 rounded-lg text-gray-300 hover:text-white transition-colors border border-gray-600/50 shadow-sm"
-                                        title="Edit note"
-                                    >
-                                        <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                                        </svg>
-                                    </button>
-                                    <button
-                                        onClick={() => {
-                                            setSendRecipient(c.address); // Always Pubkey
-                                            setSendAlias(c.type === 'unik' || !c.type ? c.alias : ''); // Only verify if UNIK type
-
-                                            // Pre-fill note if exists
-                                            if (c.note) setSendNote(c.note);
-
-                                            setActiveTab('send');
-                                        }}
-                                        className="px-3 sm:px-5 py-2 sm:py-2.5 bg-gradient-to-r from-cyan-600/20 to-blue-600/20 hover:from-cyan-600 hover:to-blue-600 text-cyan-400 hover:text-white font-bold text-xs sm:text-sm rounded-lg border border-cyan-500/30 transition-all shadow-lg active:scale-95 flex items-center gap-1.5"
-                                    >
-                                        <svg className="w-4 h-4 sm:hidden" fill="currentColor" viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z" /></svg>
-                                        <span className="hidden sm:inline">Pay</span>
-                                        <span className="sm:hidden text-[10px]">PAY</span>
-                                    </button>
-                                    <button
-                                        onClick={() => {
-                                            setConfirmModal({
-                                                isOpen: true,
-                                                title: 'Delete Contact',
-                                                message: `Are you sure you want to remove @${c.alias} from your contacts?`,
-                                                onConfirm: async () => {
-                                                    const owner = wallet?.publicKey?.toBase58();
-                                                    if (!owner) return;
-
-                                                    await contactStorage.removeContact(c.alias, owner);
-
-                                                    window.dispatchEvent(new Event('unik-contacts-updated'));
-                                                    loadContacts();
-                                                    toast.success("Contact removed");
-                                                }
-                                            });
-                                        }}
-                                        className="p-2 sm:p-2.5 text-gray-500 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-all"
-                                        title="Delete contact"
-                                    >
-                                        <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                        </svg>
-                                    </button>
-                                </div>
-                            </div>
-                        ))}
+                            );
+                        })}
                     </div>
 
                     {sortedContacts.length > 4 && (
