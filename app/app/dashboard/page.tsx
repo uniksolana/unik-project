@@ -482,8 +482,8 @@ export default function Dashboard() {
                                         <div key={b.symbol} className="flex justify-between items-center bg-white/5 rounded-xl p-3 border border-white/5">
                                             <div className="flex items-center gap-3">
                                                 {b.icon && (
-                                                    <div className="w-8 h-8 rounded-full overflow-hidden bg-black/20">
-                                                        <Image src={b.icon} alt={b.symbol} width={32} height={32} />
+                                                    <div className="w-10 h-10 rounded-full overflow-hidden bg-black/20 flex items-center justify-center flex-shrink-0">
+                                                        <Image src={b.icon} alt={b.symbol} width={40} height={40} className="object-cover w-full h-full" />
                                                     </div>
                                                 )}
                                                 <div className="text-left">
