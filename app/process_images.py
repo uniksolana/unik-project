@@ -37,6 +37,15 @@ def remove_background(input_path, output_path, fuzzing=10):
         print(f"Error processing {input_path}: {e}")
 
 if __name__ == "__main__":
-    remove_background("public/sol_input.png", "public/sol.png", fuzzing=50) # Increased fuzz for white BG
-    # USDC remains unchanged from previous step (public/usdc.png)
-    remove_background("public/eurc_input.png", "public/eurc.png", fuzzing=50)
+    # Process all three token icons from user uploads
+    # EURC - image 0
+    eurc_input = "/home/unik/.gemini/antigravity/brain/ac99dcad-cfc9-4b99-aba5-20fa05f6d816/uploaded_media_0_1769440247976.png"
+    remove_background(eurc_input, "public/eurc.png", fuzzing=30)
+    
+    # SOL - image 1
+    sol_input = "/home/unik/.gemini/antigravity/brain/ac99dcad-cfc9-4b99-aba5-20fa05f6d816/uploaded_media_1_1769440247976.png"
+    remove_background(sol_input, "public/sol.png", fuzzing=30)
+    
+    # USDC - image 2
+    usdc_input = "/home/unik/.gemini/antigravity/brain/ac99dcad-cfc9-4b99-aba5-20fa05f6d816/uploaded_media_2_1769440247976.png"
+    remove_background(usdc_input, "public/usdc.png", fuzzing=30)
