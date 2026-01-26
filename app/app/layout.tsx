@@ -19,6 +19,9 @@ export const metadata: Metadata = {
 };
 
 import { Toaster } from "react-hot-toast";
+import dynamic from 'next/dynamic';
+
+const RiskModal = dynamic(() => import('./components/RiskModal'), { ssr: false });
 
 export default function RootLayout({
   children,
@@ -62,9 +65,10 @@ export default function RootLayout({
                 style: {
                   border: "1px solid rgba(239,68,68,0.3)",
                 }
-              },
+              }
             }}
           />
+          <RiskModal />
           {children}
         </WalletContextProvider>
       </body>
