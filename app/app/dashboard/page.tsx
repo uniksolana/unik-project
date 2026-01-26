@@ -482,13 +482,13 @@ export default function Dashboard() {
                                         <div key={b.symbol} className="flex justify-between items-center bg-white/5 rounded-xl p-3 border border-white/5">
                                             <div className="flex items-center gap-3">
                                                 {b.icon && (
-                                                    <div className="w-10 h-10 rounded-full overflow-hidden flex items-center justify-center flex-shrink-0" style={{ backgroundColor: b.symbol === 'SOL' ? '#1a1a2e' : 'transparent' }}>
+                                                    <div className="w-10 h-10 rounded-full overflow-hidden flex items-center justify-center flex-shrink-0" style={{ backgroundColor: b.symbol === 'SOL' ? '#000000' : 'transparent' }}>
                                                         <Image
                                                             src={b.icon}
                                                             alt={b.symbol}
                                                             width={40}
                                                             height={40}
-                                                            className={`object-contain ${b.symbol === 'SOL' ? 'w-7 h-7' : b.symbol === 'EURC' ? 'w-10 h-10 scale-110' : 'w-10 h-10'}`}
+                                                            className={`object-contain ${b.symbol === 'SOL' ? 'w-6 h-6' : b.symbol === 'EURC' ? 'w-10 h-10 scale-110' : 'w-10 h-10'}`}
                                                         />
                                                     </div>
                                                 )}
