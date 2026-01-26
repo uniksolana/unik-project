@@ -36,6 +36,7 @@ Timestamp: ${Date.now()}
         const checkConsent = async () => {
             if (!connected || !publicKey) return;
 
+            console.log("Checking consent for:", publicKey.toBase58());
             setChecking(true);
             try {
                 // 1. Check if user already signed for this specific version
@@ -46,15 +47,20 @@ Timestamp: ${Date.now()}
                     .eq('terms_version', TERMS_VERSION)
                     .single();
 
-                if (error || !data) {
-                    // Not found or error -> Need to sign
-                    setIsOpen(true);
-                } else {
-                    // 2. Already signed. Ideally we would need to login to decrypt.
+                console.log("Supabase check result:", { data, error });
+
+                // If error code is PGRST116, it means no rows found (which is good, means we need to sign)
+                // If data is present, they signed.
+
+                if (data && !error) {
+                    console.log("User already signed.");
                     setIsOpen(false);
+                } else {
+                    console.log("User needs to sign. Reason:", error ? error.message : "No data");
+                    setIsOpen(true);
                 }
             } catch (err) {
-                console.error("Consent check failed:", err);
+                console.error("Consent check failed (Exception):", err);
                 setIsOpen(true);
             } finally {
                 setChecking(false);
@@ -110,7 +116,7 @@ Timestamp: ${Date.now()}
     if (!isOpen || !connected) return null;
 
     return (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
             <div className="bg-[#13131f] border border-red-500/30 rounded-2xl max-w-lg w-full p-8 shadow-2xl relative overflow-hidden">
                 {/* Decoration */}
                 <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-red-500 via-orange-500 to-red-500"></div>
