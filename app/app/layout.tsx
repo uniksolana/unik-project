@@ -19,9 +19,7 @@ export const metadata: Metadata = {
 };
 
 import { Toaster } from "react-hot-toast";
-import dynamic from 'next/dynamic';
-
-const RiskModal = dynamic(() => import('./components/RiskModal'), { ssr: false });
+import RiskModal from './components/RiskModal';
 
 export default function RootLayout({
   children,

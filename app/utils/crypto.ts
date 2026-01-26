@@ -6,7 +6,7 @@ export async function deriveKeyFromSignature(signature: string, salt: string = "
     const enc = new TextEncoder();
     const keyMaterial = await window.crypto.subtle.importKey(
         "raw",
-        enc.encode(signature + salt),
+        enc.encode(signature + salt) as BufferSource,
         "PBKDF2",
         false,
         ["deriveBits", "deriveKey"]
@@ -15,7 +15,7 @@ export async function deriveKeyFromSignature(signature: string, salt: string = "
     return window.crypto.subtle.deriveKey(
         {
             name: "PBKDF2",
-            salt: enc.encode(salt),
+            salt: enc.encode(salt) as BufferSource,
             iterations: 100000,
             hash: "SHA-256"
         },
@@ -38,7 +38,7 @@ export async function encryptData(data: any, key: CryptoKey): Promise<string> {
             iv: iv
         },
         key,
-        encodedData
+        encodedData as BufferSource
     );
 
     // Combine IV and Ciphertext for storage (Base64)
@@ -64,7 +64,7 @@ export async function decryptData(encryptedBase64: string, key: CryptoKey): Prom
                 iv: ivUint8
             },
             key,
-            contentUint8
+            contentUint8 as BufferSource
         );
 
         const dec = new TextDecoder();
