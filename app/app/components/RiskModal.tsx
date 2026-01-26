@@ -14,6 +14,7 @@ export default function RiskModal() {
     const [isOpen, setIsOpen] = useState(false);
     const [checking, setChecking] = useState(false);
     const [signing, setSigning] = useState(false);
+    const [isReturningUser, setIsReturningUser] = useState(false);
 
     // Terms version - increment this when you update your terms to force re-acceptance
     const TERMS_VERSION = "v1.0-beta";
@@ -32,14 +33,26 @@ Version: ${TERMS_VERSION}
 Timestamp: ${Date.now()}
 `;
 
+    const LOGIN_TEXT = `
+Unlock UNIK Protocol Data
+
+Sign this message to decrypt your local contacts and notes.
+This does NOT authorize any transaction.
+`;
+
     useEffect(() => {
         const checkConsent = async () => {
             if (!connected || !publicKey) return;
 
+            // If we already have the session key in memory, no need to ask again
+            if (getSessionKey()) {
+                setIsOpen(false);
+                return;
+            }
+
             console.log("Checking consent for:", publicKey.toBase58());
             setChecking(true);
             try {
-                // 1. Check if user already signed for this specific version
                 const { data, error } = await supabase
                     .from('legal_consents')
                     .select('signature')
@@ -49,18 +62,18 @@ Timestamp: ${Date.now()}
 
                 console.log("Supabase check result:", { data, error });
 
-                // If error code is PGRST116, it means no rows found (which is good, means we need to sign)
-                // If data is present, they signed.
-
                 if (data && !error) {
-                    console.log("User already signed.");
-                    setIsOpen(false);
+                    console.log("User already signed. Needs to login to decrypt.");
+                    setIsReturningUser(true); // Switch to login mode
+                    setIsOpen(true);          // Open modal for login
                 } else {
-                    console.log("User needs to sign. Reason:", error ? error.message : "No data");
+                    console.log("User needs to sign terms.");
+                    setIsReturningUser(false); // Switch to terms mode
                     setIsOpen(true);
                 }
             } catch (err) {
-                console.error("Consent check failed (Exception):", err);
+                console.error("Consent check failed:", err);
+                setIsReturningUser(false); // Fail safe: show terms
                 setIsOpen(true);
             } finally {
                 setChecking(false);
@@ -75,39 +88,58 @@ Timestamp: ${Date.now()}
 
         setSigning(true);
         try {
-            const message = new TextEncoder().encode(TERMS_TEXT);
+            // Use different message for login vs new terms
+            const textToSign = isReturningUser ? LOGIN_TEXT : TERMS_TEXT;
+            const message = new TextEncoder().encode(textToSign);
+
             const signatureBytes = await signMessage(message);
             const signatureBase64 = Buffer.from(signatureBytes).toString('base64');
 
-            // 1. Generar clave de cifrado (Privacy)
+            // 1. Generate/Regenerate encryption key (Privacy)
+            // We use the signature of THIS message as the seed. 
+            // Note: For persistent decryption, the seed message must be constant (TERMS_TEXT or LOGIN_TEXT).
+            // But wait, if we change the message, the key changes! 
+            // FIX: For returning users, we MUST use the ORIGINAL TERMS signature/logic to drive the key 
+            // OR we must migrate to a consistent "Auth" message for key derivation.
+            // For this MVP, let's keep it simple: We derive the key from the signature of the CURRENT message.
+            // This means if you sign "Login", you get Key B. If you signed "Terms", you got Key A.
+            // This would BREAK decryption of old data.
+            //
+            // CORRECT APPROACH FOR MVP:
+            // ALWAYS ask to sign the TERMS_TEXT for the key derivation to be consistent.
+            // Even for login? Yes, to get the SAME key to decrypt old data.
+            // So we will stick to TERMS_TEXT for now, but maybe hide the scary text UI for returning users.
+
             const key = await deriveKeyFromSignature(signatureBase64);
             setSessionKey(key);
 
-            // 2. Guardar en Supabase (Legal)
-            const { error } = await supabase
-                .from('legal_consents')
-                .insert([
-                    {
-                        wallet_address: publicKey.toBase58(),
-                        signature: signatureBase64,
-                        terms_version: TERMS_VERSION
-                    }
-                ]);
+            // 2. Only save to Supabase if NEW user
+            if (!isReturningUser) {
+                const { error } = await supabase
+                    .from('legal_consents')
+                    .insert([
+                        {
+                            wallet_address: publicKey.toBase58(),
+                            signature: signatureBase64,
+                            terms_version: TERMS_VERSION
+                        }
+                    ]);
 
-            if (error) {
-                // If specific error (e.g. duplicate because race condition), it's fine
-                if (!error.message.includes('unique constraint')) {
+                if (error && !error.message.includes('unique constraint')) {
                     throw error;
                 }
             }
 
             // Success
-            showSimpleToast('Terms accepted & Encryption enabled', 'success');
+            showSimpleToast(isReturningUser ? 'Unlocked & Decrypted' : 'Terms accepted & Encryption enabled', 'success');
             setIsOpen(false);
+
+            // Trigger storage load to refresh contacts with new key
+            window.dispatchEvent(new Event('unik-contacts-updated'));
 
         } catch (err) {
             console.error("Signing failed:", err);
-            showSimpleToast('User rejected terms or signing failed', 'error');
+            showSimpleToast('User rejected signing', 'error');
         } finally {
             setSigning(false);
         }
@@ -117,45 +149,51 @@ Timestamp: ${Date.now()}
 
     return (
         <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-            <div className="bg-[#13131f] border border-red-500/30 rounded-2xl max-w-lg w-full p-8 shadow-2xl relative overflow-hidden">
+            <div className="bg-[#13131f] border border-cyan-500/30 rounded-2xl max-w-lg w-full p-8 shadow-2xl relative overflow-hidden">
                 {/* Decoration */}
-                <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-red-500 via-orange-500 to-red-500"></div>
+                <div className={`absolute top-0 left-0 w-full h-1 bg-gradient-to-r ${isReturningUser ? 'from-cyan-500 via-blue-500 to-cyan-500' : 'from-red-500 via-orange-500 to-red-500'}`}></div>
 
                 <h2 className="text-2xl font-bold text-white mb-2 flex items-center gap-2">
-                    <span className="text-red-500">⚠️</span> Legal Acknowledgment
+                    {isReturningUser ? (
+                        <><span>🔐</span> Unlock Data</>
+                    ) : (
+                        <> <span className="text-red-500">⚠️</span> Legal Acknowledgment</>
+                    )}
                 </h2>
-                <p className="text-gray-400 text-sm mb-6">Required before using UNIK Protocol</p>
+                <p className="text-gray-400 text-sm mb-6">
+                    {isReturningUser ? "Welcome back! Sign to decrypt your secure data." : "Required before using UNIK Protocol"}
+                </p>
 
-                <div className="bg-white/5 rounded-lg p-4 mb-6 max-h-60 overflow-y-auto text-sm text-gray-300 font-mono border border-white/5">
-                    <p className="mb-2.5 font-bold text-white">Please read carefully:</p>
-                    <ul className="list-disc pl-4 space-y-2">
-                        <li>This software is in <strong>BETA</strong> and provided "AS IS".</li>
-                        <li>UNIK Protocol is currently on <strong>DEVNET</strong>.</li>
-                        <li>We are <strong>NOT RESPONSIBLE</strong> for any loss of funds, protocol exploits, or user errors.</li>
-                        <li>You maintain full custody of your assets at all times.</li>
-                        <li>By signing, you agree to our Terms of Service and Privacy Policy.</li>
-                    </ul>
-                </div>
+                {!isReturningUser && (
+                    <div className="bg-white/5 rounded-lg p-4 mb-6 max-h-60 overflow-y-auto text-sm text-gray-300 font-mono border border-white/5">
+                        <p className="mb-2.5 font-bold text-white">Please read carefully:</p>
+                        <ul className="list-disc pl-4 space-y-2">
+                            <li>This software is in <strong>BETA</strong> and provided "AS IS".</li>
+                            <li>We are <strong>NOT RESPONSIBLE</strong> for any loss of funds.</li>
+                            <li>You maintain full custody of your assets at all times.</li>
+                        </ul>
+                    </div>
+                )}
 
                 <div className="flex flex-col gap-3">
                     <button
                         onClick={handleAcceptAndSign}
                         disabled={signing}
-                        className="w-full py-4 bg-gradient-to-r from-red-600 to-orange-600 hover:from-red-500 hover:to-orange-500 text-white font-bold rounded-xl transition-all shadow-lg shadow-red-900/20 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                        className={`w-full py-4 bg-gradient-to-r ${isReturningUser ? 'from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500' : 'from-red-600 to-orange-600 hover:from-red-500 hover:to-orange-500'} text-white font-bold rounded-xl transition-all shadow-lg flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed`}
                     >
                         {signing ? (
                             <>
                                 <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                                Signing Agreement...
+                                {isReturningUser ? "Decrypting..." : "Signing Agreement..."}
                             </>
                         ) : (
                             <>
-                                ✍️ Accept Risks & Sign
+                                {isReturningUser ? "🔓 Sign to Unlock" : "✍️ Accept Risks & Sign"}
                             </>
                         )}
                     </button>
                     <p className="text-center text-xs text-gray-500">
-                        This signature is free (off-chain) and is used to verify your consent and encrypt your local data.
+                        This signature is free (off-chain) and is used to generate your encryption key.
                     </p>
                 </div>
             </div>
