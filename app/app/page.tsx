@@ -13,6 +13,17 @@ export default function Home() {
   return (
     <div className="min-h-screen bg-[#0d0d12] text-white selection:bg-purple-500/30 overflow-x-hidden font-sans">
 
+      {/* Devnet Warning Banner */}
+      <div className="relative z-50 bg-yellow-500/10 border-b border-yellow-500/30 py-2 px-4">
+        <div className="container mx-auto text-center">
+          <p className="text-yellow-400 text-sm">
+            ⚠️ <strong>DEVNET BETA</strong> - This project is in development and deployed on Solana Devnet.
+            Tokens have no real value. Use at your own risk.
+            <Link href="/terms" className="underline hover:text-yellow-300 ml-1">Terms of Service</Link>
+          </p>
+        </div>
+      </div>
+
       {/* Background Elements */}
       <div className="fixed inset-0 z-0 pointer-events-none">
         <div className="absolute top-[-20%] left-[-10%] w-[800px] h-[800px] bg-purple-600/10 rounded-full blur-[150px] animate-pulse-slow"></div>
@@ -148,9 +159,9 @@ export default function Home() {
           </div>
           <p className="text-gray-600 text-sm">© 2024 UNIK. All rights reserved.</p>
           <div className="flex gap-6 text-sm text-gray-500">
-            <Link href="#" className="hover:text-white transition-colors">Privacy</Link>
-            <Link href="#" className="hover:text-white transition-colors">Terms</Link>
-            <Link href="#" className="hover:text-white transition-colors">Twitter</Link>
+            <Link href="/privacy" className="hover:text-white transition-colors">Privacy</Link>
+            <Link href="/terms" className="hover:text-white transition-colors">Terms</Link>
+            <Link href="https://x.com/uniksolana" target="_blank" rel="noopener noreferrer" className="hover:text-white transition-colors">Twitter</Link>
           </div>
         </div>
       </footer>
