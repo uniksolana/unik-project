@@ -67,13 +67,14 @@ class SupabaseEncryptedNoteStorage implements NoteStorage {
         // 3. Encrypt & Upload
         const encryptedNotes = await encryptData(current, sessionKey);
 
+        // Use update instead of upsert to avoid NOT NULL constraint on encrypted_blob
         const { error } = await supabase
             .from('user_encrypted_data')
-            .upsert({
-                wallet_address: owner,
+            .update({
                 encrypted_notes: encryptedNotes,
                 updated_at: new Date().toISOString()
-            });
+            })
+            .eq('wallet_address', owner);
 
         if (error) throw error;
     }
@@ -89,11 +90,11 @@ class SupabaseEncryptedNoteStorage implements NoteStorage {
         const encryptedNotes = await encryptData(current, sessionKey);
         await supabase
             .from('user_encrypted_data')
-            .upsert({
-                wallet_address: owner,
+            .update({
                 encrypted_notes: encryptedNotes,
                 updated_at: new Date().toISOString()
-            });
+            })
+            .eq('wallet_address', owner);
     }
 }
 
