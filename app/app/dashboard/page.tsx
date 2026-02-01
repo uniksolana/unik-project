@@ -15,6 +15,7 @@ import { Buffer } from 'buffer';
 import Image from 'next/image';
 import { contactStorage, Contact } from '../../utils/contacts';
 import { noteStorage, TransactionNote } from '../../utils/notes';
+import { saveSharedNote, getSharedNotes } from '../../utils/sharedNotes';
 import { TOKEN_PROGRAM_ID, ASSOCIATED_TOKEN_PROGRAM_ID, getAssociatedTokenAddress } from '@solana/spl-token';
 
 const TOKEN_OPTIONS = [
@@ -1034,6 +1035,11 @@ function SendTab({ sendRecipient, setSendRecipient, sendAlias, setSendAlias, sen
                             if (paymentConcept) {
                                 try {
                                     await noteStorage.saveNote({ signature, note: paymentConcept, recipient: `@${targetAlias}`, amount: sendAmount, token: 'SOL', timestamp: Date.now() }, publicKey.toBase58());
+                                    // Also save to shared notes (visible to both sender and recipient)
+                                    const recipientWallet = routeAccount.splits[0]?.recipient?.toBase58();
+                                    if (recipientWallet) {
+                                        await saveSharedNote(signature, paymentConcept, publicKey.toBase58(), recipientWallet);
+                                    }
                                     console.log('[Dashboard] Note saved successfully');
                                 } catch (noteErr) {
                                     console.error('[Dashboard] Failed to save note:', noteErr);
@@ -1078,6 +1084,11 @@ function SendTab({ sendRecipient, setSendRecipient, sendAlias, setSendAlias, sen
                             if (paymentConcept) {
                                 try {
                                     await noteStorage.saveNote({ signature, note: paymentConcept, recipient: `@${targetAlias}`, amount: sendAmount, token: sendToken.symbol, timestamp: Date.now() }, publicKey.toBase58());
+                                    // Also save to shared notes (visible to both sender and recipient)
+                                    const recipientWallet = routeAccount.splits[0]?.recipient?.toBase58();
+                                    if (recipientWallet) {
+                                        await saveSharedNote(signature, paymentConcept, publicKey.toBase58(), recipientWallet);
+                                    }
                                     console.log('[Dashboard] Note saved successfully');
                                 } catch (noteErr) {
                                     console.error('[Dashboard] Failed to save note:', noteErr);
@@ -1132,6 +1143,9 @@ function SendTab({ sendRecipient, setSendRecipient, sendAlias, setSendAlias, sen
             if (paymentConcept) {
                 try {
                     await noteStorage.saveNote({ signature, note: paymentConcept, recipient: targetAlias ? `@${targetAlias}` : sendRecipient.slice(0, 8) + '...', amount: sendAmount, token: sendToken.symbol, timestamp: Date.now() }, publicKey.toBase58());
+                    // Also save to shared notes (visible to both sender and recipient)
+                    // For direct transfers, sendRecipient should be the full wallet address
+                    await saveSharedNote(signature, paymentConcept, publicKey.toBase58(), sendRecipient);
                     console.log('[Dashboard] Note saved successfully');
                 } catch (noteErr) {
                     console.error('[Dashboard] Failed to save note:', noteErr);
@@ -1761,6 +1775,7 @@ function HistoryTab({ publicKey, connection, confirmModal, setConfirmModal }: an
     const [history, setHistory] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [notes, setNotes] = useState<Record<string, TransactionNote>>({});
+    const [sharedNotes, setSharedNotes] = useState<Record<string, string>>({});
 
     useEffect(() => {
         // Load saved notes from encrypted cloud storage
@@ -1826,6 +1841,11 @@ function HistoryTab({ publicKey, connection, confirmModal, setConfirmModal }: an
                     })
                 );
                 setHistory(detailedHistory);
+
+                // Load shared notes for all signatures
+                const sigList = detailedHistory.map(tx => tx.signature);
+                const loadedSharedNotes = await getSharedNotes(sigList);
+                setSharedNotes(loadedSharedNotes);
             } catch (e) {
                 console.error("Failed to fetch history", e);
             } finally {
@@ -1862,9 +1882,17 @@ function HistoryTab({ publicKey, connection, confirmModal, setConfirmModal }: an
     };
 
     // Helper to get the concept/note for a transaction
+    // First check personal notes, then shared notes (for received transactions)
     const getConceptLabel = (tx: any) => {
+        // Check personal notes first (for sent transactions)
         const savedNote = notes[tx.signature];
-        return savedNote?.note || null;
+        if (savedNote?.note) return savedNote.note;
+
+        // Check shared notes (works for both sent and received)
+        const sharedNote = sharedNotes[tx.signature];
+        if (sharedNote) return sharedNote;
+
+        return null;
     };
 
     if (loading) {
@@ -1893,8 +1921,8 @@ function HistoryTab({ publicKey, connection, confirmModal, setConfirmModal }: an
                     <p className="text-center text-gray-500 py-12">No transactions found.</p>
                 ) : (
                     history.map((tx: any, i: number) => {
-                        const savedNote = notes[tx.signature];
-                        const hasNote = !!savedNote?.note;
+                        const conceptNote = getConceptLabel(tx);
+                        const hasNote = !!conceptNote;
 
                         return (
                             <div key={i} className="flex items-center justify-between p-4 bg-gray-800 border border-gray-700 hover:border-gray-600 transition-colors rounded-xl">
@@ -1911,7 +1939,7 @@ function HistoryTab({ publicKey, connection, confirmModal, setConfirmModal }: an
                                             </p>
                                             {hasNote && (
                                                 <span className="text-amber-300 text-sm truncate max-w-[150px]">
-                                                    • {savedNote.note}
+                                                    • {conceptNote}
                                                 </span>
                                             )}
                                             {!tx.success && <span className="text-[10px] bg-red-500 text-white px-1 uppercase leading-none py-0.5 rounded">Failed</span>}
@@ -1925,7 +1953,7 @@ function HistoryTab({ publicKey, connection, confirmModal, setConfirmModal }: an
                                 <div className="text-right ml-4">
                                     {tx.amount > 0 && (
                                         <p className={`font-bold ${tx.type === 'Received' ? 'text-green-400' : 'text-red-400'}`}>
-                                            {tx.type === 'Received' ? '+' : '-'}{tx.amount.toFixed(4)} {savedNote?.token || 'SOL'}
+                                            {tx.type === 'Received' ? '+' : '-'}{tx.amount.toFixed(4)} {notes[tx.signature]?.token || 'SOL'}
                                         </p>
                                     )}
                                     <a
