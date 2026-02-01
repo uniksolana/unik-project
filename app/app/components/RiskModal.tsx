@@ -19,7 +19,15 @@ export default function RiskModal() {
     // Terms version - increment this when you update your terms to force re-acceptance
     const TERMS_VERSION = "v1.0-beta";
 
-    const TERMS_TEXT = `
+    // CRITICAL: This message MUST be constant for key derivation to work across sessions!
+    // Never include timestamps or dynamic content here.
+    const KEY_DERIVATION_MESSAGE = `UNIK Protocol - Authenticate and Decrypt
+Version: ${TERMS_VERSION}
+Sign this message to unlock your encrypted data.
+This signature is free and does not authorize any transaction.`;
+
+    // For display only (not used for key derivation)
+    const TERMS_DISPLAY_TEXT = `
 UNIK PROTOCOL - BETA SOFTWARE RISK ACKNOWLEDGMENT
 
 By signing this message, I acknowledge and agree that:
@@ -28,16 +36,6 @@ By signing this message, I acknowledge and agree that:
 3. I understand the risks associated with cryptographic software.
 4. I have read and agree to the Terms of Service and Privacy Policy.
 5. I am solely responsible for the security of my keys and funds.
-
-Version: ${TERMS_VERSION}
-Timestamp: ${Date.now()}
-`;
-
-    const LOGIN_TEXT = `
-Unlock UNIK Protocol Data
-
-Sign this message to decrypt your local contacts and notes.
-This does NOT authorize any transaction.
 `;
 
     useEffect(() => {
@@ -88,28 +86,13 @@ This does NOT authorize any transaction.
 
         setSigning(true);
         try {
-            // Use different message for login vs new terms
-            const textToSign = isReturningUser ? LOGIN_TEXT : TERMS_TEXT;
-            const message = new TextEncoder().encode(textToSign);
+            // ALWAYS use the same message for key derivation - this ensures consistent decryption
+            const message = new TextEncoder().encode(KEY_DERIVATION_MESSAGE);
 
             const signatureBytes = await signMessage(message);
             const signatureBase64 = Buffer.from(signatureBytes).toString('base64');
 
-            // 1. Generate/Regenerate encryption key (Privacy)
-            // We use the signature of THIS message as the seed. 
-            // Note: For persistent decryption, the seed message must be constant (TERMS_TEXT or LOGIN_TEXT).
-            // But wait, if we change the message, the key changes! 
-            // FIX: For returning users, we MUST use the ORIGINAL TERMS signature/logic to drive the key 
-            // OR we must migrate to a consistent "Auth" message for key derivation.
-            // For this MVP, let's keep it simple: We derive the key from the signature of the CURRENT message.
-            // This means if you sign "Login", you get Key B. If you signed "Terms", you got Key A.
-            // This would BREAK decryption of old data.
-            //
-            // CORRECT APPROACH FOR MVP:
-            // ALWAYS ask to sign the TERMS_TEXT for the key derivation to be consistent.
-            // Even for login? Yes, to get the SAME key to decrypt old data.
-            // So we will stick to TERMS_TEXT for now, but maybe hide the scary text UI for returning users.
-
+            // Generate encryption key from signature (same message = same key)
             const key = await deriveKeyFromSignature(signatureBase64);
             setSessionKey(key);
 

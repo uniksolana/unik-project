@@ -14,6 +14,7 @@ import { Html5Qrcode } from "html5-qrcode";
 import { Buffer } from 'buffer';
 import Image from 'next/image';
 import { contactStorage, Contact } from '../../utils/contacts';
+import { noteStorage, TransactionNote } from '../../utils/notes';
 import { TOKEN_PROGRAM_ID, ASSOCIATED_TOKEN_PROGRAM_ID, getAssociatedTokenAddress } from '@solana/spl-token';
 
 const TOKEN_OPTIONS = [
@@ -1030,6 +1031,14 @@ function SendTab({ sendRecipient, setSendRecipient, sendAlias, setSendAlias, sen
                             const signature = await wallet.sendTransaction(transaction, connection);
                             await connection.confirmTransaction({ signature, blockhash, lastValidBlockHeight });
                             showTransactionToast({ signature, message: `Sent ${sendAmount} SOL via @${targetAlias}`, type: 'success' });
+                            if (paymentConcept) {
+                                try {
+                                    await noteStorage.saveNote({ signature, note: paymentConcept, recipient: `@${targetAlias}`, amount: sendAmount, token: 'SOL', timestamp: Date.now() }, publicKey.toBase58());
+                                    console.log('[Dashboard] Note saved successfully');
+                                } catch (noteErr) {
+                                    console.error('[Dashboard] Failed to save note:', noteErr);
+                                }
+                            }
 
                         } else {
                             // --- SPL TOKEN ROUTING ---
@@ -1066,6 +1075,14 @@ function SendTab({ sendRecipient, setSendRecipient, sendAlias, setSendAlias, sen
                             const signature = await wallet.sendTransaction(transaction, connection);
                             await connection.confirmTransaction({ signature, blockhash, lastValidBlockHeight });
                             showTransactionToast({ signature, message: `Sent ${sendAmount} ${sendToken.symbol} via @${targetAlias}`, type: 'success' });
+                            if (paymentConcept) {
+                                try {
+                                    await noteStorage.saveNote({ signature, note: paymentConcept, recipient: `@${targetAlias}`, amount: sendAmount, token: sendToken.symbol, timestamp: Date.now() }, publicKey.toBase58());
+                                    console.log('[Dashboard] Note saved successfully');
+                                } catch (noteErr) {
+                                    console.error('[Dashboard] Failed to save note:', noteErr);
+                                }
+                            }
                         }
                         setLoading(false); setSendAmount(''); setPaymentConcept(''); return;
                     }
@@ -1112,6 +1129,14 @@ function SendTab({ sendRecipient, setSendRecipient, sendAlias, setSendAlias, sen
             const signature = await wallet.sendTransaction(transaction, connection);
             await connection.confirmTransaction({ signature, blockhash, lastValidBlockHeight });
             showTransactionToast({ signature, message: `Sent ${sendAmount} ${sendToken.symbol}`, type: 'success' });
+            if (paymentConcept) {
+                try {
+                    await noteStorage.saveNote({ signature, note: paymentConcept, recipient: targetAlias ? `@${targetAlias}` : sendRecipient.slice(0, 8) + '...', amount: sendAmount, token: sendToken.symbol, timestamp: Date.now() }, publicKey.toBase58());
+                    console.log('[Dashboard] Note saved successfully');
+                } catch (noteErr) {
+                    console.error('[Dashboard] Failed to save note:', noteErr);
+                }
+            }
 
             setLoading(false); setSendAmount(''); setPaymentConcept('');
 
@@ -1735,6 +1760,17 @@ function ContactsTab({ setSendRecipient, setSendAlias, setSendNote, setActiveTab
 function HistoryTab({ publicKey, connection, confirmModal, setConfirmModal }: any) {
     const [history, setHistory] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
+    const [notes, setNotes] = useState<Record<string, TransactionNote>>({});
+
+    useEffect(() => {
+        // Load saved notes from encrypted cloud storage
+        const loadNotes = async () => {
+            const owner = publicKey?.toBase58();
+            const loadedNotes = await noteStorage.getNotes(owner);
+            setNotes(loadedNotes);
+        };
+        loadNotes();
+    }, [publicKey]);
 
     useEffect(() => {
         const fetchHistory = async () => {
@@ -1800,6 +1836,21 @@ function HistoryTab({ publicKey, connection, confirmModal, setConfirmModal }: an
         fetchHistory();
     }, [publicKey, connection]);
 
+    // Helper to get display label for transaction
+    const getDisplayLabel = (tx: any) => {
+        const savedNote = notes[tx.signature];
+        if (savedNote?.note) {
+            return savedNote.note;
+        }
+        if (tx.type === 'Sent' && tx.otherSide) {
+            return `Sent to ${tx.otherSide.slice(0, 6)}...`;
+        }
+        if (tx.type === 'Received' && tx.otherSide) {
+            return `From ${tx.otherSide.slice(0, 6)}...`;
+        }
+        return tx.type;
+    };
+
     if (loading) {
         return (
             <div className="py-12 text-center text-gray-500">
@@ -1825,44 +1876,57 @@ function HistoryTab({ publicKey, connection, confirmModal, setConfirmModal }: an
                 {history.length === 0 ? (
                     <p className="text-center text-gray-500 py-12">No transactions found.</p>
                 ) : (
-                    history.map((tx: any, i: number) => (
-                        <div key={i} className="flex items-center justify-between p-4 bg-gray-800 border border-gray-700 hover:border-gray-600 transition-colors">
-                            <div className="flex items-center gap-4 min-w-0">
-                                <div className={`w-10 h-10 flex items-center justify-center text-xl ${tx.type === 'Received' ? 'text-green-500 bg-green-500/10' :
-                                    tx.type === 'Sent' ? 'text-red-500 bg-red-500/10' : 'text-cyan-500 bg-cyan-500/10'
-                                    }`}>
-                                    {tx.type === 'Received' ? '↙' : tx.type === 'Sent' ? '↗' : '⚙'}
-                                </div>
-                                <div className="min-w-0">
-                                    <div className="flex items-center gap-2">
-                                        <p className="font-bold truncate">{tx.type}</p>
-                                        {!tx.success && <span className="text-[10px] bg-red-500 text-white px-1 uppercase leading-none py-0.5">Failed</span>}
-                                    </div>
-                                    <p className="text-xs text-gray-500 font-mono">
-                                        {tx.time ? new Date(tx.time * 1000).toLocaleDateString() + ' ' + new Date(tx.time * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Pending...'}
-                                    </p>
-                                </div>
-                            </div>
+                    history.map((tx: any, i: number) => {
+                        const savedNote = notes[tx.signature];
+                        const hasNote = !!savedNote?.note;
 
-                            <div className="text-right ml-4">
-                                {tx.amount > 0 && (
-                                    <p className={`font-bold ${tx.type === 'Received' ? 'text-green-400' : 'text-red-400'}`}>
-                                        {tx.type === 'Received' ? '+' : '-'}{tx.amount.toFixed(4)} SOL
-                                    </p>
-                                )}
-                                <a
-                                    href={`https://solscan.io/tx/${tx.signature}?cluster=devnet`}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="text-[10px] text-cyan-500 hover:underline font-mono"
-                                >
-                                    Solscan ↗
-                                </a>
+                        return (
+                            <div key={i} className="flex items-center justify-between p-4 bg-gray-800 border border-gray-700 hover:border-gray-600 transition-colors rounded-xl">
+                                <div className="flex items-center gap-4 min-w-0">
+                                    <div className={`w-10 h-10 flex items-center justify-center text-xl rounded-lg ${tx.type === 'Received' ? 'text-green-500 bg-green-500/10' :
+                                        tx.type === 'Sent' ? 'text-red-500 bg-red-500/10' : 'text-cyan-500 bg-cyan-500/10'
+                                        }`}>
+                                        {tx.type === 'Received' ? '↙' : tx.type === 'Sent' ? '↗' : '⚙'}
+                                    </div>
+                                    <div className="min-w-0">
+                                        <div className="flex items-center gap-2">
+                                            <p className={`font-bold truncate max-w-[200px] ${hasNote ? 'text-amber-300' : 'text-white'}`}>
+                                                {getDisplayLabel(tx)}
+                                            </p>
+                                            {!tx.success && <span className="text-[10px] bg-red-500 text-white px-1 uppercase leading-none py-0.5 rounded">Failed</span>}
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                            <p className="text-xs text-gray-500 font-mono">
+                                                {tx.time ? new Date(tx.time * 1000).toLocaleDateString() + ' ' + new Date(tx.time * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Pending...'}
+                                            </p>
+                                            {hasNote && savedNote.recipient && (
+                                                <span className="text-[10px] text-gray-400 bg-gray-700/50 px-1.5 py-0.5 rounded">{savedNote.recipient}</span>
+                                            )}
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="text-right ml-4">
+                                    {tx.amount > 0 && (
+                                        <p className={`font-bold ${tx.type === 'Received' ? 'text-green-400' : 'text-red-400'}`}>
+                                            {tx.type === 'Received' ? '+' : '-'}{tx.amount.toFixed(4)} {savedNote?.token || 'SOL'}
+                                        </p>
+                                    )}
+                                    <a
+                                        href={`https://solscan.io/tx/${tx.signature}?cluster=devnet`}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="text-[10px] text-cyan-500 hover:underline font-mono"
+                                    >
+                                        Solscan ↗
+                                    </a>
+                                </div>
                             </div>
-                        </div>
-                    ))
+                        );
+                    })
                 )}
             </div>
         </div>
     );
 }
+
