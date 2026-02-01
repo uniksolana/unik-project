@@ -38,6 +38,12 @@ class SupabaseEncryptedNoteStorage implements NoteStorage {
 
         if (error || !data || !data.encrypted_notes) return {};
 
+        // Skip if it's not valid encrypted data (empty objects, plain JSON, etc)
+        const encryptedNotes = data.encrypted_notes.trim();
+        if (!encryptedNotes || encryptedNotes === '{}' || encryptedNotes === '[]' || encryptedNotes === 'null') {
+            return {};
+        }
+
         try {
             const notes = await decryptData(data.encrypted_notes, sessionKey);
             return notes as Record<string, TransactionNote>;
