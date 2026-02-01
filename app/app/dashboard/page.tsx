@@ -1836,19 +1836,35 @@ function HistoryTab({ publicKey, connection, confirmModal, setConfirmModal }: an
         fetchHistory();
     }, [publicKey, connection]);
 
-    // Helper to get display label for transaction
+    // Helper to get display label for transaction (destination/source info)
     const getDisplayLabel = (tx: any) => {
         const savedNote = notes[tx.signature];
-        if (savedNote?.note) {
-            return savedNote.note;
+
+        // For sent transactions: show recipient (alias if available, otherwise address)
+        if (tx.type === 'Sent') {
+            // If we have a saved recipient alias (like @tests), use it
+            if (savedNote?.recipient) {
+                return `Sent to ${savedNote.recipient}`;
+            }
+            // Otherwise use the address
+            if (tx.otherSide) {
+                return `Sent to ${tx.otherSide.slice(0, 6)}...`;
+            }
+            return 'Sent';
         }
-        if (tx.type === 'Sent' && tx.otherSide) {
-            return `Sent to ${tx.otherSide.slice(0, 6)}...`;
-        }
+
+        // For received transactions: show sender info
         if (tx.type === 'Received' && tx.otherSide) {
             return `From ${tx.otherSide.slice(0, 6)}...`;
         }
+
         return tx.type;
+    };
+
+    // Helper to get the concept/note for a transaction
+    const getConceptLabel = (tx: any) => {
+        const savedNote = notes[tx.signature];
+        return savedNote?.note || null;
     };
 
     if (loading) {
@@ -1889,20 +1905,20 @@ function HistoryTab({ publicKey, connection, confirmModal, setConfirmModal }: an
                                         {tx.type === 'Received' ? '↙' : tx.type === 'Sent' ? '↗' : '⚙'}
                                     </div>
                                     <div className="min-w-0">
-                                        <div className="flex items-center gap-2">
-                                            <p className={`font-bold truncate max-w-[200px] ${hasNote ? 'text-amber-300' : 'text-white'}`}>
+                                        <div className="flex items-center gap-2 flex-wrap">
+                                            <p className="font-bold text-white truncate max-w-[200px]">
                                                 {getDisplayLabel(tx)}
                                             </p>
+                                            {hasNote && (
+                                                <span className="text-amber-300 text-sm truncate max-w-[150px]">
+                                                    • {savedNote.note}
+                                                </span>
+                                            )}
                                             {!tx.success && <span className="text-[10px] bg-red-500 text-white px-1 uppercase leading-none py-0.5 rounded">Failed</span>}
                                         </div>
-                                        <div className="flex items-center gap-2">
-                                            <p className="text-xs text-gray-500 font-mono">
-                                                {tx.time ? new Date(tx.time * 1000).toLocaleDateString() + ' ' + new Date(tx.time * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Pending...'}
-                                            </p>
-                                            {hasNote && savedNote.recipient && (
-                                                <span className="text-[10px] text-gray-400 bg-gray-700/50 px-1.5 py-0.5 rounded">{savedNote.recipient}</span>
-                                            )}
-                                        </div>
+                                        <p className="text-xs text-gray-500 font-mono">
+                                            {tx.time ? new Date(tx.time * 1000).toLocaleDateString() + ' ' + new Date(tx.time * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Pending...'}
+                                        </p>
                                     </div>
                                 </div>
 
