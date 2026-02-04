@@ -908,6 +908,56 @@ function SendTab({ sendRecipient, setSendRecipient, sendAlias, setSendAlias, sen
 
     // Token Balance State
     const [tokenBalance, setTokenBalance] = useState<number | null>(null);
+
+    // Smart Alias Search Logic
+    const [debouncedRecipient, setDebouncedRecipient] = useState(sendRecipient);
+    const [isValidRecipient, setIsValidRecipient] = useState<boolean | null>(null);
+    const [isCheckingRecipient, setIsCheckingRecipient] = useState(false);
+
+    useEffect(() => {
+        const timer = setTimeout(() => setDebouncedRecipient(sendRecipient), 600);
+        return () => clearTimeout(timer);
+    }, [sendRecipient]);
+
+    useEffect(() => {
+        const validateRecipient = async () => {
+            if (!debouncedRecipient || debouncedRecipient.length < 3) {
+                setIsValidRecipient(null);
+                return;
+            }
+
+            setIsCheckingRecipient(true);
+            try {
+                // Check if it's a valid PublicKey
+                try {
+                    const pubkey = new PublicKey(debouncedRecipient);
+                    if (PublicKey.isOnCurve(pubkey.toBytes())) {
+                        setIsValidRecipient(true);
+                        setIsCheckingRecipient(false);
+                        return;
+                    }
+                } catch { }
+
+                // Check if it's a valid Alias
+                const aliasToCheck = debouncedRecipient.startsWith('@') ? debouncedRecipient.slice(1).toLowerCase() : debouncedRecipient.toLowerCase();
+                const [aliasPDA] = PublicKey.findProgramAddressSync(
+                    [Buffer.from("alias"), Buffer.from(aliasToCheck)],
+                    PROGRAM_ID
+                );
+
+                const info = await connection.getAccountInfo(aliasPDA);
+                setIsValidRecipient(!!info);
+
+            } catch (error) {
+                console.error("Validation error:", error);
+                setIsValidRecipient(false);
+            } finally {
+                setIsCheckingRecipient(false);
+            }
+        };
+
+        validateRecipient();
+    }, [debouncedRecipient, connection]);
     useEffect(() => {
         if (!publicKey || !sendToken.mint) {
             setTokenBalance(null);
@@ -1214,13 +1264,37 @@ function SendTab({ sendRecipient, setSendRecipient, sendAlias, setSendAlias, sen
                             <button onClick={() => { setSendAlias(''); setSendRecipient(''); setSendNote(''); }} className="text-xs text-red-400 hover:text-red-300">Clear</button>
                         </div>
                     )}
-                    <input
-                        type="text"
-                        placeholder="Solana Address or Alias"
-                        value={sendRecipient}
-                        onChange={(e) => { setSendRecipient(e.target.value); setSendAlias(''); setSendNote(''); }}
-                        className="w-full px-4 py-4 bg-gray-800 rounded-xl text-white border border-gray-700 font-mono text-sm focus:outline-none focus:border-cyan-500"
-                    />
+                    <div className="relative">
+                        <input
+                            type="text"
+                            placeholder="@alias or wallet address"
+                            value={sendRecipient}
+                            onChange={(e) => { setSendRecipient(e.target.value); setSendAlias(''); setSendNote(''); }}
+                            className={`w-full pl-4 pr-20 py-4 bg-gray-800 rounded-xl text-white border font-mono text-sm focus:outline-none transition-colors ${isValidRecipient === true ? 'border-green-500/50 focus:border-green-500' :
+                                    isValidRecipient === false ? 'border-red-500/50 focus:border-red-500' :
+                                        'border-gray-700 focus:border-cyan-500'
+                                }`}
+                        />
+                        <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-2">
+                            {/* Validation Indicator */}
+                            {isCheckingRecipient ? (
+                                <div className="w-4 h-4 border-2 border-cyan-500/30 border-t-cyan-500 rounded-full animate-spin"></div>
+                            ) : isValidRecipient === true ? (
+                                <svg className="w-5 h-5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path></svg>
+                            ) : isValidRecipient === false ? (
+                                <span className="text-xs text-red-500 font-bold">Invalid</span>
+                            ) : null}
+
+                            {/* QR Button */}
+                            <button
+                                onClick={() => setScanning(true)}
+                                className="p-2 text-cyan-400 hover:text-cyan-300 hover:bg-cyan-500/10 rounded-lg transition-colors"
+                                title="Scan QR"
+                            >
+                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z"></path></svg>
+                            </button>
+                        </div>
+                    </div>
                 </div>
 
                 <div>
