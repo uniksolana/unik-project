@@ -3,6 +3,7 @@
 import Image from 'next/image';
 import Link from 'next/link';
 import dynamic from 'next/dynamic';
+import MobileWalletPrompt from './components/MobileWalletPrompt';
 
 const WalletMultiButton = dynamic(
   () => import('@solana/wallet-adapter-react-ui').then(mod => mod.WalletMultiButton),
@@ -165,6 +166,8 @@ export default function Home() {
           </div>
         </div>
       </footer>
+
+      <MobileWalletPrompt />
     </div>
   );
 }

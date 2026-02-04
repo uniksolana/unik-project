@@ -13,6 +13,7 @@ import { Program, AnchorProvider, BN } from '@coral-xyz/anchor';
 import { Buffer } from 'buffer';
 import Image from 'next/image';
 import { TOKEN_PROGRAM_ID, ASSOCIATED_TOKEN_PROGRAM_ID, getAssociatedTokenAddress } from '@solana/spl-token';
+import MobileWalletPrompt from '../../components/MobileWalletPrompt';
 
 const TOKEN_OPTIONS_MAP: any = {
     'SOL': { label: 'SOL', symbol: 'SOL', mint: null, decimals: 9 },
@@ -473,6 +474,8 @@ function PaymentContent() {
             <div className="mt-8 text-center">
                 <p className="text-xs text-gray-600 font-medium">Powered by <span className="text-gray-500 font-bold">UNIK Protocol</span></p>
             </div>
+
+            <MobileWalletPrompt />
         </div>
     );
 }
