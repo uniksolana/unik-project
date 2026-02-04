@@ -39,10 +39,12 @@ function PaymentContent() {
     const [solPrice, setSolPrice] = useState<number | null>(null);
     const [selectedToken, setSelectedToken] = useState<any>(TOKEN_OPTIONS_MAP['SOL']);
     const [tokenLocked, setTokenLocked] = useState(false);
+    const [isDirectAddress, setIsDirectAddress] = useState(false);
 
     useEffect(() => {
-        // Fetch SOL price from CoinGecko
+        // Fetch SOL price from CoinGecko... (omitted for brevity, assume keeps existing)
         const fetchPrice = async () => {
+            // ... existing fetch logic
             try {
                 const response = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=solana&vs_currencies=usd');
                 const data = await response.json();
@@ -53,9 +55,8 @@ function PaymentContent() {
                 console.error("Failed to fetch SOL price", error);
             }
         };
-
         fetchPrice();
-        const interval = setInterval(fetchPrice, 60000); // Update every minute
+        const interval = setInterval(fetchPrice, 60000);
         return () => clearInterval(interval);
     }, []);
 
@@ -69,6 +70,9 @@ function PaymentContent() {
         if (queryAmount && !isNaN(parseFloat(queryAmount))) {
             setAmount(queryAmount);
             setIsLocked(true);
+            // If amount is specified, we MUST lock the token to prevent value mismatch (e.g. 10 USDC vs 10 SOL)
+            // Default to SOL if not specified
+            setTokenLocked(true);
         }
         const queryConcept = searchParams.get('concept');
         if (queryConcept) {
@@ -77,25 +81,26 @@ function PaymentContent() {
         const queryToken = searchParams.get('token');
         if (queryToken && TOKEN_OPTIONS_MAP[queryToken.toUpperCase()]) {
             setSelectedToken(TOKEN_OPTIONS_MAP[queryToken.toUpperCase()]);
+            // setTokenLocked(true); // Already covered above if amount exists, but good for token-only links
             setTokenLocked(true);
         }
     }, [searchParams]);
 
+    // ... (keep useEffect for balance/alias check same)
+
     useEffect(() => {
         setIsMounted(true);
         if (connected && publicKey) {
+            // ... (keep existing balance logic)
             if (selectedToken.symbol === 'SOL') {
                 connection.getBalance(publicKey).then(b => setBalance(b / 1e9));
             } else {
-                // Fetch SPL Balance
                 const fetchSplBalance = async () => {
                     try {
                         const accounts = await connection.getParsedTokenAccountsByOwner(publicKey, { mint: selectedToken.mint });
                         if (accounts.value.length > 0) {
                             setBalance(accounts.value[0].account.data.parsed.info.tokenAmount.uiAmount);
-                        } else {
-                            setBalance(0);
-                        }
+                        } else { setBalance(0); }
                     } catch (e) { setBalance(0); }
                 };
                 fetchSplBalance();
@@ -106,10 +111,11 @@ function PaymentContent() {
         }
     }, [alias, connected, publicKey, connection]);
 
+
     const checkAlias = async () => {
         if (!alias) return;
 
-        const normalizedAlias = (alias as string).trim(); // Keep case for Base58 check first
+        const normalizedAlias = (alias as string).trim();
 
         // 0. Check if it's a direct PublicKey (Anonymous Request)
         try {
@@ -118,11 +124,12 @@ function PaymentContent() {
                 setRecipientAddress(potentialPubkey);
                 setAliasOwner(potentialPubkey);
                 setRouteAccount(null);
+                setIsDirectAddress(true); // Flag as direct address
                 console.log("Direct PublicKey detected");
                 return;
             }
         } catch (e) {
-            // Not a public key, proceed to check as alias
+            // Not a public key
         }
 
         try {
@@ -306,7 +313,7 @@ function PaymentContent() {
                     <div className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full border ${aliasOwner || routeAccount ? 'bg-green-500/10 border-green-500/20' : 'bg-red-500/10 border-red-500/20'}`}>
                         <span className={`w-1.5 h-1.5 rounded-full ${aliasOwner || routeAccount ? 'bg-green-400 animate-pulse' : 'bg-red-400'}`}></span>
                         <p className={`text-xs font-bold tracking-wide uppercase ${aliasOwner || routeAccount ? 'text-green-400' : 'text-red-400'}`}>
-                            {aliasOwner || routeAccount ? 'Valid Alias' : 'Alias Not Found'}
+                            {isDirectAddress ? 'Valid Address' : (aliasOwner || routeAccount ? 'Valid Alias' : 'Alias Not Found')}
                         </p>
                     </div>
                 </div>
@@ -450,7 +457,9 @@ function PaymentContent() {
                             <div className="bg-white/5 rounded-xl p-5 text-sm border border-white/5">
                                 <div className="flex justify-between mb-2">
                                     <span className="text-gray-400">Recipient</span>
-                                    <span className="text-white font-mono font-bold bg-white/10 px-2 py-0.5 rounded text-xs">@{alias}</span>
+                                    <span className="text-white font-mono font-bold bg-white/10 px-2 py-0.5 rounded text-xs truncate max-w-[150px]">
+                                        {isDirectAddress && typeof alias === 'string' ? `${alias.slice(0, 4)}...${alias.slice(-4)}` : `@${alias}`}
+                                    </span>
                                 </div>
                                 <div className="flex justify-between items-center">
                                     <span className="text-gray-400">Routing</span>
