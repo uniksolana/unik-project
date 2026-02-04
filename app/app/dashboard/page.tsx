@@ -901,10 +901,13 @@ function ReceiveTab({ registeredAlias, linkAmount, setLinkAmount, linkConcept, s
     );
 }
 
-function SendTab({ sendRecipient, setSendRecipient, sendAlias, setSendAlias, sendAmount, setSendAmount, sendNote, setSendNote, paymentConcept, setPaymentConcept, loading, setLoading, publicKey, wallet, connection, solPrice, balance, sendToken, setSendToken, myAliases }: any) {
+function SendTab({ sendRecipient, setSendRecipient, sendAlias, setSendAlias, sendAmount, setSendAmount, sendNote, setSendNote, paymentConcept, setPaymentConcept, loading, setLoading, publicKey, wallet, connection, solPrice, balance, sendToken, setSendToken, myAliases, contacts }: any) {
     // QR Scanner State
     const [scanning, setScanning] = useState(false);
     const scannerRef = useRef<Html5Qrcode | null>(null);
+
+    // Contact Picker State
+    const [showContactPicker, setShowContactPicker] = useState(false);
 
     // Token Balance State
     const [tokenBalance, setTokenBalance] = useState<number | null>(null);
@@ -1271,8 +1274,8 @@ function SendTab({ sendRecipient, setSendRecipient, sendAlias, setSendAlias, sen
                             value={sendRecipient}
                             onChange={(e) => { setSendRecipient(e.target.value); setSendAlias(''); setSendNote(''); }}
                             className={`w-full pl-4 pr-20 py-4 bg-gray-800 rounded-xl text-white border font-mono text-sm focus:outline-none transition-colors ${isValidRecipient === true ? 'border-green-500/50 focus:border-green-500' :
-                                    isValidRecipient === false ? 'border-red-500/50 focus:border-red-500' :
-                                        'border-gray-700 focus:border-cyan-500'
+                                isValidRecipient === false ? 'border-red-500/50 focus:border-red-500' :
+                                    'border-gray-700 focus:border-cyan-500'
                                 }`}
                         />
                         <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-2">
@@ -1285,6 +1288,15 @@ function SendTab({ sendRecipient, setSendRecipient, sendAlias, setSendAlias, sen
                                 <span className="text-xs text-red-500 font-bold">Invalid</span>
                             ) : null}
 
+                            {/* Contact Book Button */}
+                            <button
+                                onClick={() => setShowContactPicker(!showContactPicker)}
+                                className={`p-2 rounded-lg transition-colors ${showContactPicker ? 'bg-cyan-500 text-white' : 'text-cyan-400 hover:text-cyan-300 hover:bg-cyan-500/10'}`}
+                                title="Contacts"
+                            >
+                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"></path></svg>
+                            </button>
+
                             {/* QR Button */}
                             <button
                                 onClick={() => setScanning(true)}
@@ -1294,6 +1306,43 @@ function SendTab({ sendRecipient, setSendRecipient, sendAlias, setSendAlias, sen
                                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z"></path></svg>
                             </button>
                         </div>
+
+                        {/* Contact Picker Dropdown */}
+                        {showContactPicker && (
+                            <div className="absolute top-full left-0 right-0 mt-2 bg-[#1A1A24] border border-gray-700/80 rounded-xl z-50 max-h-60 overflow-y-auto shadow-2xl backdrop-blur-xl">
+                                <div className="p-2 sticky top-0 bg-[#1A1A24] border-b border-white/5 flex justify-between items-center">
+                                    <span className="text-xs font-bold text-gray-400 pl-2">SAVED CONTACTS</span>
+                                    <button onClick={() => setShowContactPicker(false)} className="text-gray-500 hover:text-white"><svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg></button>
+                                </div>
+                                {contacts && contacts.length > 0 ? (
+                                    contacts.map((c: any, idx: number) => (
+                                        <div
+                                            key={idx}
+                                            onClick={() => {
+                                                setSendRecipient(c.alias ? `@${c.alias}` : c.wallet_address);
+                                                setShowContactPicker(false);
+                                            }}
+                                            className="p-3 hover:bg-white/5 cursor-pointer flex justify-between items-center border-b border-white/5 last:border-0 transition-colors group"
+                                        >
+                                            <div className="flex flex-col min-w-0">
+                                                <span className="font-bold text-white text-sm truncate">{c.name}</span>
+                                                <span className="text-xs text-gray-500 font-mono truncate group-hover:text-cyan-400 transition-colors">
+                                                    {c.alias ? `@${c.alias}` : c.wallet_address.slice(0, 8) + '...' + c.wallet_address.slice(-8)}
+                                                </span>
+                                            </div>
+                                            <div className="w-6 h-6 rounded-full bg-cyan-500/10 flex items-center justify-center text-cyan-500 group-hover:bg-cyan-500 group-hover:text-white transition-colors">
+                                                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path></svg>
+                                            </div>
+                                        </div>
+                                    ))
+                                ) : (
+                                    <div className="p-8 text-center text-gray-500">
+                                        <p className="text-sm">No contacts found.</p>
+                                        <p className="text-xs mt-1">Add them in the Contacts tab.</p>
+                                    </div>
+                                )}
+                            </div>
+                        )}
                     </div>
                 </div>
 
