@@ -108,14 +108,31 @@ function PaymentContent() {
 
     const checkAlias = async () => {
         if (!alias) return;
+
+        const normalizedAlias = (alias as string).trim(); // Keep case for Base58 check first
+
+        // 0. Check if it's a direct PublicKey (Anonymous Request)
+        try {
+            const potentialPubkey = new PublicKey(normalizedAlias);
+            if (PublicKey.isOnCurve(potentialPubkey.toBytes())) {
+                setRecipientAddress(potentialPubkey);
+                setAliasOwner(potentialPubkey);
+                setRouteAccount(null);
+                console.log("Direct PublicKey detected");
+                return;
+            }
+        } catch (e) {
+            // Not a public key, proceed to check as alias
+        }
+
         try {
             const provider = new AnchorProvider(connection, { publicKey: PublicKey.default } as any, {});
             const program = new Program(IDL as any, provider);
-            const normalizedAlias = (alias as string).toLowerCase().trim();
+            const lowerAlias = normalizedAlias.toLowerCase(); // Aliases are lowercase
 
             // 1. Check for Route Account
             const [routePDA] = PublicKey.findProgramAddressSync(
-                [Buffer.from("route"), Buffer.from(normalizedAlias)],
+                [Buffer.from("route"), Buffer.from(lowerAlias)],
                 PROGRAM_ID
             );
 
@@ -131,7 +148,7 @@ function PaymentContent() {
 
             // 2. Check for Alias Account (Owner)
             const [aliasPDA] = PublicKey.findProgramAddressSync(
-                [Buffer.from("alias"), Buffer.from(normalizedAlias)],
+                [Buffer.from("alias"), Buffer.from(lowerAlias)],
                 PROGRAM_ID
             );
 
@@ -142,7 +159,8 @@ function PaymentContent() {
                 console.log("Alias owner found:", aliasAcc.owner.toBase58());
             } catch (e) {
                 console.error("Alias does not exist");
-                setAliasOwner(null);
+                // Don't verify owner if we already found a route account (rare edge case but possible)
+                if (!routeAccount) setAliasOwner(null);
             }
 
         } catch (error) {
@@ -280,7 +298,11 @@ function PaymentContent() {
                     <div className="w-24 h-24 bg-gradient-to-br from-cyan-500/20 to-purple-600/20 rounded-2xl mx-auto flex items-center justify-center shadow-lg shadow-cyan-500/10 mb-6 border border-white/10 backdrop-blur-md">
                         <Image src="/logo-icon.png" alt="UNIK" width={64} height={64} className="w-16 h-16 drop-shadow-[0_0_10px_rgba(255,255,255,0.5)]" />
                     </div>
-                    <h1 className="text-3xl font-bold text-white mb-2">Pay @{alias}</h1>
+                    <h1 className="text-3xl font-bold text-white mb-2">
+                        {(alias as string).length > 30 ?
+                            `Pay ${(alias as string).slice(0, 4)}...${(alias as string).slice(-4)}`
+                            : `Pay @${alias}`}
+                    </h1>
                     <div className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full border ${aliasOwner || routeAccount ? 'bg-green-500/10 border-green-500/20' : 'bg-red-500/10 border-red-500/20'}`}>
                         <span className={`w-1.5 h-1.5 rounded-full ${aliasOwner || routeAccount ? 'bg-green-400 animate-pulse' : 'bg-red-400'}`}></span>
                         <p className={`text-xs font-bold tracking-wide uppercase ${aliasOwner || routeAccount ? 'text-green-400' : 'text-red-400'}`}>
