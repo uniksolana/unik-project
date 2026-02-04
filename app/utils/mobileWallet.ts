@@ -15,7 +15,7 @@ export const getDeepLink = (url: string, wallet: 'phantom' | 'solflare') => {
     if (wallet === 'phantom') {
         return `https://phantom.app/ul/browse/${encodedUrl}?ref=${encodeURIComponent(window.location.origin)}`;
     } else if (wallet === 'solflare') {
-        return `https://solflare.com/ul/browse/${encodedUrl}?ref=${encodeURIComponent(window.location.origin)}`;
+        return `https://solflare.com/ul/v1/browse/${encodedUrl}?ref=${encodeURIComponent(window.location.origin)}`;
     }
     return url;
 };
