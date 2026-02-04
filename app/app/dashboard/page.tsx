@@ -221,6 +221,34 @@ export default function Dashboard() {
         fetchRouteConfig();
     }, [registeredAlias, publicKey, wallet, connection]);
 
+    // Lifted Contacts Logic
+    const [contacts, setContacts] = useState<any[]>([]);
+
+    const loadContacts = async () => {
+        try {
+            const owner = publicKey?.toBase58();
+            if (owner) {
+                const loaded = await contactStorage.getContacts(owner);
+                setContacts(loaded);
+            }
+        } catch (e) {
+            console.error("Failed to load contacts", e);
+        }
+    };
+
+    useEffect(() => {
+        if (publicKey) {
+            loadContacts();
+        }
+        const listener = () => loadContacts();
+        window.addEventListener('storage', listener);
+        window.addEventListener('unik-contacts-updated', listener);
+        return () => {
+            window.removeEventListener('storage', listener);
+            window.removeEventListener('unik-contacts-updated', listener);
+        };
+    }, [publicKey]);
+
     const handleRegister = async () => {
         if (!alias || !publicKey || !wallet) return;
         setLoading(true);
@@ -557,10 +585,10 @@ export default function Dashboard() {
                     {/* RIGHT COLUMN: Content Area */}
                     <div className="flex-1 w-full bg-[#13131f]/50 backdrop-blur-sm rounded-[2rem] border border-white/5 p-4 lg:p-8 min-h-[500px]">
                         {activeTab === 'receive' && <ReceiveTab registeredAlias={registeredAlias} linkAmount={linkAmount} setLinkAmount={setLinkAmount} linkConcept={linkConcept} setLinkConcept={setLinkConcept} requestToken={requestToken} setRequestToken={setRequestToken} />}
-                        {activeTab === 'send' && <SendTab sendRecipient={sendRecipient} setSendRecipient={setSendRecipient} sendAlias={sendAlias} setSendAlias={setSendAlias} sendAmount={sendAmount} setSendAmount={setSendAmount} sendNote={sendNote} setSendNote={setSendNote} paymentConcept={paymentConcept} setPaymentConcept={setPaymentConcept} loading={loading} setLoading={setLoading} publicKey={publicKey} wallet={wallet} connection={connection} solPrice={solPrice} balance={balances.find(b => b.symbol === 'SOL')?.amount || 0} sendToken={sendToken} setSendToken={setSendToken} myAliases={myAliases} />}
+                        {activeTab === 'send' && <SendTab sendRecipient={sendRecipient} setSendRecipient={setSendRecipient} sendAlias={sendAlias} setSendAlias={setSendAlias} sendAmount={sendAmount} setSendAmount={setSendAmount} sendNote={sendNote} setSendNote={setSendNote} paymentConcept={paymentConcept} setPaymentConcept={setPaymentConcept} loading={loading} setLoading={setLoading} publicKey={publicKey} wallet={wallet} connection={connection} solPrice={solPrice} balance={balances.find(b => b.symbol === 'SOL')?.amount || 0} sendToken={sendToken} setSendToken={setSendToken} myAliases={myAliases} contacts={contacts} />}
                         {activeTab === 'splits' && <SplitsTab splits={splits} setSplits={setSplits} isEditing={isEditing} setIsEditing={setIsEditing} newSplitAddress={newSplitAddress} setNewSplitAddress={setNewSplitAddress} newSplitPercent={newSplitPercent} setNewSplitPercent={setNewSplitPercent} addSplit={addSplit} removeSplit={removeSplit} totalPercent={totalPercent} handleSaveConfig={handleSaveConfig} loading={loading} />}
                         {activeTab === 'alias' && <AliasTab myAliases={myAliases} showRegisterForm={showRegisterForm} setShowRegisterForm={setShowRegisterForm} alias={alias} setAlias={setAlias} handleRegister={handleRegister} loading={loading} setRegisteredAlias={setRegisteredAlias} />}
-                        {activeTab === 'contacts' && <ContactsTab setSendRecipient={setSendRecipient} setSendAlias={setSendAlias} setSendNote={setSendNote} setActiveTab={setActiveTab} loading={loading} setLoading={setLoading} connection={connection} wallet={wallet} confirmModal={confirmModal} setConfirmModal={setConfirmModal} noteModal={noteModal} setNoteModal={setNoteModal} />}
+                        {activeTab === 'contacts' && <ContactsTab contacts={contacts} refreshContacts={loadContacts} setSendRecipient={setSendRecipient} setSendAlias={setSendAlias} setSendNote={setSendNote} setActiveTab={setActiveTab} loading={loading} setLoading={setLoading} connection={connection} wallet={wallet} confirmModal={confirmModal} setConfirmModal={setConfirmModal} noteModal={noteModal} setNoteModal={setNoteModal} />}
                         {activeTab === 'history' && <HistoryTab publicKey={publicKey} connection={connection} />}
                     </div>
                 </div>
@@ -667,20 +695,22 @@ function ActionButton({ icon, label, active, onClick }: { icon: string; label: s
 }
 
 function ReceiveTab({ registeredAlias, linkAmount, setLinkAmount, linkConcept, setLinkConcept, requestToken, setRequestToken }: any) {
-    if (!registeredAlias) return (
-        <div className="flex flex-col items-center justify-center h-full text-center p-8">
-            <div className="w-20 h-20 bg-gray-800 rounded-full flex items-center justify-center mb-6">
-                <svg className="w-10 h-10 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>
-            </div>
-            <h3 className="text-xl font-bold mb-2">Alias Required</h3>
-            <p className="text-gray-400 mb-6">You need to register a UNIK alias to receive payments.</p>
-        </div>
-    );
+    const { publicKey } = useWallet();
+    const [useAddress, setUseAddress] = useState(!registeredAlias);
+
+    // Force address mode if no alias
+    useEffect(() => {
+        if (!registeredAlias) setUseAddress(true);
+    }, [registeredAlias]);
+
     const [isPayShareOpen, setIsPayShareOpen] = useState(false);
     const [isContactShareOpen, setIsContactShareOpen] = useState(false);
+
+    const shareValue = useAddress ? publicKey?.toBase58() : registeredAlias;
+
     const getPaymentUrl = () => {
         const origin = typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000';
-        let url = `${origin}/pay/${registeredAlias}`;
+        let url = `${origin}/pay/${shareValue}`;
         const params = new URLSearchParams();
         if (linkAmount) params.append('amount', linkAmount);
         if (linkConcept) params.append('concept', encodeURIComponent(linkConcept));
@@ -697,7 +727,7 @@ function ReceiveTab({ registeredAlias, linkAmount, setLinkAmount, linkConcept, s
 
     const getContactUrl = () => {
         const origin = typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000';
-        return `${origin}/add-contact/${registeredAlias}`;
+        return `${origin}/add-contact/${registeredAlias || publicKey?.toBase58()}`;
     };
 
     const getContactShareMessage = () => {
@@ -707,6 +737,30 @@ function ReceiveTab({ registeredAlias, linkAmount, setLinkAmount, linkConcept, s
     return (
         <div>
             <h3 className="text-2xl font-bold mb-6">Receive Payments</h3>
+
+            {/* Source Toggle */}
+            <div className="flex justify-center mb-8">
+                <div className="flex bg-black/20 p-1 rounded-xl border border-white/5">
+                    {registeredAlias ? (
+                        <button
+                            onClick={() => setUseAddress(false)}
+                            className={`px-4 py-2 rounded-lg text-sm font-bold transition-all ${!useAddress ? 'bg-cyan-500/20 text-cyan-400 shadow-[0_0_15px_rgba(6,182,212,0.3)]' : 'text-gray-500 hover:text-gray-300'}`}
+                        >
+                            @{registeredAlias}
+                        </button>
+                    ) : (
+                        <button disabled className="px-4 py-2 rounded-lg text-sm font-bold text-gray-600 cursor-not-allowed">
+                            No Alias
+                        </button>
+                    )}
+                    <button
+                        onClick={() => setUseAddress(true)}
+                        className={`px-4 py-2 rounded-lg text-sm font-bold transition-all ${useAddress ? 'bg-purple-500/20 text-purple-400 shadow-[0_0_15px_rgba(168,85,247,0.3)]' : 'text-gray-500 hover:text-gray-300'}`}
+                    >
+                        Wallet Address
+                    </button>
+                </div>
+            </div>
 
             <div className="mb-6">
                 <label className="text-sm text-gray-400 block mb-2">Request specific amount (optional)</label>
@@ -1567,39 +1621,14 @@ function NoteModal({ isOpen, alias, initialNote, onSave, onClose }: any) {
     );
 }
 
-function ContactsTab({ setSendRecipient, setSendAlias, setSendNote, setActiveTab, loading, setLoading, connection, wallet, confirmModal, setConfirmModal, noteModal, setNoteModal }: any) {
-    const [contacts, setContacts] = useState<any[]>([]);
+function ContactsTab({ setSendRecipient, setSendAlias, setSendNote, setActiveTab, loading, setLoading, connection, wallet, confirmModal, setConfirmModal, noteModal, setNoteModal, contacts, refreshContacts }: any) {
     const [newContactAlias, setNewContactAlias] = useState('');
     const [filter, setFilter] = useState('recent');
     const [searchTerm, setSearchTerm] = useState('');
     const [showAll, setShowAll] = useState(false);
 
-    const loadContacts = async () => {
-        try {
-            const owner = wallet?.publicKey?.toBase58();
-            const loaded = await contactStorage.getContacts(owner);
-            setContacts(loaded);
-        } catch (e) {
-            console.error("Failed to load contacts", e);
-        }
-    };
-
-    useEffect(() => {
-        if (wallet?.publicKey) {
-            loadContacts();
-        }
-        const listener = () => loadContacts();
-        window.addEventListener('storage', listener);
-        // Custom event for re-encryption or updates
-        window.addEventListener('unik-contacts-updated', listener);
-
-        return () => {
-            window.removeEventListener('storage', listener);
-            window.removeEventListener('unik-contacts-updated', listener);
-        };
-    }, [wallet?.publicKey]);
-
-    const filteredContacts = contacts.filter(c =>
+    // Filter Logic
+    const filteredContacts = contacts.filter((c: any) =>
         c.alias.toLowerCase().includes(searchTerm.toLowerCase()) ||
         (c.notes && c.notes.toLowerCase().includes(searchTerm.toLowerCase()))
     );
@@ -1684,7 +1713,7 @@ function ContactsTab({ setSendRecipient, setSendAlias, setSendNote, setActiveTab
             setNewContactAlias('');
             // Trigger update
             window.dispatchEvent(new Event('unik-contacts-updated'));
-            loadContacts();
+            if (refreshContacts) refreshContacts();
         } catch (e) {
             console.error(e);
             showTransactionToast({ signature: '', message: 'Failed to add contact', type: 'error' });
@@ -1815,7 +1844,7 @@ function ContactsTab({ setSendRecipient, setSendAlias, setSendNote, setActiveTab
 
                                                         // Trigger update
                                                         window.dispatchEvent(new Event('unik-contacts-updated'));
-                                                        loadContacts();
+                                                        if (refreshContacts) refreshContacts();
                                                         toast.success(`Note for @${c.alias} updated!`);
                                                     }
                                                 });
@@ -1856,7 +1885,7 @@ function ContactsTab({ setSendRecipient, setSendAlias, setSendNote, setActiveTab
                                                         await contactStorage.removeContact(c.alias, owner);
 
                                                         window.dispatchEvent(new Event('unik-contacts-updated'));
-                                                        loadContacts();
+                                                        if (refreshContacts) refreshContacts();
                                                         toast.success("Contact removed");
                                                     }
                                                 });
