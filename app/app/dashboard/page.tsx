@@ -15,7 +15,7 @@ import { Buffer } from 'buffer';
 import Image from 'next/image';
 import { contactStorage, Contact } from '../../utils/contacts';
 import { noteStorage, TransactionNote } from '../../utils/notes';
-import { saveSharedNote, getSharedNotes } from '../../utils/sharedNotes';
+import { saveSharedNote, getSharedNotes, SharedNoteData } from '../../utils/sharedNotes';
 import { TOKEN_PROGRAM_ID, ASSOCIATED_TOKEN_PROGRAM_ID, getAssociatedTokenAddress } from '@solana/spl-token';
 
 const TOKEN_OPTIONS = [
@@ -557,7 +557,7 @@ export default function Dashboard() {
                     {/* RIGHT COLUMN: Content Area */}
                     <div className="flex-1 w-full bg-[#13131f]/50 backdrop-blur-sm rounded-[2rem] border border-white/5 p-4 lg:p-8 min-h-[500px]">
                         {activeTab === 'receive' && <ReceiveTab registeredAlias={registeredAlias} linkAmount={linkAmount} setLinkAmount={setLinkAmount} linkConcept={linkConcept} setLinkConcept={setLinkConcept} requestToken={requestToken} setRequestToken={setRequestToken} />}
-                        {activeTab === 'send' && <SendTab sendRecipient={sendRecipient} setSendRecipient={setSendRecipient} sendAlias={sendAlias} setSendAlias={setSendAlias} sendAmount={sendAmount} setSendAmount={setSendAmount} sendNote={sendNote} setSendNote={setSendNote} paymentConcept={paymentConcept} setPaymentConcept={setPaymentConcept} loading={loading} setLoading={setLoading} publicKey={publicKey} wallet={wallet} connection={connection} solPrice={solPrice} balance={balances.find(b => b.symbol === 'SOL')?.amount || 0} sendToken={sendToken} setSendToken={setSendToken} />}
+                        {activeTab === 'send' && <SendTab sendRecipient={sendRecipient} setSendRecipient={setSendRecipient} sendAlias={sendAlias} setSendAlias={setSendAlias} sendAmount={sendAmount} setSendAmount={setSendAmount} sendNote={sendNote} setSendNote={setSendNote} paymentConcept={paymentConcept} setPaymentConcept={setPaymentConcept} loading={loading} setLoading={setLoading} publicKey={publicKey} wallet={wallet} connection={connection} solPrice={solPrice} balance={balances.find(b => b.symbol === 'SOL')?.amount || 0} sendToken={sendToken} setSendToken={setSendToken} myAliases={myAliases} />}
                         {activeTab === 'splits' && <SplitsTab splits={splits} setSplits={setSplits} isEditing={isEditing} setIsEditing={setIsEditing} newSplitAddress={newSplitAddress} setNewSplitAddress={setNewSplitAddress} newSplitPercent={newSplitPercent} setNewSplitPercent={setNewSplitPercent} addSplit={addSplit} removeSplit={removeSplit} totalPercent={totalPercent} handleSaveConfig={handleSaveConfig} loading={loading} />}
                         {activeTab === 'alias' && <AliasTab myAliases={myAliases} showRegisterForm={showRegisterForm} setShowRegisterForm={setShowRegisterForm} alias={alias} setAlias={setAlias} handleRegister={handleRegister} loading={loading} setRegisteredAlias={setRegisteredAlias} />}
                         {activeTab === 'contacts' && <ContactsTab setSendRecipient={setSendRecipient} setSendAlias={setSendAlias} setSendNote={setSendNote} setActiveTab={setActiveTab} loading={loading} setLoading={setLoading} connection={connection} wallet={wallet} confirmModal={confirmModal} setConfirmModal={setConfirmModal} noteModal={noteModal} setNoteModal={setNoteModal} />}
@@ -901,7 +901,7 @@ function ReceiveTab({ registeredAlias, linkAmount, setLinkAmount, linkConcept, s
     );
 }
 
-function SendTab({ sendRecipient, setSendRecipient, sendAlias, setSendAlias, sendAmount, setSendAmount, sendNote, setSendNote, paymentConcept, setPaymentConcept, loading, setLoading, publicKey, wallet, connection, solPrice, balance, sendToken, setSendToken }: any) {
+function SendTab({ sendRecipient, setSendRecipient, sendAlias, setSendAlias, sendAmount, setSendAmount, sendNote, setSendNote, paymentConcept, setPaymentConcept, loading, setLoading, publicKey, wallet, connection, solPrice, balance, sendToken, setSendToken, myAliases }: any) {
     // QR Scanner State
     const [scanning, setScanning] = useState(false);
     const scannerRef = useRef<Html5Qrcode | null>(null);
@@ -1038,7 +1038,7 @@ function SendTab({ sendRecipient, setSendRecipient, sendAlias, setSendAlias, sen
                                     // Also save to shared notes (visible to both sender and recipient)
                                     const recipientWallet = routeAccount.splits[0]?.recipient?.toBase58();
                                     if (recipientWallet) {
-                                        await saveSharedNote(signature, paymentConcept, publicKey.toBase58(), recipientWallet);
+                                        await saveSharedNote(signature, paymentConcept, publicKey.toBase58(), recipientWallet, myAliases[0]);
                                     }
                                     console.log('[Dashboard] Note saved successfully');
                                 } catch (noteErr) {
@@ -1087,7 +1087,7 @@ function SendTab({ sendRecipient, setSendRecipient, sendAlias, setSendAlias, sen
                                     // Also save to shared notes (visible to both sender and recipient)
                                     const recipientWallet = routeAccount.splits[0]?.recipient?.toBase58();
                                     if (recipientWallet) {
-                                        await saveSharedNote(signature, paymentConcept, publicKey.toBase58(), recipientWallet);
+                                        await saveSharedNote(signature, paymentConcept, publicKey.toBase58(), recipientWallet, myAliases[0]);
                                     }
                                     console.log('[Dashboard] Note saved successfully');
                                 } catch (noteErr) {
@@ -1145,7 +1145,7 @@ function SendTab({ sendRecipient, setSendRecipient, sendAlias, setSendAlias, sen
                     await noteStorage.saveNote({ signature, note: paymentConcept, recipient: targetAlias ? `@${targetAlias}` : sendRecipient.slice(0, 8) + '...', amount: sendAmount, token: sendToken.symbol, timestamp: Date.now() }, publicKey.toBase58());
                     // Also save to shared notes (visible to both sender and recipient)
                     // For direct transfers, sendRecipient should be the full wallet address
-                    await saveSharedNote(signature, paymentConcept, publicKey.toBase58(), sendRecipient);
+                    await saveSharedNote(signature, paymentConcept, publicKey.toBase58(), sendRecipient, myAliases[0]);
                     console.log('[Dashboard] Note saved successfully');
                 } catch (noteErr) {
                     console.error('[Dashboard] Failed to save note:', noteErr);
@@ -1775,7 +1775,7 @@ function HistoryTab({ publicKey, connection, confirmModal, setConfirmModal }: an
     const [history, setHistory] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [notes, setNotes] = useState<Record<string, TransactionNote>>({});
-    const [sharedNotes, setSharedNotes] = useState<Record<string, string>>({});
+    const [sharedNotes, setSharedNotes] = useState<Record<string, SharedNoteData>>({});
 
     useEffect(() => {
         // Load saved notes from encrypted cloud storage
@@ -1890,7 +1890,7 @@ function HistoryTab({ publicKey, connection, confirmModal, setConfirmModal }: an
 
         // Check shared notes (works for both sent and received)
         const sharedNote = sharedNotes[tx.signature];
-        if (sharedNote) return sharedNote;
+        if (sharedNote) return sharedNote.note;
 
         return null;
     };
@@ -1899,30 +1899,24 @@ function HistoryTab({ publicKey, connection, confirmModal, setConfirmModal }: an
         return (
             <div className="py-12 text-center text-gray-500">
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-cyan-500 mx-auto mb-4"></div>
-                <p>Loading transaction history...</p>
+                Loading history...
             </div>
         );
     }
 
     return (
-        <div>
-            <div className="flex justify-between items-center mb-6">
-                <h3 className="text-2xl font-bold">Recent History</h3>
-                <button
-                    onClick={() => { setLoading(true); window.location.reload(); }}
-                    className="text-xs text-cyan-500 hover:text-cyan-400 font-semibold"
-                >
-                    Refresh
-                </button>
-            </div>
+        <div className="space-y-4">
+            <h3 className="font-bold text-xl mb-4">Transaction History</h3>
 
-            <div className="space-y-3">
+            <div className="space-y-2">
                 {history.length === 0 ? (
                     <p className="text-center text-gray-500 py-12">No transactions found.</p>
                 ) : (
                     history.map((tx: any, i: number) => {
                         const conceptNote = getConceptLabel(tx);
                         const hasNote = !!conceptNote;
+                        const sharedData = sharedNotes[tx.signature];
+                        const senderAlias = sharedData?.senderAlias;
 
                         return (
                             <div key={i} className="flex items-center justify-between p-4 bg-gray-800 border border-gray-700 hover:border-gray-600 transition-colors rounded-xl">
@@ -1940,6 +1934,11 @@ function HistoryTab({ publicKey, connection, confirmModal, setConfirmModal }: an
                                             {hasNote && (
                                                 <span className="text-amber-300 text-sm truncate max-w-[150px]">
                                                     • {conceptNote}
+                                                </span>
+                                            )}
+                                            {senderAlias && tx.type === 'Received' && (
+                                                <span className="text-cyan-400 text-xs bg-cyan-900/30 px-1.5 py-0.5 rounded border border-cyan-500/20">
+                                                    From @{senderAlias}
                                                 </span>
                                             )}
                                             {!tx.success && <span className="text-[10px] bg-red-500 text-white px-1 uppercase leading-none py-0.5 rounded">Failed</span>}

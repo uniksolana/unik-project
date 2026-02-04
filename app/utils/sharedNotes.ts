@@ -76,11 +76,9 @@ async function decryptNote(encryptedNote: string, signature: string): Promise<st
     }
 }
 
-export interface SharedNote {
-    signature: string;
+export interface SharedNoteData {
     note: string;
-    sender: string;
-    recipient: string;
+    senderAlias?: string;
 }
 
 /**
@@ -91,10 +89,11 @@ export async function saveSharedNote(
     signature: string,
     note: string,
     senderWallet: string,
-    recipientWallet: string
+    recipientWallet: string,
+    senderAlias?: string
 ): Promise<boolean> {
     try {
-        console.log('[SharedNotes] Saving shared note for signature:', signature.slice(0, 8));
+        console.log('[SharedNotes] Saving shared note for signature:', signature.slice(0, 8), 'alias:', senderAlias);
 
         const encryptedNote = await encryptNote(note, signature);
 
@@ -104,7 +103,8 @@ export async function saveSharedNote(
                 signature,
                 encrypted_note: encryptedNote,
                 sender_wallet: senderWallet,
-                recipient_wallet: recipientWallet
+                recipient_wallet: recipientWallet,
+                sender_alias: senderAlias || null
             });
 
         if (error) {
@@ -125,6 +125,7 @@ export async function saveSharedNote(
  */
 export async function getSharedNote(signature: string): Promise<string | null> {
     try {
+        // Fallback for single fetch if needed, though getSharedNotes is preferred
         const { data, error } = await supabase
             .from('transaction_notes')
             .select('encrypted_note')
@@ -145,26 +146,29 @@ export async function getSharedNote(signature: string): Promise<string | null> {
 /**
  * Get multiple shared notes for a list of signatures
  */
-export async function getSharedNotes(signatures: string[]): Promise<Record<string, string>> {
+export async function getSharedNotes(signatures: string[]): Promise<Record<string, SharedNoteData>> {
     if (signatures.length === 0) return {};
 
     try {
         const { data, error } = await supabase
             .from('transaction_notes')
-            .select('signature, encrypted_note')
+            .select('signature, encrypted_note, sender_alias')
             .in('signature', signatures);
 
         if (error || !data) {
             return {};
         }
 
-        const notes: Record<string, string> = {};
+        const notes: Record<string, SharedNoteData> = {};
 
         await Promise.all(
             data.map(async (row) => {
                 const decrypted = await decryptNote(row.encrypted_note, row.signature);
                 if (decrypted) {
-                    notes[row.signature] = decrypted;
+                    notes[row.signature] = {
+                        note: decrypted,
+                        senderAlias: row.sender_alias || undefined
+                    };
                 }
             })
         );
