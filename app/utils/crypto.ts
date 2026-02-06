@@ -74,3 +74,47 @@ export async function decryptData(encryptedBase64: string, key: CryptoKey): Prom
         throw new Error("Failed to decrypt data. Invalid key or corrupted data.");
     }
 }
+
+// 4. Encrypt Binary Blob (for images/files)
+export async function encryptBlob(blob: Blob, key: CryptoKey): Promise<Blob> {
+    const iv = window.crypto.getRandomValues(new Uint8Array(12));
+    const arrayBuffer = await blob.arrayBuffer();
+    
+    const encryptedContent = await window.crypto.subtle.encrypt(
+        {
+            name: "AES-GCM",
+            iv: iv
+        },
+        key,
+        arrayBuffer
+    );
+
+    // Combine IV + Content directly in binary
+    // Format: [IV (12 bytes)][Encrypted Data]
+    return new Blob([iv, encryptedContent], { type: 'application/octet-stream' });
+}
+
+// 5. Decrypt Binary Blob
+export async function decryptBlob(encryptedBlob: Blob, key: CryptoKey, mimeType: string = 'image/png'): Promise<Blob> {
+    const arrayBuffer = await encryptedBlob.arrayBuffer();
+    
+    // Extract IV (first 12 bytes)
+    const iv = new Uint8Array(arrayBuffer.slice(0, 12));
+    const content = arrayBuffer.slice(12);
+    
+    try {
+        const decryptedContent = await window.crypto.subtle.decrypt(
+            {
+                name: "AES-GCM",
+                iv: iv
+            },
+            key,
+            content
+        );
+
+        return new Blob([decryptedContent], { type: mimeType });
+    } catch (e) {
+        console.error("Blob decryption failed:", e);
+        throw new Error("Failed to decrypt file.");
+    }
+}

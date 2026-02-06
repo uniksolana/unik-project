@@ -18,6 +18,9 @@ import { supabase } from '../../utils/supabaseClient';
 import { noteStorage, TransactionNote } from '../../utils/notes';
 import { saveSharedNote, getSharedNotes, SharedNoteData } from '../../utils/sharedNotes';
 import { TOKEN_PROGRAM_ID, ASSOCIATED_TOKEN_PROGRAM_ID, getAssociatedTokenAddress } from '@solana/spl-token';
+import bs58 from 'bs58';
+import { deriveKeyFromSignature, encryptBlob, decryptBlob } from '../../utils/crypto';
+import { getSessionKey, setSessionKey } from '../../utils/sessionState';
 
 const TOKEN_OPTIONS = [
     { label: 'SOL', symbol: 'SOL', mint: null, decimals: 9, icon: '/sol.png' },
@@ -28,7 +31,8 @@ const TOKEN_OPTIONS = [
 type TabType = 'receive' | 'send' | 'splits' | 'alias' | 'contacts' | 'history';
 
 export default function Dashboard() {
-    const { publicKey, connected } = useWallet();
+    const { publicKey, connected, signMessage } = useWallet();
+    const [encryptionKey, setEncryptionKey] = useState<CryptoKey | null>(null);
     const [activeTab, setActiveTab] = useState<TabType>('receive');
     const [alias, setAlias] = useState('');
     const [loading, setLoading] = useState(false);
@@ -101,6 +105,44 @@ export default function Dashboard() {
         toast.success("Settings saved locally");
     };
 
+    // Sync with global session (re-check on focus or mount)
+    useEffect(() => {
+        const k = getSessionKey();
+        if (k && !encryptionKey) setEncryptionKey(k);
+
+        const onFocus = () => {
+            const k = getSessionKey();
+            if (k && !encryptionKey) setEncryptionKey(k);
+        };
+        window.addEventListener('focus', onFocus);
+        return () => window.removeEventListener('focus', onFocus);
+    }, [encryptionKey]);
+
+    const unlockEncryption = async () => {
+        if (!publicKey || !signMessage) {
+            toast.error("Wallet does not support signing or not connected.");
+            return null;
+        }
+        try {
+            const toastId = toast.loading("Please sign to unlock encryption...");
+            const message = new TextEncoder().encode("Sign this message to unlock your encrypted data (Notes & Avatar) on UNIK.");
+            const signature = await signMessage(message);
+            const signatureB58 = bs58.encode(signature);
+            const key = await deriveKeyFromSignature(signatureB58);
+
+            // Save to global session memory
+            setSessionKey(key);
+            setEncryptionKey(key);
+
+            toast.success("Encryption unlocked!", { id: toastId });
+            return key;
+        } catch (e) {
+            console.error("Unlock failed", e);
+            toast.error("Unlock cancelled");
+            return null;
+        }
+    };
+
     const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         if (!e.target.files || e.target.files.length === 0) return;
         if (!publicKey) {
@@ -108,27 +150,41 @@ export default function Dashboard() {
             return;
         }
 
+        let key = encryptionKey;
+        if (!key) {
+            key = await unlockEncryption();
+            if (!key) return;
+        }
+
         const file = e.target.files[0];
-        // Privacy: Use fixed filename derived from wallet address, no extension for simplicity in lookup
+        // Privacy: Use fixed filename
         const fileName = `${publicKey.toBase58()}_avatar`;
 
         setUploadingAvatar(true);
         try {
-            // 1. Upload to Supabase Storage (Overwrite)
+            // 0. Encrypt File (Client-Side)
+            const encryptedBlob = await encryptBlob(file, key!);
+
+            // 1. Upload Encrypted Blob to Supabase
             const { error: uploadError } = await supabase.storage
                 .from('avatars')
-                .upload(fileName, file, { upsert: true, contentType: file.type });
+                .upload(fileName, encryptedBlob, { upsert: true, contentType: 'application/octet-stream' });
 
             if (uploadError) throw uploadError;
 
-            // 2. Get Public URL
+            // 2. Fetch and Decrypt for immediate preview
             const { data: { publicUrl } } = supabase.storage
                 .from('avatars')
                 .getPublicUrl(fileName);
 
-            const timestampUrl = `${publicUrl}?t=${Date.now()}`;
-            setAvatarUrl(timestampUrl);
-            toast.success("Profile picture updated (Off-chain)");
+            const res = await fetch(`${publicUrl}?t=${Date.now()}`);
+            if (!res.ok) throw new Error("Failed to fetch uploaded file");
+
+            const blob = await res.blob();
+            const decrypted = await decryptBlob(blob, key!);
+
+            setAvatarUrl(URL.createObjectURL(decrypted));
+            toast.success("Profile picture encrypted & updated!");
         } catch (error: any) {
             console.error('Error uploading avatar:', error);
             toast.error(error.message || "Failed to upload avatar");
