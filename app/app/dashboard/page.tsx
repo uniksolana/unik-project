@@ -133,6 +133,33 @@ export default function Dashboard() {
         }
     };
 
+    const handleRemoveAvatar = async () => {
+        if (!registeredAlias || !publicKey || !wallet) return;
+        try {
+            const provider = new AnchorProvider(connection, wallet as any, {});
+            const program = new Program(IDL as any, provider);
+            const [aliasPDA] = PublicKey.findProgramAddressSync(
+                [Buffer.from("alias"), Buffer.from(registeredAlias)],
+                PROGRAM_ID
+            );
+
+            await program.methods
+                .updateAliasMetadata(registeredAlias, "")
+                .accounts({
+                    aliasAccount: aliasPDA,
+                    user: publicKey,
+                })
+                .rpc();
+
+            setAvatarUrl(null);
+            toast.success("Profile picture removed successfully.");
+        } catch (error: any) {
+            console.error("Error removing avatar:", error);
+            toast.error(error.message || "Failed to remove avatar.");
+        }
+    };
+
+
     const [confirmModal, setConfirmModal] = useState<{
         isOpen: boolean;
         title: string;
@@ -751,6 +778,7 @@ export default function Dashboard() {
                         network={network}
                         saveSettings={saveSettings}
                         registeredAlias={registeredAlias}
+                        handleRemoveAvatar={handleRemoveAvatar}
                     />
                 )}
 
@@ -2312,15 +2340,23 @@ function HistoryTab({ publicKey, connection, confirmModal, setConfirmModal }: an
     );
 }
 
-function SettingsModal({ isOpen, onClose, avatarUrl, handleAvatarUpload, uploadingAvatar, userCurrency, userLanguage, network, saveSettings, registeredAlias }: any) {
+function SettingsModal({ isOpen, onClose, avatarUrl, handleAvatarUpload, uploadingAvatar, userCurrency, userLanguage, network, saveSettings, registeredAlias, handleRemoveAvatar }: any) {
     const [activeTab, setActiveTab] = useState('general');
     const [tempCurrency, setTempCurrency] = useState(userCurrency);
     const [tempLang, setTempLang] = useState(userLanguage);
     const [tempNet, setTempNet] = useState(network);
+    const [removingAvatar, setRemovingAvatar] = useState(false);
 
     const handleSave = () => {
         saveSettings(tempCurrency, tempLang, tempNet);
         onClose();
+    };
+
+    const onRemove = async () => {
+        if (!confirm("Are you sure you want to remove your profile picture?")) return;
+        setRemovingAvatar(true);
+        await handleRemoveAvatar(); // Call parent function
+        setRemovingAvatar(false);
     };
 
     if (!isOpen) return null;
@@ -2384,6 +2420,16 @@ function SettingsModal({ isOpen, onClose, avatarUrl, handleAvatarUpload, uploadi
                                     <h4 className="font-bold text-white">Profile Picture</h4>
                                     <p className="text-xs text-gray-400">Visible to others in contacts & payments.</p>
                                     {!registeredAlias && <p className="text-xs text-red-400 font-bold mt-1">Register an alias first.</p>}
+                                    {avatarUrl && registeredAlias && (
+                                        <button
+                                            onClick={onRemove}
+                                            disabled={removingAvatar}
+                                            className="mt-2 text-xs text-red-500 hover:text-red-400 font-bold transition-colors flex items-center gap-1"
+                                        >
+                                            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                                            {removingAvatar ? 'Removing...' : 'Remove Photo'}
+                                        </button>
+                                    )}
                                 </div>
                             </div>
 
