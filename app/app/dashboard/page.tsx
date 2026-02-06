@@ -394,26 +394,70 @@ export default function Dashboard() {
 
     const addSplit = () => {
         if (!newSplitAddress || !newSplitPercent) return;
-        const percent = parseInt(newSplitPercent);
+        const percent = parseFloat(newSplitPercent); // Allow decimals
         if (isNaN(percent) || percent <= 0 || percent >= 100) return;
 
-        if (totalPercent + percent > 100) {
-            toast.error(`Cannot add split. Total would exceed 100%.`);
+        const myPubkey = publicKey?.toBase58();
+
+        // Filter out Primary Wallet to calculate stats of "Others"
+        const otherSplits = splits.filter(s => s.address !== myPubkey && s.recipient !== 'Primary Wallet (You)');
+        const currentOthersTotal = otherSplits.reduce((acc, curr) => acc + curr.percent, 0);
+
+        // Check if adding this new split would exceed 100%
+        if (currentOthersTotal + percent >= 100) {
+            toast.error(`Total external splits cannot exceed 100% (Current external: ${currentOthersTotal}%)`);
             return;
         }
 
-        let currentSplits = [...splits];
-        currentSplits.push({ recipient: `Wallet ${currentSplits.length + 1}`, address: newSplitAddress, percent });
+        // Create new split
+        const newSplit = {
+            recipient: `Wallet ${newSplitAddress.slice(0, 4)}...`,
+            address: newSplitAddress,
+            percent
+        };
 
-        setSplits(currentSplits);
+        // Re-construct the list: others + new + recalculated primary
+        const newOthers = [...otherSplits, newSplit];
+        const newOthersTotal = currentOthersTotal + percent;
+        // Remaining goes to Primary
+        const remaining = Math.round((100 - newOthersTotal) * 100) / 100; // Handle float precision
+
+        const primarySplit = {
+            recipient: 'Primary Wallet (You)',
+            address: myPubkey,
+            percent: remaining
+        };
+
+        setSplits([primarySplit, ...newOthers]);
         setNewSplitAddress('');
         setNewSplitPercent('');
         setIsEditing(false);
     };
 
     const removeSplit = (index: number) => {
-        const newSplits = splits.filter((_, i) => i !== index);
-        setSplits(newSplits);
+        const splitToRemove = splits[index];
+        const myPubkey = publicKey?.toBase58();
+
+        // Prevent removing primary wallet
+        if (splitToRemove.address === myPubkey || splitToRemove.recipient === 'Primary Wallet (You)') {
+            toast.error("Cannot remove Primary Wallet");
+            return;
+        }
+
+        const newSplitsFiltered = splits.filter((_, i) => i !== index);
+
+        // Recalculate Primary
+        const otherSplits = newSplitsFiltered.filter(s => s.address !== myPubkey && s.recipient !== 'Primary Wallet (You)');
+        const startOthersTotal = otherSplits.reduce((acc, curr) => acc + curr.percent, 0);
+        const remaining = Math.round((100 - startOthersTotal) * 100) / 100;
+
+        const primarySplit = {
+            recipient: 'Primary Wallet (You)',
+            address: myPubkey,
+            percent: remaining
+        };
+
+        setSplits([primarySplit, ...otherSplits]);
     };
 
     if (!connected) {
@@ -1466,7 +1510,9 @@ function SplitsTab({ splits, setSplits, isEditing, setIsEditing, newSplitAddress
                         </div>
                         <div className="flex items-center gap-4">
                             <span className="text-xl font-bold text-cyan-400">{split.percent}%</span>
-                            <button onClick={() => removeSplit(idx)} className="text-red-400 hover:text-red-300 text-2xl">×</button>
+                            {split.recipient !== 'Primary Wallet (You)' && (
+                                <button onClick={() => removeSplit(idx)} className="text-red-400 hover:text-red-300 text-2xl">×</button>
+                            )}
                         </div>
                     </div>
                 ))}
