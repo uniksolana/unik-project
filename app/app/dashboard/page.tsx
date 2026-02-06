@@ -60,6 +60,27 @@ export default function Dashboard() {
     const [network, setNetwork] = useState('devnet');
     const [uploadingAvatar, setUploadingAvatar] = useState(false);
 
+    // New: Load Avatar Off-Chain based on Wallet Address
+    useEffect(() => {
+        if (!publicKey) {
+            setAvatarUrl(null);
+            return;
+        }
+
+        const loadOffChainAvatar = () => {
+            const fileName = `${publicKey.toBase58()}_avatar`;
+            const { data: { publicUrl } } = supabase.storage.from('avatars').getPublicUrl(fileName);
+
+            // Check if image exists by trying to load it
+            const img = new window.Image();
+            img.onload = () => setAvatarUrl(`${publicUrl}?t=${Date.now()}`); // Cache bust
+            img.onerror = () => setAvatarUrl(null); // File doesn't exist
+            img.src = `${publicUrl}?t=${Date.now()}`;
+        };
+
+        loadOffChainAvatar();
+    }, [publicKey]);
+
     useEffect(() => {
         // Load settings from localStorage
         const storedCurrency = localStorage.getItem('unik_currency');
@@ -82,49 +103,32 @@ export default function Dashboard() {
 
     const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         if (!e.target.files || e.target.files.length === 0) return;
-        if (!registeredAlias || !publicKey || !wallet) {
-            toast.error("You must register an alias first.");
+        if (!publicKey) {
+            toast.error("Connect wallet first.");
             return;
         }
 
         const file = e.target.files[0];
-        const fileExt = file.name.split('.').pop();
-        const fileName = `${registeredAlias}_${Date.now()}.${fileExt}`;
-        const filePath = `${fileName}`;
+        // Privacy: Use fixed filename derived from wallet address, no extension for simplicity in lookup
+        const fileName = `${publicKey.toBase58()}_avatar`;
 
         setUploadingAvatar(true);
         try {
-            // 1. Upload to Supabase Storage
+            // 1. Upload to Supabase Storage (Overwrite)
             const { error: uploadError } = await supabase.storage
                 .from('avatars')
-                .upload(filePath, file);
+                .upload(fileName, file, { upsert: true, contentType: file.type });
 
             if (uploadError) throw uploadError;
 
             // 2. Get Public URL
             const { data: { publicUrl } } = supabase.storage
                 .from('avatars')
-                .getPublicUrl(filePath);
+                .getPublicUrl(fileName);
 
-            // 3. Update Alias Metadata On-Chain
-            const provider = new AnchorProvider(connection, wallet as any, {});
-            const program = new Program(IDL as any, provider);
-
-            const [aliasPDA] = PublicKey.findProgramAddressSync(
-                [Buffer.from("alias"), Buffer.from(registeredAlias)],
-                PROGRAM_ID
-            );
-
-            await program.methods
-                .updateAliasMetadata(registeredAlias, publicUrl)
-                .accounts({
-                    aliasAccount: aliasPDA,
-                    user: publicKey,
-                })
-                .rpc();
-
-            setAvatarUrl(publicUrl);
-            toast.success("Profile picture updated!");
+            const timestampUrl = `${publicUrl}?t=${Date.now()}`;
+            setAvatarUrl(timestampUrl);
+            toast.success("Profile picture updated (Off-chain)");
         } catch (error: any) {
             console.error('Error uploading avatar:', error);
             toast.error(error.message || "Failed to upload avatar");
@@ -134,25 +138,17 @@ export default function Dashboard() {
     };
 
     const handleRemoveAvatar = async () => {
-        if (!registeredAlias || !publicKey || !wallet) return;
+        if (!publicKey) return;
         try {
-            const provider = new AnchorProvider(connection, wallet as any, {});
-            const program = new Program(IDL as any, provider);
-            const [aliasPDA] = PublicKey.findProgramAddressSync(
-                [Buffer.from("alias"), Buffer.from(registeredAlias)],
-                PROGRAM_ID
-            );
+            const fileName = `${publicKey.toBase58()}_avatar`;
+            const { error } = await supabase.storage
+                .from('avatars')
+                .remove([fileName]);
 
-            await program.methods
-                .updateAliasMetadata(registeredAlias, "")
-                .accounts({
-                    aliasAccount: aliasPDA,
-                    user: publicKey,
-                })
-                .rpc();
+            if (error) throw error;
 
             setAvatarUrl(null);
-            toast.success("Profile picture removed successfully.");
+            toast.success("Profile picture removed (Off-chain).");
         } catch (error: any) {
             console.error("Error removing avatar:", error);
             toast.error(error.message || "Failed to remove avatar.");
@@ -281,16 +277,6 @@ export default function Dashboard() {
                     if (!registeredAlias) {
                         setRegisteredAlias(aliasList[0]);
                         setAlias(aliasList[0]);
-                        // Set Avatar if available
-                        if (aliases[0].account.metadataUri) {
-                            setAvatarUrl(aliases[0].account.metadataUri);
-                        }
-                    } else {
-                        // If alias already selected, find its specific metadata
-                        const current = aliases.find((a: any) => a.account.alias === registeredAlias);
-                        if (current && current.account.metadataUri) {
-                            setAvatarUrl(current.account.metadataUri);
-                        }
                     }
                 } else {
                     setMyAliases([]);
