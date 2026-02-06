@@ -404,7 +404,7 @@ export default function Dashboard() {
         const currentOthersTotal = otherSplits.reduce((acc, curr) => acc + curr.percent, 0);
 
         // Check if adding this new split would exceed 100%
-        if (currentOthersTotal + percent >= 100) {
+        if (currentOthersTotal + percent > 100) {
             toast.error(`Total external splits cannot exceed 100% (Current external: ${currentOthersTotal}%)`);
             return;
         }
