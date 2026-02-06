@@ -14,6 +14,7 @@ import { Html5Qrcode } from "html5-qrcode";
 import { Buffer } from 'buffer';
 import Image from 'next/image';
 import { contactStorage, Contact } from '../../utils/contacts';
+import { supabase } from '../../utils/supabaseClient';
 import { noteStorage, TransactionNote } from '../../utils/notes';
 import { saveSharedNote, getSharedNotes, SharedNoteData } from '../../utils/sharedNotes';
 import { TOKEN_PROGRAM_ID, ASSOCIATED_TOKEN_PROGRAM_ID, getAssociatedTokenAddress } from '@solana/spl-token';
@@ -50,6 +51,87 @@ export default function Dashboard() {
     const [sendToken, setSendToken] = useState(TOKEN_OPTIONS[0]); // Default to SOL
     const [aliasDropdownOpen, setAliasDropdownOpen] = useState(false);
     const dropdownRef = useRef<HTMLDivElement>(null);
+
+    // Settings State
+    const [showSettings, setShowSettings] = useState(false);
+    const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+    const [userCurrency, setUserCurrency] = useState('USD');
+    const [userLanguage, setUserLanguage] = useState('en');
+    const [network, setNetwork] = useState('devnet');
+    const [uploadingAvatar, setUploadingAvatar] = useState(false);
+
+    useEffect(() => {
+        // Load settings from localStorage
+        const storedCurrency = localStorage.getItem('unik_currency');
+        const storedLanguage = localStorage.getItem('unik_language');
+        const storedNetwork = localStorage.getItem('unik_network');
+        if (storedCurrency) setUserCurrency(storedCurrency);
+        if (storedLanguage) setUserLanguage(storedLanguage);
+        if (storedNetwork) setNetwork(storedNetwork);
+    }, []);
+
+    const saveSettings = (currency: string, language: string, net: string) => {
+        setUserCurrency(currency);
+        setUserLanguage(language);
+        setNetwork(net);
+        localStorage.setItem('unik_currency', currency);
+        localStorage.setItem('unik_language', language);
+        localStorage.setItem('unik_network', net);
+        toast.success("Settings saved locally");
+    };
+
+    const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (!e.target.files || e.target.files.length === 0) return;
+        if (!registeredAlias || !publicKey || !wallet) {
+            toast.error("You must register an alias first.");
+            return;
+        }
+
+        const file = e.target.files[0];
+        const fileExt = file.name.split('.').pop();
+        const fileName = `${registeredAlias}_${Date.now()}.${fileExt}`;
+        const filePath = `${fileName}`;
+
+        setUploadingAvatar(true);
+        try {
+            // 1. Upload to Supabase Storage
+            const { error: uploadError } = await supabase.storage
+                .from('avatars')
+                .upload(filePath, file);
+
+            if (uploadError) throw uploadError;
+
+            // 2. Get Public URL
+            const { data: { publicUrl } } = supabase.storage
+                .from('avatars')
+                .getPublicUrl(filePath);
+
+            // 3. Update Alias Metadata On-Chain
+            const provider = new AnchorProvider(connection, wallet as any, {});
+            const program = new Program(IDL as any, provider);
+
+            const [aliasPDA] = PublicKey.findProgramAddressSync(
+                [Buffer.from("alias"), Buffer.from(registeredAlias)],
+                PROGRAM_ID
+            );
+
+            await program.methods
+                .updateAliasMetadata(registeredAlias, publicUrl)
+                .accounts({
+                    aliasAccount: aliasPDA,
+                    user: publicKey,
+                })
+                .rpc();
+
+            setAvatarUrl(publicUrl);
+            toast.success("Profile picture updated!");
+        } catch (error: any) {
+            console.error('Error uploading avatar:', error);
+            toast.error(error.message || "Failed to upload avatar");
+        } finally {
+            setUploadingAvatar(false);
+        }
+    };
 
     const [confirmModal, setConfirmModal] = useState<{
         isOpen: boolean;
@@ -172,6 +254,16 @@ export default function Dashboard() {
                     if (!registeredAlias) {
                         setRegisteredAlias(aliasList[0]);
                         setAlias(aliasList[0]);
+                        // Set Avatar if available
+                        if (aliases[0].account.metadataUri) {
+                            setAvatarUrl(aliases[0].account.metadataUri);
+                        }
+                    } else {
+                        // If alias already selected, find its specific metadata
+                        const current = aliases.find((a: any) => a.account.alias === registeredAlias);
+                        if (current && current.account.metadataUri) {
+                            setAvatarUrl(current.account.metadataUri);
+                        }
                     }
                 } else {
                     setMyAliases([]);
@@ -529,8 +621,17 @@ export default function Dashboard() {
                         </div>
                     </div>
 
-                    {/* Integrated Wallet Button */}
-                    <div className="flex justify-end">
+                    {/* Integrated Wallet Button & Settings */}
+                    <div className="flex justify-end items-center gap-2">
+                        <button
+                            onClick={() => setShowSettings(true)}
+                            className="p-2 rounded-full bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white transition-colors border border-white/5"
+                        >
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                            </svg>
+                        </button>
                         <div className="scale-75 origin-right">
                             <WalletMultiButton />
                         </div>
@@ -636,6 +737,22 @@ export default function Dashboard() {
                         {activeTab === 'history' && <HistoryTab publicKey={publicKey} connection={connection} />}
                     </div>
                 </div>
+
+                {/* Settings Modal */}
+                {showSettings && (
+                    <SettingsModal
+                        isOpen={showSettings}
+                        onClose={() => setShowSettings(false)}
+                        avatarUrl={avatarUrl}
+                        handleAvatarUpload={handleAvatarUpload}
+                        uploadingAvatar={uploadingAvatar}
+                        userCurrency={userCurrency}
+                        userLanguage={userLanguage}
+                        network={network}
+                        saveSettings={saveSettings}
+                        registeredAlias={registeredAlias}
+                    />
+                )}
 
                 {/* Confirm Modal (Global) */}
                 {confirmModal.isOpen && (
@@ -2190,6 +2307,154 @@ function HistoryTab({ publicKey, connection, confirmModal, setConfirmModal }: an
                         );
                     })
                 )}
+            </div>
+        </div>
+    );
+}
+
+function SettingsModal({ isOpen, onClose, avatarUrl, handleAvatarUpload, uploadingAvatar, userCurrency, userLanguage, network, saveSettings, registeredAlias }: any) {
+    const [activeTab, setActiveTab] = useState('general');
+    const [tempCurrency, setTempCurrency] = useState(userCurrency);
+    const [tempLang, setTempLang] = useState(userLanguage);
+    const [tempNet, setTempNet] = useState(network);
+
+    const handleSave = () => {
+        saveSettings(tempCurrency, tempLang, tempNet);
+        onClose();
+    };
+
+    if (!isOpen) return null;
+
+    return (
+        <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4">
+            <div className="absolute inset-0 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200" onClick={onClose}></div>
+            <div className="relative bg-[#1a1a2e] w-full max-w-lg rounded-2xl border border-white/10 shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
+
+                {/* Header */}
+                <div className="flex justify-between items-center p-6 border-b border-white/5 bg-[#13131f]">
+                    <h3 className="text-xl font-bold flex items-center gap-2">
+                        <svg className="w-5 h-5 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+                        Settings
+                    </h3>
+                    <button onClick={onClose} className="text-gray-400 hover:text-white transition-colors">
+                        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                    </button>
+                </div>
+
+                {/* Tabs */}
+                <div className="flex border-b border-white/5 bg-[#13131f]">
+                    <button
+                        onClick={() => setActiveTab('general')}
+                        className={`flex-1 py-3 text-sm font-bold border-b-2 transition-colors ${activeTab === 'general' ? 'border-cyan-500 text-cyan-400' : 'border-transparent text-gray-500 hover:text-gray-300'}`}
+                    >
+                        General
+                    </button>
+                    <button
+                        onClick={() => setActiveTab('network')}
+                        className={`flex-1 py-3 text-sm font-bold border-b-2 transition-colors ${activeTab === 'network' ? 'border-cyan-500 text-cyan-400' : 'border-transparent text-gray-500 hover:text-gray-300'}`}
+                    >
+                        Network
+                    </button>
+                </div>
+
+                {/* Content */}
+                <div className="p-6 space-y-6">
+                    {activeTab === 'general' && (
+                        <div className="space-y-6 animate-in fade-in duration-300">
+                            {/* Avatar Section */}
+                            <div className="flex items-center gap-4 p-4 bg-white/5 rounded-xl border border-white/5">
+                                <div className="relative w-16 h-16 rounded-full overflow-hidden bg-black/40 border border-white/10 group">
+                                    {avatarUrl ? (
+                                        <Image src={avatarUrl} alt="Avatar" layout="fill" objectFit="cover" />
+                                    ) : (
+                                        <div className="w-full h-full flex items-center justify-center text-gray-600 bg-gray-900">
+                                            <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
+                                        </div>
+                                    )}
+                                    <label className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center cursor-pointer transition-opacity">
+                                        {uploadingAvatar ? (
+                                            <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+                                        ) : (
+                                            <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+                                        )}
+                                        <input type="file" className="hidden" accept="image/*" onChange={handleAvatarUpload} disabled={uploadingAvatar} />
+                                    </label>
+                                </div>
+                                <div>
+                                    <h4 className="font-bold text-white">Profile Picture</h4>
+                                    <p className="text-xs text-gray-400">Visible to others in contacts & payments.</p>
+                                    {!registeredAlias && <p className="text-xs text-red-400 font-bold mt-1">Register an alias first.</p>}
+                                </div>
+                            </div>
+
+                            {/* Preferences */}
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-xs font-bold text-gray-500 uppercase mb-2">Language</label>
+                                    <select
+                                        value={tempLang}
+                                        onChange={(e) => setTempLang(e.target.value)}
+                                        className="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:border-cyan-500 outline-none appearance-none"
+                                    >
+                                        <option value="en">English</option>
+                                        <option value="es">Español</option>
+                                        <option value="fr">Français</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-bold text-gray-500 uppercase mb-2">Currency</label>
+                                    <select
+                                        value={tempCurrency}
+                                        onChange={(e) => setTempCurrency(e.target.value)}
+                                        className="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:border-cyan-500 outline-none appearance-none"
+                                    >
+                                        <option value="USD">USD ($)</option>
+                                        <option value="EUR">EUR (€)</option>
+                                        <option value="GBP">GBP (£)</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {activeTab === 'network' && (
+                        <div className="space-y-4 animate-in fade-in duration-300">
+                            <div className="p-4 bg-yellow-500/10 border border-yellow-500/20 rounded-xl">
+                                <h4 className="font-bold text-yellow-500 text-sm mb-1">Developer Network</h4>
+                                <p className="text-xs text-gray-300">UNIK is currently optimized for Solana Devnet. Switching to Mainnet requires real funds.</p>
+                            </div>
+
+                            <div>
+                                <label className="block text-xs font-bold text-gray-500 uppercase mb-2">Blockchain Network</label>
+                                <div className="space-y-2">
+                                    <label className={`flex items-center justify-between p-4 rounded-xl border cursor-pointer transition-all ${tempNet === 'devnet' ? 'bg-cyan-500/10 border-cyan-500' : 'bg-black/20 border-white/10'}`}>
+                                        <div className="flex items-center gap-3">
+                                            <div className={`w-3 h-3 rounded-full ${tempNet === 'devnet' ? 'bg-cyan-400 shadow-[0_0_8px_cyan]' : 'bg-gray-600'}`}></div>
+                                            <span className="font-bold text-sm">Devnet (Recommended)</span>
+                                        </div>
+                                        <input type="radio" name="network" value="devnet" checked={tempNet === 'devnet'} onChange={() => setTempNet('devnet')} className="hidden" />
+                                        {tempNet === 'devnet' && <svg className="w-5 h-5 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>}
+                                    </label>
+
+                                    <label className={`flex items-center justify-between p-4 rounded-xl border cursor-pointer transition-all ${tempNet === 'mainnet' ? 'bg-purple-500/10 border-purple-500' : 'bg-black/20 border-white/10'}`}>
+                                        <div className="flex items-center gap-3">
+                                            <div className={`w-3 h-3 rounded-full ${tempNet === 'mainnet' ? 'bg-purple-400 shadow-[0_0_8px_purple]' : 'bg-gray-600'}`}></div>
+                                            <span className="font-bold text-sm">Mainnet Beta</span>
+                                        </div>
+                                        <input type="radio" name="network" value="mainnet" checked={tempNet === 'mainnet'} onChange={() => setTempNet('mainnet')} className="hidden" />
+                                        {tempNet === 'mainnet' && <svg className="w-5 h-5 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>}
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+                </div>
+
+                {/* Footer */}
+                <div className="p-6 border-t border-white/5 bg-[#13131f] flex justify-end gap-3">
+                    <button onClick={onClose} className="px-5 py-2.5 rounded-xl font-bold text-gray-400 hover:text-white hover:bg-white/5 transition-all">Cancel</button>
+                    <button onClick={handleSave} className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-cyan-600 to-purple-600 hover:from-cyan-500 hover:to-purple-500 text-white font-bold shadow-lg transition-all">Save Changes</button>
+                </div>
             </div>
         </div>
     );
