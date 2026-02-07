@@ -1646,20 +1646,14 @@ function SendTab({ sendRecipient, setSendRecipient, sendAlias, setSendAlias, sen
                                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"></path></svg>
                             </button>
 
-                            {/* QR Button */}
-                            <button
-                                onClick={handleScanClick}
-                                className="p-2 text-cyan-400 hover:text-cyan-300 hover:bg-cyan-500/10 rounded-lg transition-colors"
-                                title="Scan QR"
-                            >
-                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z"></path></svg>
-                            </button>
+
                         </div>
 
                         {/* Contact Picker Dropdown */}
+                        {/* Contact Picker Dropdown */}
                         {showContactPicker && (
                             <div className="absolute top-full left-0 right-0 mt-2 bg-[#1A1A24] border border-gray-700/80 rounded-xl z-50 max-h-60 overflow-y-auto shadow-2xl backdrop-blur-xl">
-                                <div className="p-2 sticky top-0 bg-[#1A1A24] border-b border-white/5 flex justify-between items-center">
+                                <div className="p-2 sticky top-0 bg-[#1A1A24] border-b border-white/5 flex justify-between items-center z-10">
                                     <span className="text-xs font-bold text-gray-400 pl-2">SAVED CONTACTS</span>
                                     <button onClick={() => setShowContactPicker(false)} className="text-gray-500 hover:text-white"><svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg></button>
                                 </div>
@@ -1668,16 +1662,29 @@ function SendTab({ sendRecipient, setSendRecipient, sendAlias, setSendAlias, sen
                                         <div
                                             key={idx}
                                             onClick={() => {
-                                                setSendRecipient(c.alias ? `@${c.alias}` : c.wallet_address);
+                                                const techVal = c.alias ? `@${c.alias}` : c.wallet_address;
+                                                setSendRecipient(techVal);
+                                                setSendAlias(c.alias || '');
+                                                setSendNote(c.name || '');
                                                 setShowContactPicker(false);
                                             }}
                                             className="p-3 hover:bg-white/5 cursor-pointer flex justify-between items-center border-b border-white/5 last:border-0 transition-colors group"
                                         >
-                                            <div className="flex flex-col min-w-0">
-                                                <span className="font-bold text-white text-sm truncate">{c.name}</span>
-                                                <span className="text-xs text-gray-500 font-mono truncate group-hover:text-cyan-400 transition-colors">
-                                                    {c.alias ? `@${c.alias}` : c.wallet_address.slice(0, 8) + '...' + c.wallet_address.slice(-8)}
+                                            <div className="flex flex-col gap-0.5 min-w-0 pr-4">
+                                                <span className={`font-bold text-sm truncate ${c.alias ? 'text-cyan-400' : 'text-purple-400'}`}>
+                                                    {c.alias ? `@${c.alias}` : 'Direct Address'}
                                                 </span>
+                                                {c.name && (
+                                                    <span className="text-xs text-gray-300 italic truncate">“{c.name}”</span>
+                                                )}
+                                                <div className="flex items-center gap-2 opacity-70 mt-1">
+                                                    <span className="text-[10px] uppercase font-bold tracking-wider text-gray-500 border border-gray-700 px-1.5 py-0.5 rounded bg-black/20">
+                                                        {c.alias ? 'LINKED' : 'WALLET'}
+                                                    </span>
+                                                    <span className="text-[10px] font-mono text-gray-600 truncate max-w-[140px]">
+                                                        {c.wallet_address}
+                                                    </span>
+                                                </div>
                                             </div>
                                             <div className="w-6 h-6 rounded-full bg-cyan-500/10 flex items-center justify-center text-cyan-500 group-hover:bg-cyan-500 group-hover:text-white transition-colors">
                                                 <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path></svg>
@@ -1730,7 +1737,7 @@ function SendTab({ sendRecipient, setSendRecipient, sendAlias, setSendAlias, sen
                     {loading ? 'Sending...' : `Send ${sendToken.symbol} Now`}
                 </button>
             </div>
-        </div>
+        </div >
     );
 }
 
@@ -2127,30 +2134,42 @@ function ContactsTab({ setSendRecipient, setSendAlias, setSendNote, setActiveTab
                 <div className="space-y-3">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         {displayedContacts.map((c: any, i: number) => {
-                            const ownerAddr = c.aliasOwner || c.address || '';
+                            const ownerAddr = c.aliasOwner || c.address || c.alias || '';
                             const noteText = c.notes || c.note || '';
+                            const isUnik = c.alias && c.alias.length < 32 && !c.alias.includes(' ');
+
                             return (
-                                <div key={i} className="group flex items-center justify-between p-2.5 sm:p-4 bg-gray-800 rounded-xl border border-gray-700 hover:border-cyan-500/50 hover:bg-gray-750 transition-all duration-300 relative overflow-hidden">
+                                <div key={i} className="group flex items-center justify-between p-3 sm:p-4 bg-gray-800 rounded-xl border border-gray-700 hover:border-cyan-500/50 hover:bg-gray-750 transition-all duration-300 relative overflow-hidden">
                                     <div className="absolute top-0 left-0 w-1 h-full bg-cyan-500 opacity-0 group-hover:opacity-100 transition-opacity"></div>
-                                    <div className="flex items-center gap-2 sm:gap-4 min-w-0">
-                                        <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-gradient-to-br from-cyan-500 to-purple-600 flex-shrink-0 flex items-center justify-center text-white text-base sm:text-lg font-bold shadow-lg shadow-cyan-500/20">
+
+                                    <div className="flex items-center gap-3 sm:gap-4 flex-1 min-w-0">
+                                        <div className={`w-10 h-10 sm:w-12 sm:h-12 rounded-full flex-shrink-0 flex items-center justify-center text-white text-lg font-bold shadow-lg shadow-cyan-500/20 ${isUnik ? 'bg-gradient-to-br from-cyan-500 to-purple-600' : 'bg-gradient-to-br from-gray-700 to-gray-600'}`}>
                                             {(c.alias || '?')[0].toUpperCase()}
                                         </div>
-                                        <div className="flex-1 min-w-0">
-                                            <p className="font-bold text-base sm:text-lg flex items-center gap-1 truncate">
-                                                <span className="truncate">@{c.alias}</span>
-                                            </p>
-                                            {noteText ? (
-                                                <p className="text-xs text-gray-400 truncate italic bg-gray-900/50 px-2 py-0.5 rounded border border-gray-700/50 inline-block mb-1">
-                                                    "{noteText}"
+
+                                        <div className="flex flex-col min-w-0 gap-0.5">
+                                            <h5 className={`font-bold text-base sm:text-lg truncate ${isUnik ? 'text-cyan-400' : 'text-purple-300'}`}>
+                                                {isUnik ? `@${c.alias}` : (noteText ? 'Wallet Contact' : 'Direct Address')}
+                                            </h5>
+
+                                            {noteText && (
+                                                <p className="text-xs sm:text-sm text-gray-300 italic truncate max-w-[200px]">
+                                                    “{noteText}”
                                                 </p>
-                                            ) : null}
-                                            <p className="text-[9px] sm:text-[10px] text-gray-500 font-mono tracking-tighter opacity-60 group-hover:opacity-100 transition-opacity truncate">
-                                                {ownerAddr.slice(0, 8)}...{ownerAddr.slice(-8)}
-                                            </p>
+                                            )}
+
+                                            <div className="flex items-center gap-2 mt-0.5 opacity-60 group-hover:opacity-100 transition-opacity">
+                                                <span className="text-[10px] bg-black/30 border border-gray-600 px-1.5 py-0.5 rounded uppercase font-bold tracking-wider text-gray-400">
+                                                    {isUnik ? 'LINKED' : 'DIRECT'}
+                                                </span>
+                                                <span className="text-[10px] sm:text-xs font-mono text-gray-500 truncate max-w-[100px] sm:max-w-[140px]">
+                                                    {ownerAddr}
+                                                </span>
+                                            </div>
                                         </div>
                                     </div>
-                                    <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0 ml-1.5">
+
+                                    <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0 ml-2">
                                         <button
                                             onClick={() => {
                                                 setNoteModal({
@@ -2179,10 +2198,11 @@ function ContactsTab({ setSendRecipient, setSendAlias, setSendNote, setActiveTab
                                         </button>
                                         <button
                                             onClick={() => {
-                                                setSendRecipient(ownerAddr); // Always Pubkey
-                                                setSendAlias(c.alias); // Assume everything is alias for simplicity or check regex if needed
+                                                const techVal = isUnik ? `@${c.alias}` : ownerAddr;
+                                                setSendRecipient(techVal);
+                                                setSendAlias(isUnik ? c.alias : '');
 
-                                                // Pre-fill note if exists
+                                                // Use note as context if available
                                                 if (noteText) setSendNote(noteText);
 
                                                 setActiveTab('send');
