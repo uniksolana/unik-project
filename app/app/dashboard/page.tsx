@@ -645,18 +645,17 @@ export default function Dashboard() {
         <div className="min-h-screen bg-[#0d0d12] text-white selection:bg-cyan-500/30">
             {/* Header / Nav */}
             <nav className="border-b border-white/5 bg-[#0d0d12]/80 backdrop-blur-xl sticky top-0 z-50">
-                <div className="max-w-md mx-auto px-4 py-4 grid grid-cols-[auto_1fr_auto] items-center gap-2">
-                    <div className="flex items-center gap-3 flex-shrink-0">
-                        {/* Force size with min-w/h and standard img tag to bypass potential webview CSS overrides */}
+                <div className="w-full max-w-md md:max-w-6xl mx-auto px-4 py-4 grid grid-cols-[auto_1fr_auto] items-center gap-2">
+                    <div className="flex items-center gap-2 flex-shrink-0">
                         <img
                             src="/logo-icon.png"
                             alt="UNIK"
-                            className="w-14 h-14 min-w-[3.5rem] min-h-[3.5rem] object-contain drop-shadow-[0_0_15px_rgba(6,182,212,0.8)]"
+                            className="w-10 h-10 md:w-14 md:h-14 object-contain drop-shadow-[0_0_12px_rgba(6,182,212,0.6)]"
                         />
                         <img
                             src="/logo-text.png"
                             alt="UNIK"
-                            className="h-8 w-auto hidden sm:inline-block opacity-90 transform translate-y-0.5"
+                            className="h-6 md:h-8 w-auto hidden md:inline-block opacity-90 transform translate-y-0.5 ml-2"
                         />
                     </div>
 
