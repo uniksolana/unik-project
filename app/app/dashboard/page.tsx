@@ -2181,43 +2181,57 @@ function ContactsTab({ setSendRecipient, setSendAlias, setSendNote, setActiveTab
             ) : (
                 <div className="space-y-3">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        {displayedContacts.map((c: any, i: number) => {
-                            const ownerAddr = c.aliasOwner || c.address || c.alias || '';
-                            const noteText = c.notes || c.note || '';
+                        {displayedContacts.map((c: any, idx: number) => {
                             const isUnik = c.alias && c.alias.length < 32 && !c.alias.includes(' ');
+                            const noteText = c.notes || c.note || '';
+                            const ownerAddr = c.aliasOwner || c.address || c.alias;
 
                             return (
-                                <div key={i} className="group flex items-center justify-between p-3 sm:p-4 bg-gray-800 rounded-xl border border-gray-700 hover:border-cyan-500/50 hover:bg-gray-750 transition-all duration-300 relative overflow-hidden">
+                                <div key={idx} className="group flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 sm:p-5 bg-gray-800 rounded-xl border border-gray-700 hover:border-cyan-500/50 hover:bg-gray-750 transition-all duration-300 relative overflow-hidden">
                                     <div className="absolute top-0 left-0 w-1 h-full bg-cyan-500 opacity-0 group-hover:opacity-100 transition-opacity"></div>
 
-                                    <div className="flex items-center gap-3 sm:gap-4 flex-1 min-w-0">
+                                    <div className="flex items-start sm:items-center gap-3 sm:gap-4 flex-1 min-w-0 w-full">
                                         <div className={`w-10 h-10 sm:w-12 sm:h-12 rounded-full flex-shrink-0 flex items-center justify-center text-white text-lg font-bold shadow-lg shadow-cyan-500/20 ${isUnik ? 'bg-gradient-to-br from-cyan-500 to-purple-600' : 'bg-gradient-to-br from-gray-700 to-gray-600'}`}>
-                                            {(c.alias || '?')[0].toUpperCase()}
+                                            {(isUnik ? c.alias : (noteText || '?'))[0]?.toUpperCase()}
                                         </div>
 
-                                        <div className="flex flex-col min-w-0 gap-0.5">
-                                            <h5 className={`font-bold text-base sm:text-lg truncate ${isUnik ? 'text-cyan-400' : 'text-white'}`}>
-                                                {isUnik ? `@${c.alias}` : (noteText || 'Wallet Contact')}
-                                            </h5>
+                                        <div className="flex flex-col min-w-0 w-full gap-1.5">
+                                            <div className="flex flex-wrap items-center gap-2">
+                                                <h5 className={`font-bold text-lg leading-tight ${isUnik ? 'text-cyan-400' : 'text-white'}`}>
+                                                    {isUnik ? `@${c.alias}` : (noteText || 'Wallet Contact')}
+                                                </h5>
 
-                                            {isUnik && noteText && (
-                                                <p className="text-xs sm:text-sm text-gray-400 italic truncate max-w-[200px]">
-                                                    “{noteText}”
-                                                </p>
-                                            )}
+                                                {/* Note as a Label/Badge */}
+                                                {isUnik && noteText && (
+                                                    <span className="px-2 py-0.5 rounded-md bg-purple-500/20 border border-purple-500/30 text-purple-200 text-xs font-bold tracking-wide shadow-sm">
+                                                        {noteText}
+                                                    </span>
+                                                )}
+                                                {!isUnik && (
+                                                    <span className="px-2 py-0.5 rounded-md bg-gray-700/50 border border-gray-600/50 text-gray-400 text-[10px] font-bold uppercase tracking-wider">
+                                                        ADDRESS
+                                                    </span>
+                                                )}
+                                            </div>
 
-                                            <div className="flex items-center gap-2 mt-0.5 opacity-60 group-hover:opacity-100 transition-opacity">
-                                                <span className="text-[10px] bg-black/30 border border-gray-600 px-1.5 py-0.5 rounded uppercase font-bold tracking-wider text-gray-400">
-                                                    {isUnik ? 'ALIAS' : 'ADDRESS'}
-                                                </span>
-                                                <span className="text-[10px] sm:text-xs font-mono text-gray-500 truncate max-w-[100px] sm:max-w-[140px]">
-                                                    {ownerAddr}
-                                                </span>
+                                            {/* Full Address Display */}
+                                            <div className="flex flex-col gap-1 mt-1">
+                                                <div className="relative group/addr w-full">
+                                                    <p className="text-xs font-mono text-gray-500 break-all bg-black/20 px-2 py-1.5 rounded-lg border border-white/5 select-all hover:border-white/10 transition-colors">
+                                                        {ownerAddr}
+                                                    </p>
+                                                    {isUnik && (
+                                                        <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-cyan-500/50 uppercase font-bold tracking-wider pointer-events-none opacity-0 group-hover/addr:opacity-100 transition-opacity">
+                                                            LINKED
+                                                        </span>
+                                                    )}
+                                                </div>
                                             </div>
                                         </div>
                                     </div>
 
-                                    <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0 ml-2">
+                                    {/* Action Buttons */}
+                                    <div className="flex items-center gap-2 mt-2 sm:mt-0 self-end sm:self-center pl-14 sm:pl-0">
                                         <button
                                             onClick={() => {
                                                 setNoteModal({
