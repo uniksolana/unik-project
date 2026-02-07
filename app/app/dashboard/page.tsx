@@ -1287,8 +1287,19 @@ function SendTab({ sendRecipient, setSendRecipient, sendAlias, setSendAlias, sen
         let isActive = true;
         if (scanning) {
             // Give DOM time to render reader div (increased for mobile webviews)
-            const timer = setTimeout(() => {
+            const timer = setTimeout(async () => {
                 if (!isActive || !document.getElementById("reader")) return;
+
+                try {
+                    const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                    stream.getTracks().forEach(track => track.stop());
+                } catch (e) {
+                    if (isActive) {
+                        toast.error("Camera access denied. Please check settings.");
+                        setScanning(false);
+                    }
+                    return;
+                }
 
                 if (!scannerRef.current) {
                     const html5QrCode = new Html5Qrcode("reader");
