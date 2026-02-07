@@ -2187,15 +2187,16 @@ function ContactsTab({ setSendRecipient, setSendAlias, setSendNote, setActiveTab
                             const ownerAddr = c.aliasOwner || c.address || c.alias;
 
                             return (
-                                <div key={idx} className="group flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 sm:p-5 bg-gray-800 rounded-xl border border-gray-700 hover:border-cyan-500/50 hover:bg-gray-750 transition-all duration-300 relative overflow-hidden">
+                                <div key={idx} className="group flex flex-col h-full justify-between p-4 sm:p-5 bg-gray-800 rounded-xl border border-gray-700 hover:border-cyan-500/50 hover:bg-gray-750 transition-all duration-300 relative overflow-hidden">
                                     <div className="absolute top-0 left-0 w-1 h-full bg-cyan-500 opacity-0 group-hover:opacity-100 transition-opacity"></div>
 
-                                    <div className="flex items-start sm:items-center gap-3 sm:gap-4 flex-1 min-w-0 w-full">
+                                    {/* Main Content */}
+                                    <div className="flex items-start gap-3 sm:gap-4 w-full mb-4">
                                         <div className={`w-10 h-10 sm:w-12 sm:h-12 rounded-full flex-shrink-0 flex items-center justify-center text-white text-lg font-bold shadow-lg shadow-cyan-500/20 ${isUnik ? 'bg-gradient-to-br from-cyan-500 to-purple-600' : 'bg-gradient-to-br from-gray-700 to-gray-600'}`}>
                                             {(isUnik ? c.alias : (noteText || '?'))[0]?.toUpperCase()}
                                         </div>
 
-                                        <div className="flex flex-col min-w-0 w-full gap-1.5">
+                                        <div className="flex flex-col min-w-0 w-full gap-2">
                                             <div className="flex flex-wrap items-center gap-2">
                                                 <h5 className={`font-bold text-lg leading-tight ${isUnik ? 'text-cyan-400' : 'text-white'}`}>
                                                     {isUnik ? `@${c.alias}` : (noteText || 'Wallet Contact')}
@@ -2210,95 +2211,65 @@ function ContactsTab({ setSendRecipient, setSendAlias, setSendNote, setActiveTab
                                             </div>
 
                                             {/* Full Address Display Row */}
-                                            <div className="flex flex-col gap-1 mt-1">
-                                                <div className="relative group/addr w-full flex items-center gap-2">
+                                            <div className="w-full">
+                                                <div className="relative group/addr w-full flex items-center gap-2 bg-black/20 p-1.5 rounded-lg border border-white/5 hover:border-white/10 transition-colors">
                                                     {isUnik ? (
                                                         <span className="px-1.5 py-0.5 rounded bg-cyan-500/10 border border-cyan-500/30 text-cyan-400 text-[10px] font-bold uppercase tracking-wider shadow-[0_0_8px_rgba(6,182,212,0.15)] backdrop-blur-sm flex-shrink-0">
                                                             UNIK ID
                                                         </span>
                                                     ) : (
-                                                        <span className="px-1.5 py-0.5 rounded bg-gray-700/50 border border-gray-600/50 text-gray-400 text-[10px] font-bold uppercase tracking-wider flex-shrink-0">
+                                                        <span className="px-1.5 py-0.5 rounded bg-gray-700/50 border border-gray-600/50 text-gray-500 text-[10px] font-bold uppercase tracking-wider flex-shrink-0">
                                                             ADDRESS
                                                         </span>
                                                     )}
 
-                                                    <p className="text-xs font-mono text-gray-500 bg-black/20 px-2 py-1 rounded-lg border border-white/5 select-all hover:bg-black/40 hover:text-gray-300 transition-colors cursor-copy" title={ownerAddr}>
-                                                        {ownerAddr && ownerAddr.length > 20 ? `${ownerAddr.slice(0, 8)}...${ownerAddr.slice(-8)}` : ownerAddr}
+                                                    <p className="text-xs font-mono text-gray-500 select-all cursor-copy truncate" title={ownerAddr}>
+                                                        {ownerAddr}
                                                     </p>
                                                 </div>
                                             </div>
                                         </div>
                                     </div>
 
-                                    {/* Action Buttons */}
-                                    <div className="flex items-center gap-2 mt-2 sm:mt-0 self-end sm:self-center pl-14 sm:pl-0">
+                                    {/* Action Buttons Footer */}
+                                    <div className="flex items-center justify-end gap-2 pt-3 border-t border-white/5 w-full mt-auto">
                                         <button
                                             onClick={() => {
                                                 setNoteModal({
                                                     isOpen: true,
                                                     alias: c.alias,
-                                                    note: noteText,
-                                                    onSave: async (newNote: string) => {
-                                                        const owner = wallet?.publicKey?.toBase58();
-                                                        if (!owner) return;
-
-                                                        await contactStorage.updateContact(c.alias, { notes: newNote.trim() }, owner);
-
-                                                        // Trigger update
-                                                        window.dispatchEvent(new Event('unik-contacts-updated'));
-                                                        if (refreshContacts) refreshContacts();
-                                                        toast.success(`Note for @${c.alias} updated!`);
-                                                    }
+                                                    currentNote: noteText
                                                 });
                                             }}
-                                            className="p-2 sm:p-2.5 bg-gray-700/50 hover:bg-gray-700 rounded-lg text-gray-300 hover:text-white transition-colors border border-gray-600/50 shadow-sm"
-                                            title="Edit note"
+                                            className="p-2 text-gray-400 hover:text-white hover:bg-white/10 rounded-lg transition-colors text-xs font-medium flex items-center gap-1"
                                         >
-                                            <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                                            </svg>
+                                            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg>
+                                            EDIT
                                         </button>
+
+                                        <button
+                                            onClick={() => confirmModal.open(
+                                                `Delete ${isUnik ? `@${c.alias}` : 'contact'}?`,
+                                                () => removeContact(c.alias)
+                                            )}
+                                            className="p-2 text-gray-400 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors text-xs font-medium flex items-center gap-1"
+                                        >
+                                            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                                            DELETE
+                                        </button>
+
                                         <button
                                             onClick={() => {
                                                 const techVal = isUnik ? `@${c.alias}` : ownerAddr;
                                                 setSendRecipient(techVal);
                                                 setSendAlias(isUnik ? c.alias : '');
-
-                                                // Use note as context if available
                                                 if (noteText) setSendNote(noteText);
-
                                                 setActiveTab('send');
                                             }}
-                                            className="px-3 sm:px-5 py-2 sm:py-2.5 bg-gradient-to-r from-cyan-600/20 to-blue-600/20 hover:from-cyan-600 hover:to-blue-600 text-cyan-400 hover:text-white font-bold text-xs sm:text-sm rounded-lg border border-cyan-500/30 transition-all shadow-lg active:scale-95 flex items-center gap-1.5"
+                                            className="flex items-center gap-2 px-4 py-1.5 bg-cyan-500/10 text-cyan-400 hover:bg-cyan-500 hover:text-white rounded-lg transition-all border border-cyan-500/20 font-bold text-xs shadow-lg shadow-cyan-900/20 ml-2"
                                         >
-                                            <svg className="w-4 h-4 sm:hidden" fill="currentColor" viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z" /></svg>
-                                            <span className="hidden sm:inline">Pay</span>
-                                            <span className="sm:hidden text-[10px]">PAY</span>
-                                        </button>
-                                        <button
-                                            onClick={() => {
-                                                setConfirmModal({
-                                                    isOpen: true,
-                                                    title: 'Delete Contact',
-                                                    message: `Are you sure you want to remove @${c.alias} from your contacts?`,
-                                                    onConfirm: async () => {
-                                                        const owner = wallet?.publicKey?.toBase58();
-                                                        if (!owner) return;
-
-                                                        await contactStorage.removeContact(c.alias, owner);
-
-                                                        window.dispatchEvent(new Event('unik-contacts-updated'));
-                                                        if (refreshContacts) refreshContacts();
-                                                        toast.success("Contact removed");
-                                                    }
-                                                });
-                                            }}
-                                            className="p-2 sm:p-2.5 text-gray-500 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-all"
-                                            title="Delete contact"
-                                        >
-                                            <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                            </svg>
+                                            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"></path></svg>
+                                            PAY
                                         </button>
                                     </div>
                                 </div>
@@ -2323,8 +2294,9 @@ function ContactsTab({ setSendRecipient, setSendAlias, setSendNote, setActiveTab
                         )
                     }
                 </div>
-            )}
-        </div>
+            )
+            }
+        </div >
     );
 }
 
