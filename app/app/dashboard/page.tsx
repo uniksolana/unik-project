@@ -1613,15 +1613,7 @@ function SendTab({ sendRecipient, setSendRecipient, sendAlias, setSendAlias, sen
             <div className="space-y-6">
                 <div>
                     <label className="text-sm text-gray-400 block mb-2">Recipient</label>
-                    {sendAlias && (
-                        <div className="flex justify-between items-center mb-2">
-                            <div>
-                                <span className="text-sm text-cyan-400 font-bold">@{sendAlias}</span>
-                                {sendNote && <span className="text-xs text-gray-500 ml-2 italic">"{sendNote}"</span>}
-                            </div>
-                            <button onClick={() => { setSendAlias(''); setSendRecipient(''); setSendNote(''); }} className="text-xs text-red-400 hover:text-red-300">Clear</button>
-                        </div>
-                    )}
+
                     <div className="relative">
                         <input
                             type="text"
@@ -1656,56 +1648,80 @@ function SendTab({ sendRecipient, setSendRecipient, sendAlias, setSendAlias, sen
                         </div>
 
                         {/* Contact Picker Dropdown */}
-                        {/* Contact Picker Dropdown */}
                         {showContactPicker && (
                             <div className="absolute top-full left-0 right-0 mt-2 bg-[#1A1A24] border border-gray-700/80 rounded-xl z-50 max-h-60 overflow-y-auto shadow-2xl backdrop-blur-xl">
                                 <div className="p-2 sticky top-0 bg-[#1A1A24] border-b border-white/5 flex justify-between items-center z-10">
-                                    <span className="text-xs font-bold text-gray-400 pl-2">SAVED CONTACTS</span>
+                                    <span className="text-xs font-bold text-gray-400 pl-2">CONTACTS</span>
                                     <button onClick={() => setShowContactPicker(false)} className="text-gray-500 hover:text-white"><svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg></button>
                                 </div>
-                                {contacts && contacts.length > 0 ? (
-                                    contacts.map((c: any, idx: number) => (
-                                        <div
-                                            key={idx}
-                                            onClick={() => {
-                                                const techVal = c.alias ? `@${c.alias}` : c.wallet_address;
-                                                setSendRecipient(techVal);
-                                                setSendAlias(c.alias || '');
-                                                setSendNote(c.name || '');
-                                                setShowContactPicker(false);
-                                            }}
-                                            className="p-3 hover:bg-white/5 cursor-pointer flex justify-between items-center border-b border-white/5 last:border-0 transition-colors group"
-                                        >
-                                            <div className="flex flex-col gap-0.5 min-w-0 pr-4">
-                                                <span className={`font-bold text-sm truncate ${c.alias ? 'text-cyan-400' : 'text-purple-400'}`}>
-                                                    {c.alias ? `@${c.alias}` : 'Direct Address'}
-                                                </span>
-                                                {c.name && (
-                                                    <span className="text-xs text-gray-300 italic truncate">“{c.name}”</span>
-                                                )}
-                                                <div className="flex items-center gap-2 opacity-70 mt-1">
-                                                    <span className="text-[10px] uppercase font-bold tracking-wider text-gray-500 border border-gray-700 px-1.5 py-0.5 rounded bg-black/20">
-                                                        {c.alias ? 'LINKED' : 'WALLET'}
+                                {(() => {
+                                    const filtered = contacts?.filter((c: any) => {
+                                        if (!sendRecipient) return true;
+                                        const q = sendRecipient.replace('@', '').toLowerCase();
+                                        return (c.alias || '').toLowerCase().includes(q) || (c.name || '').toLowerCase().includes(q) || (c.wallet_address || '').toLowerCase().includes(q);
+                                    }) || [];
+
+                                    if (filtered.length === 0) return <div className="p-4 text-center text-gray-500 text-xs">No matches found.</div>;
+
+                                    return filtered.map((c: any, idx: number) => {
+                                        const isAddressAlias = c.alias && c.alias.length > 32;
+                                        return (
+                                            <div
+                                                key={idx}
+                                                onClick={() => {
+                                                    const techVal = isAddressAlias ? c.alias : `@${c.alias}`;
+                                                    setSendRecipient(techVal);
+                                                    setSendAlias(isAddressAlias ? '' : c.alias);
+                                                    setSendNote(c.name || '');
+                                                    setShowContactPicker(false);
+                                                }}
+                                                className="p-3 hover:bg-white/5 cursor-pointer flex justify-between items-center border-b border-white/5 last:border-0 transition-colors group"
+                                            >
+                                                <div className="flex flex-col gap-0.5 min-w-0 pr-4">
+                                                    <span className={`font-bold text-sm truncate ${!isAddressAlias ? 'text-cyan-400' : 'text-purple-400'}`}>
+                                                        {!isAddressAlias ? `@${c.alias}` : 'Wallet Address'}
                                                     </span>
-                                                    <span className="text-[10px] font-mono text-gray-600 truncate max-w-[140px]">
-                                                        {c.wallet_address}
-                                                    </span>
+                                                    {c.name && (
+                                                        <span className="text-xs text-gray-300 italic truncate">“{c.name}”</span>
+                                                    )}
+                                                    <div className="flex items-center gap-2 opacity-70 mt-1">
+                                                        <span className="text-[10px] uppercase font-bold tracking-wider text-gray-500 border border-gray-700 px-1.5 py-0.5 rounded bg-black/20">
+                                                            {!isAddressAlias ? 'ALIAS' : 'ADDRESS'}
+                                                        </span>
+                                                        <span className="text-[10px] font-mono text-gray-600 truncate max-w-[140px]">
+                                                            {c.wallet_address}
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                                <div className="w-6 h-6 rounded-full bg-cyan-500/10 flex items-center justify-center text-cyan-500 group-hover:bg-cyan-500 group-hover:text-white transition-colors">
+                                                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path></svg>
                                                 </div>
                                             </div>
-                                            <div className="w-6 h-6 rounded-full bg-cyan-500/10 flex items-center justify-center text-cyan-500 group-hover:bg-cyan-500 group-hover:text-white transition-colors">
-                                                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path></svg>
-                                            </div>
-                                        </div>
-                                    ))
-                                ) : (
-                                    <div className="p-8 text-center text-gray-500">
-                                        <p className="text-sm">No contacts found.</p>
-                                        <p className="text-xs mt-1">Add them in the Contacts tab.</p>
-                                    </div>
-                                )}
+                                        );
+                                    });
+                                })()}
                             </div>
                         )}
                     </div>
+
+                    {/* Visual Context for Selected Recipient */}
+                    {(sendNote || (isValidRecipient && sendAlias)) && (
+                        <div className="mt-3 flex items-center justify-between p-3 bg-gray-800/40 rounded-xl border border-gray-700/50 animate-in fade-in slide-in-from-top-2 duration-300">
+                            <div className="flex items-center gap-3">
+                                <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold ${sendAlias ? 'bg-cyan-500/20 text-cyan-400' : 'bg-purple-500/20 text-purple-400'}`}>
+                                    {(sendNote || sendAlias || '?')[0]?.toUpperCase()}
+                                </div>
+                                <div className="flex flex-col">
+                                    {sendNote && <span className="text-sm font-bold text-gray-200">{sendNote}</span>}
+                                    {sendAlias && <span className="text-xs text-gray-500 font-mono flex items-center gap-1">
+                                        <span className="w-1.5 h-1.5 rounded-full bg-cyan-500"></span>
+                                        {sendAlias.startsWith('@') ? 'Alias: ' : 'Linked: @'}{sendAlias.replace('@', '')}
+                                    </span>}
+                                </div>
+                            </div>
+                            <button onClick={() => { setSendRecipient(''); setSendAlias(''); setSendNote(''); setPaymentConcept(''); }} className="text-xs text-red-400 hover:text-red-300 px-3 py-1.5 hover:bg-red-500/10 rounded-lg transition-colors font-medium">Clear</button>
+                        </div>
+                    )}
                 </div>
 
                 <div>
@@ -2166,7 +2182,7 @@ function ContactsTab({ setSendRecipient, setSendAlias, setSendNote, setActiveTab
 
                                             <div className="flex items-center gap-2 mt-0.5 opacity-60 group-hover:opacity-100 transition-opacity">
                                                 <span className="text-[10px] bg-black/30 border border-gray-600 px-1.5 py-0.5 rounded uppercase font-bold tracking-wider text-gray-400">
-                                                    {isUnik ? 'LINKED' : 'DIRECT'}
+                                                    {isUnik ? 'ALIAS' : 'ADDRESS'}
                                                 </span>
                                                 <span className="text-[10px] sm:text-xs font-mono text-gray-500 truncate max-w-[100px] sm:max-w-[140px]">
                                                     {ownerAddr}
