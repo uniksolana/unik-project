@@ -938,9 +938,13 @@ function ReceiveTab({ registeredAlias, linkAmount, setLinkAmount, linkConcept, s
     const { publicKey } = useWallet();
     const [useAddress, setUseAddress] = useState(!registeredAlias);
 
-    // Force address mode if no alias
+    // Default to Alias if available, fallback to Address
     useEffect(() => {
-        if (!registeredAlias) setUseAddress(true);
+        if (registeredAlias) {
+            setUseAddress(false);
+        } else {
+            setUseAddress(true);
+        }
     }, [registeredAlias]);
 
     const [isPayShareOpen, setIsPayShareOpen] = useState(false);
