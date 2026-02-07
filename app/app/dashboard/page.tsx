@@ -52,6 +52,7 @@ export default function Dashboard() {
     const [sendAlias, setSendAlias] = useState('');
     const [sendAmount, setSendAmount] = useState('');
     const [sendNote, setSendNote] = useState('');
+    const [resolvedAddress, setResolvedAddress] = useState<string | null>(null);
     const [paymentConcept, setPaymentConcept] = useState('');
     const [sendToken, setSendToken] = useState(TOKEN_OPTIONS[0]); // Default to SOL
     const [aliasDropdownOpen, setAliasDropdownOpen] = useState(false);
@@ -151,6 +152,11 @@ export default function Dashboard() {
         if (!key) {
             key = await unlockEncryption();
             if (!key) return;
+        }
+
+        if (!registeredAlias) {
+            toast.error("Register a UNIK Alias first to set a profile picture.");
+            return;
         }
 
         const file = e.target.files[0];
@@ -784,10 +790,10 @@ export default function Dashboard() {
                     {/* RIGHT COLUMN: Content Area */}
                     <div className="flex-1 w-full bg-[#13131f]/50 backdrop-blur-sm rounded-[2rem] border border-white/5 p-4 lg:p-8 min-h-[500px]">
                         {activeTab === 'receive' && <ReceiveTab registeredAlias={registeredAlias} linkAmount={linkAmount} setLinkAmount={setLinkAmount} linkConcept={linkConcept} setLinkConcept={setLinkConcept} requestToken={requestToken} setRequestToken={setRequestToken} />}
-                        {activeTab === 'send' && <SendTab sendRecipient={sendRecipient} setSendRecipient={setSendRecipient} sendAlias={sendAlias} setSendAlias={setSendAlias} sendAmount={sendAmount} setSendAmount={setSendAmount} sendNote={sendNote} setSendNote={setSendNote} paymentConcept={paymentConcept} setPaymentConcept={setPaymentConcept} loading={loading} setLoading={setLoading} publicKey={publicKey} wallet={wallet} connection={connection} solPrice={solPrice} balance={balances.find(b => b.symbol === 'SOL')?.amount || 0} sendToken={sendToken} setSendToken={setSendToken} myAliases={myAliases} contacts={contacts} />}
+                        {activeTab === 'send' && <SendTab sendRecipient={sendRecipient} setSendRecipient={setSendRecipient} sendAlias={sendAlias} setSendAlias={setSendAlias} sendAmount={sendAmount} setSendAmount={setSendAmount} sendNote={sendNote} setSendNote={setSendNote} paymentConcept={paymentConcept} setPaymentConcept={setPaymentConcept} loading={loading} setLoading={setLoading} publicKey={publicKey} wallet={wallet} connection={connection} solPrice={solPrice} balance={balances.find(b => b.symbol === 'SOL')?.amount || 0} sendToken={sendToken} setSendToken={setSendToken} myAliases={myAliases} contacts={contacts} resolvedAddress={resolvedAddress} setResolvedAddress={setResolvedAddress} />}
                         {activeTab === 'splits' && <SplitsTab splits={splits} setSplits={setSplits} isEditing={isEditing} setIsEditing={setIsEditing} newSplitAddress={newSplitAddress} setNewSplitAddress={setNewSplitAddress} newSplitPercent={newSplitPercent} setNewSplitPercent={setNewSplitPercent} addSplit={addSplit} removeSplit={removeSplit} totalPercent={totalPercent} handleSaveConfig={handleSaveConfig} loading={loading} registeredAlias={registeredAlias} setActiveTab={setActiveTab} />}
                         {activeTab === 'alias' && <AliasTab myAliases={myAliases} showRegisterForm={showRegisterForm} setShowRegisterForm={setShowRegisterForm} alias={alias} setAlias={setAlias} handleRegister={handleRegister} loading={loading} setRegisteredAlias={setRegisteredAlias} />}
-                        {activeTab === 'contacts' && <ContactsTab contacts={contacts} refreshContacts={loadContacts} setSendRecipient={setSendRecipient} setSendAlias={setSendAlias} setSendNote={setSendNote} setActiveTab={setActiveTab} loading={loading} setLoading={setLoading} connection={connection} wallet={wallet} confirmModal={confirmModal} setConfirmModal={setConfirmModal} noteModal={noteModal} setNoteModal={setNoteModal} />}
+                        {activeTab === 'contacts' && <ContactsTab contacts={contacts} refreshContacts={loadContacts} setSendRecipient={setSendRecipient} setSendAlias={setSendAlias} setSendNote={setSendNote} setResolvedAddress={setResolvedAddress} setActiveTab={setActiveTab} loading={loading} setLoading={setLoading} connection={connection} wallet={wallet} confirmModal={confirmModal} setConfirmModal={setConfirmModal} noteModal={noteModal} setNoteModal={setNoteModal} />}
                         {activeTab === 'history' && <HistoryTab publicKey={publicKey} connection={connection} />}
                     </div>
                 </div>
@@ -1175,7 +1181,7 @@ function ReceiveTab({ registeredAlias, linkAmount, setLinkAmount, linkConcept, s
     );
 }
 
-function SendTab({ sendRecipient, setSendRecipient, sendAlias, setSendAlias, sendAmount, setSendAmount, sendNote, setSendNote, paymentConcept, setPaymentConcept, loading, setLoading, publicKey, wallet, connection, solPrice, balance, sendToken, setSendToken, myAliases, contacts }: any) {
+function SendTab({ sendRecipient, setSendRecipient, sendAlias, setSendAlias, sendAmount, setSendAmount, sendNote, setSendNote, paymentConcept, setPaymentConcept, loading, setLoading, publicKey, wallet, connection, solPrice, balance, sendToken, setSendToken, myAliases, contacts, resolvedAddress, setResolvedAddress }: any) {
     // QR Scanner State
     const [scanning, setScanning] = useState(false);
     const scannerRef = useRef<Html5Qrcode | null>(null);
@@ -1212,6 +1218,7 @@ function SendTab({ sendRecipient, setSendRecipient, sendAlias, setSendAlias, sen
                     if (PublicKey.isOnCurve(pubkey.toBytes())) {
                         setIsValidRecipient(true);
                         setIsCheckingRecipient(false);
+                        setResolvedAddress(debouncedRecipient);
                         return;
                     }
                 } catch { }
@@ -1223,8 +1230,18 @@ function SendTab({ sendRecipient, setSendRecipient, sendAlias, setSendAlias, sen
                     PROGRAM_ID
                 );
 
-                const info = await connection.getAccountInfo(aliasPDA);
-                setIsValidRecipient(!!info);
+                const provider = new AnchorProvider(connection, { publicKey: PublicKey.default, signTransaction: () => { } } as any, {});
+                const program = new Program(IDL as any, provider);
+                try {
+                    const account: any = await (program.account as any).aliasAccount.fetch(aliasPDA);
+                    setIsValidRecipient(true);
+                    setResolvedAddress(account.owner.toBase58());
+                } catch {
+                    // Fallback to getAccountInfo if fetch fails (though fetch usually throws on missing account)
+                    const info = await connection.getAccountInfo(aliasPDA);
+                    setIsValidRecipient(!!info);
+                    if (!info) setResolvedAddress(null);
+                }
 
             } catch (error) {
                 console.error("Validation error:", error);
@@ -1675,6 +1692,7 @@ function SendTab({ sendRecipient, setSendRecipient, sendAlias, setSendAlias, sen
                                                     setSendRecipient(techVal);
                                                     setSendAlias(isAddressAlias ? '' : c.alias);
                                                     setSendNote(c.notes || '');
+                                                    setResolvedAddress(c.aliasOwner || c.wallet_address || (isAddressAlias ? c.alias : null));
                                                     setShowContactPicker(false);
                                                 }}
                                                 className="p-3 hover:bg-white/5 cursor-pointer flex justify-between items-center border-b border-white/5 last:border-0 transition-colors group"
@@ -1712,9 +1730,9 @@ function SendTab({ sendRecipient, setSendRecipient, sendAlias, setSendAlias, sen
                             <div className="flex items-center gap-3">
                                 <div className={`relative w-8 h-8 rounded-full flex-shrink-0 flex items-center justify-center text-xs font-bold overflow-hidden ${sendAlias ? 'bg-cyan-500/20 text-cyan-400' : 'bg-purple-500/20 text-purple-400'}`}>
                                     <span>{(sendNote || sendAlias || '?')[0]?.toUpperCase()}</span>
-                                    {sendRecipient && (
+                                    {(resolvedAddress || (sendRecipient && !sendRecipient.startsWith('@'))) && (
                                         <img
-                                            src={`${supabase.storage.from('avatars').getPublicUrl(`${sendRecipient}_avatar`).data.publicUrl}?t=${Date.now().toString().slice(0, -5)}`}
+                                            src={`${supabase.storage.from('avatars').getPublicUrl(`${resolvedAddress || sendRecipient}_avatar`).data.publicUrl}?t=${Date.now().toString().slice(0, -5)}`}
                                             alt=""
                                             className="absolute inset-0 w-full h-full object-cover"
                                             style={{ display: 'none' }}
@@ -1983,7 +2001,7 @@ function NoteModal({ isOpen, alias, initialNote, onSave, onClose }: any) {
     );
 }
 
-function ContactsTab({ setSendRecipient, setSendAlias, setSendNote, setActiveTab, loading, setLoading, connection, wallet, confirmModal, setConfirmModal, noteModal, setNoteModal, contacts, refreshContacts }: any) {
+function ContactsTab({ setSendRecipient, setSendAlias, setSendNote, setResolvedAddress, setActiveTab, loading, setLoading, connection, wallet, confirmModal, setConfirmModal, noteModal, setNoteModal, contacts, refreshContacts }: any) {
     const [newContactAlias, setNewContactAlias] = useState('');
     const [filter, setFilter] = useState('recent');
     const [searchTerm, setSearchTerm] = useState('');
@@ -2290,6 +2308,7 @@ function ContactsTab({ setSendRecipient, setSendAlias, setSendNote, setActiveTab
                                                 const techVal = isUnik ? `@${c.alias}` : ownerAddr;
                                                 setSendRecipient(techVal);
                                                 setSendAlias(isUnik ? c.alias : '');
+                                                setResolvedAddress(ownerAddr);
                                                 if (noteText) setSendNote(noteText);
                                                 setActiveTab('send');
                                             }}
@@ -2304,26 +2323,23 @@ function ContactsTab({ setSendRecipient, setSendAlias, setSendNote, setActiveTab
                         })}
                     </div>
 
-                    {
-                        sortedContacts.length > 4 && (
-                            <div className="mt-6 flex justify-center">
-                                <button
-                                    onClick={() => setShowAll(!showAll)}
-                                    className="flex items-center gap-2 px-6 py-2 bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded-full text-sm font-bold text-cyan-400 transition-all"
-                                >
-                                    {showAll ? (
-                                        <>Show Less <span className="text-xs">↑</span></>
-                                    ) : (
-                                        <>View All {sortedContacts.length} Contacts <span className="text-xs">↓</span></>
-                                    )}
-                                </button>
-                            </div>
-                        )
-                    }
+                    {sortedContacts.length > 4 && (
+                        <div className="mt-6 flex justify-center">
+                            <button
+                                onClick={() => setShowAll(!showAll)}
+                                className="flex items-center gap-2 px-6 py-2 bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded-full text-sm font-bold text-cyan-400 transition-all"
+                            >
+                                {showAll ? (
+                                    <>Show Less <span className="text-xs">↑</span></>
+                                ) : (
+                                    <>View All {sortedContacts.length} Contacts <span className="text-xs">↓</span></>
+                                )}
+                            </button>
+                        </div>
+                    )}
                 </div>
-            )
-            }
-        </div >
+            )}
+        </div>
     );
 }
 
