@@ -1627,12 +1627,14 @@ function SendTab({ sendRecipient, setSendRecipient, sendAlias, setSendAlias, sen
                             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
                         </button>
                         <h4 className="text-xl font-bold mb-4 text-center">Scan Payment QR</h4>
-                        <div id="reader" className="overflow-hidden rounded-lg w-full h-64 bg-black mb-4"></div>
-                        <div className="text-center">
-                            <p className="text-xs text-gray-500 mb-3">Camera not working? Use your phone's camera:</p>
-                            <div className="relative inline-flex items-center gap-2 px-5 py-3 bg-gradient-to-r from-cyan-600 to-purple-600 hover:from-cyan-500 hover:to-purple-500 text-white text-sm font-bold rounded-xl cursor-pointer transition-all shadow-lg shadow-cyan-500/20 overflow-hidden">
-                                <svg className="w-5 h-5 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
-                                <span className="pointer-events-none">Take Photo of QR</span>
+                        <div id="reader" className="overflow-hidden rounded-lg w-full h-48 bg-black mb-4"></div>
+
+                        {/* File Upload Fallback */}
+                        <div className="text-center mb-4">
+                            <p className="text-xs text-gray-500 mb-2">Camera not working?</p>
+                            <div className="relative inline-flex items-center gap-2 px-4 py-2 bg-gray-800 hover:bg-gray-700 text-cyan-400 text-sm font-bold rounded-lg cursor-pointer transition-all border border-gray-700 overflow-hidden">
+                                <svg className="w-4 h-4 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+                                <span className="pointer-events-none">Upload QR Image</span>
                                 <input
                                     type="file"
                                     accept="image/*"
@@ -1640,6 +1642,37 @@ function SendTab({ sendRecipient, setSendRecipient, sendAlias, setSendAlias, sen
                                     onChange={handleFileUpload}
                                     className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
                                 />
+                            </div>
+                        </div>
+
+                        {/* Manual Input Fallback */}
+                        <div className="border-t border-gray-700 pt-4">
+                            <p className="text-xs text-gray-500 mb-2 text-center">Or enter alias/address manually:</p>
+                            <div className="flex gap-2">
+                                <input
+                                    type="text"
+                                    placeholder="@alias or wallet address"
+                                    className="flex-1 bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-500 focus:border-cyan-500 focus:outline-none"
+                                    onKeyDown={(e) => {
+                                        if (e.key === 'Enter') {
+                                            const value = (e.target as HTMLInputElement).value.trim();
+                                            if (value) {
+                                                handleQrResult(value);
+                                            }
+                                        }
+                                    }}
+                                />
+                                <button
+                                    onClick={(e) => {
+                                        const input = (e.target as HTMLElement).previousElementSibling as HTMLInputElement;
+                                        if (input && input.value.trim()) {
+                                            handleQrResult(input.value.trim());
+                                        }
+                                    }}
+                                    className="px-4 py-2 bg-cyan-600 hover:bg-cyan-500 text-white text-sm font-bold rounded-lg transition-colors"
+                                >
+                                    Go
+                                </button>
                             </div>
                         </div>
                     </div>
