@@ -646,9 +646,9 @@ export default function Dashboard() {
             {/* Header / Nav */}
             <nav className="border-b border-white/5 bg-[#0d0d12]/80 backdrop-blur-xl sticky top-0 z-50">
                 <div className="max-w-md mx-auto px-4 py-4 grid grid-cols-[auto_1fr_auto] items-center gap-2">
-                    <div className="flex items-center gap-2">
-                        <Image src="/logo-icon.png" alt="UNIK" width={32} height={32} className="w-8 h-auto" />
-                        <Image src="/logo-text.png" alt="UNIK" width={64} height={20} className="h-5 w-auto hidden sm:inline-block" />
+                    <div className="flex items-center gap-3">
+                        <Image src="/logo-icon.png" alt="UNIK" width={48} height={48} className="w-12 h-auto drop-shadow-[0_0_15px_rgba(6,182,212,0.6)]" />
+                        <Image src="/logo-text.png" alt="UNIK" width={80} height={28} className="h-7 w-auto hidden sm:inline-block opacity-90" />
                     </div>
 
                     {/* Active Alias Capsule (Centered) */}
