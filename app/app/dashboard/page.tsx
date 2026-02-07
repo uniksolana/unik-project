@@ -2207,24 +2207,24 @@ function ContactsTab({ setSendRecipient, setSendAlias, setSendNote, setActiveTab
                                                         {noteText}
                                                     </span>
                                                 )}
-                                                {!isUnik && (
-                                                    <span className="px-2 py-0.5 rounded-md bg-gray-700/50 border border-gray-600/50 text-gray-400 text-[10px] font-bold uppercase tracking-wider">
-                                                        ADDRESS
-                                                    </span>
-                                                )}
                                             </div>
 
-                                            {/* Full Address Display */}
+                                            {/* Full Address Display Row */}
                                             <div className="flex flex-col gap-1 mt-1">
-                                                <div className="relative group/addr w-full">
-                                                    <p className="text-xs font-mono text-gray-500 break-all bg-black/20 px-2 py-1.5 rounded-lg border border-white/5 select-all hover:border-white/10 transition-colors">
-                                                        {ownerAddr}
-                                                    </p>
-                                                    {isUnik && (
-                                                        <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-cyan-500/50 uppercase font-bold tracking-wider pointer-events-none opacity-0 group-hover/addr:opacity-100 transition-opacity">
-                                                            LINKED
+                                                <div className="relative group/addr w-full flex items-center gap-2">
+                                                    {isUnik ? (
+                                                        <span className="px-1.5 py-0.5 rounded bg-cyan-500/10 border border-cyan-500/30 text-cyan-400 text-[10px] font-bold uppercase tracking-wider shadow-[0_0_8px_rgba(6,182,212,0.15)] backdrop-blur-sm flex-shrink-0">
+                                                            UNIK ID
+                                                        </span>
+                                                    ) : (
+                                                        <span className="px-1.5 py-0.5 rounded bg-gray-700/50 border border-gray-600/50 text-gray-400 text-[10px] font-bold uppercase tracking-wider flex-shrink-0">
+                                                            ADDRESS
                                                         </span>
                                                     )}
+
+                                                    <p className="text-xs font-mono text-gray-500 bg-black/20 px-2 py-1 rounded-lg border border-white/5 select-all hover:bg-black/40 hover:text-gray-300 transition-colors cursor-copy" title={ownerAddr}>
+                                                        {ownerAddr && ownerAddr.length > 20 ? `${ownerAddr.slice(0, 8)}...${ownerAddr.slice(-8)}` : ownerAddr}
+                                                    </p>
                                                 </div>
                                             </div>
                                         </div>
@@ -2306,20 +2306,22 @@ function ContactsTab({ setSendRecipient, setSendAlias, setSendNote, setActiveTab
                         })}
                     </div>
 
-                    {sortedContacts.length > 4 && (
-                        <div className="mt-6 flex justify-center">
-                            <button
-                                onClick={() => setShowAll(!showAll)}
-                                className="flex items-center gap-2 px-6 py-2 bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded-full text-sm font-bold text-cyan-400 transition-all"
-                            >
-                                {showAll ? (
-                                    <>Show Less <span className="text-xs">↑</span></>
-                                ) : (
-                                    <>View All {sortedContacts.length} Contacts <span className="text-xs">↓</span></>
-                                )}
-                            </button>
-                        </div>
-                    )}
+                    {
+                        sortedContacts.length > 4 && (
+                            <div className="mt-6 flex justify-center">
+                                <button
+                                    onClick={() => setShowAll(!showAll)}
+                                    className="flex items-center gap-2 px-6 py-2 bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded-full text-sm font-bold text-cyan-400 transition-all"
+                                >
+                                    {showAll ? (
+                                        <>Show Less <span className="text-xs">↑</span></>
+                                    ) : (
+                                        <>View All {sortedContacts.length} Contacts <span className="text-xs">↓</span></>
+                                    )}
+                                </button>
+                            </div>
+                        )
+                    }
                 </div>
             )}
         </div>
