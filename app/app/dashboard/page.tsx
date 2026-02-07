@@ -1710,8 +1710,18 @@ function SendTab({ sendRecipient, setSendRecipient, sendAlias, setSendAlias, sen
                     {(sendNote || (isValidRecipient && sendAlias)) && (
                         <div className="mt-3 flex items-center justify-between p-3 bg-gray-800/40 rounded-xl border border-gray-700/50 animate-in fade-in slide-in-from-top-2 duration-300">
                             <div className="flex items-center gap-3">
-                                <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold ${sendAlias ? 'bg-cyan-500/20 text-cyan-400' : 'bg-purple-500/20 text-purple-400'}`}>
-                                    {(sendNote || sendAlias || '?')[0]?.toUpperCase()}
+                                <div className={`relative w-8 h-8 rounded-full flex-shrink-0 flex items-center justify-center text-xs font-bold overflow-hidden ${sendAlias ? 'bg-cyan-500/20 text-cyan-400' : 'bg-purple-500/20 text-purple-400'}`}>
+                                    <span>{(sendNote || sendAlias || '?')[0]?.toUpperCase()}</span>
+                                    {sendRecipient && (
+                                        <img
+                                            src={`${supabase.storage.from('avatars').getPublicUrl(`${sendRecipient}_avatar`).data.publicUrl}?t=${Date.now().toString().slice(0, -5)}`}
+                                            alt=""
+                                            className="absolute inset-0 w-full h-full object-cover"
+                                            style={{ display: 'none' }}
+                                            onLoad={(e) => e.currentTarget.style.display = 'block'}
+                                            onError={(e) => e.currentTarget.style.display = 'none'}
+                                        />
+                                    )}
                                 </div>
                                 <div className="flex flex-col">
                                     {sendNote && <span className="text-sm font-bold text-gray-200">{sendNote}</span>}
