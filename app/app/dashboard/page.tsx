@@ -1284,18 +1284,23 @@ function SendTab({ sendRecipient, setSendRecipient, sendAlias, setSendAlias, sen
     const activeBalance = sendToken.symbol === 'SOL' ? balance : tokenBalance;
 
     useEffect(() => {
+        let isActive = true;
         if (scanning) {
+            // Give DOM time to render reader div (increased for mobile webviews)
             const timer = setTimeout(() => {
+                if (!isActive || !document.getElementById("reader")) return;
+
                 if (!scannerRef.current) {
                     const html5QrCode = new Html5Qrcode("reader");
                     scannerRef.current = html5QrCode;
-                    const config = { fps: 10, qrbox: { width: 250, height: 250 } };
-                    html5QrCode.start(
-                        { facingMode: "environment" },
-                        config,
-                        (decodedText) => {
-                            try {
-                                if (decodedText.includes('/pay/')) {
+
+                    const config = { fps: 10, qrbox: { width: 250, height: 250 }, aspectRatio: 1.0 };
+
+                    const onScanSuccess = (decodedText: string) => {
+                        if (!isActive) return;
+                        try {
+                            if (decodedText.includes('/pay/')) {
+                                try {
                                     const url = new URL(decodedText);
                                     const pathParts = url.pathname.split('/');
                                     const aliasIndex = pathParts.indexOf('pay') + 1;
@@ -1307,34 +1312,62 @@ function SendTab({ sendRecipient, setSendRecipient, sendAlias, setSendAlias, sen
                                         const concept = url.searchParams.get('concept');
                                         if (concept) setSendNote(concept);
                                     }
-                                } else {
+                                } catch (e) {
+                                    // Fallback if URL parsing fails
                                     setSendRecipient(decodedText);
-                                    setSendAlias('');
                                 }
-                                html5QrCode.stop().then(() => {
-                                    html5QrCode.clear();
-                                    scannerRef.current = null;
-                                    setScanning(false);
-                                }).catch(err => console.error("Failed to stop after scan", err));
-                            } catch (e) {
-                                toast.error("Invalid QR Code");
+                            } else {
+                                setSendRecipient(decodedText);
+                                setSendAlias('');
                             }
-                        },
-                        () => { }
+
+                            // Stop scanning on success
+                            html5QrCode.stop().then(() => {
+                                html5QrCode.clear();
+                                scannerRef.current = null;
+                                setScanning(false);
+                            }).catch(console.error);
+
+                        } catch (e) {
+                            console.error(e);
+                        }
+                    };
+
+                    // Robust start sequence: Back Camera -> Any Camera
+                    html5QrCode.start(
+                        { facingMode: "environment" },
+                        config,
+                        onScanSuccess,
+                        () => { } // Ignore frame errors
                     ).catch(err => {
-                        toast.error("Camera error");
-                        setScanning(false);
+                        console.warn("Back camera init failed, retrying with user/any camera...", err);
+                        return html5QrCode.start(
+                            { facingMode: "user" },
+                            config,
+                            onScanSuccess,
+                            () => { }
+                        );
+                    }).catch(finalErr => {
+                        console.error("Critical camera error:", finalErr);
+                        if (isActive) {
+                            toast.error("Could not access camera. Check permissions.");
+                            setScanning(false);
+                        }
                         scannerRef.current = null;
                     });
                 }
-            }, 100);
+            }, 300);
+
             return () => {
+                isActive = false;
                 clearTimeout(timer);
                 if (scannerRef.current) {
-                    scannerRef.current.stop().then(() => {
-                        scannerRef.current?.clear();
-                        scannerRef.current = null;
-                    }).catch(console.error);
+                    try {
+                        scannerRef.current.stop().then(() => {
+                            scannerRef.current?.clear();
+                            scannerRef.current = null;
+                        }).catch(() => { });
+                    } catch (e) { }
                 }
             };
         }
@@ -1548,7 +1581,7 @@ function SendTab({ sendRecipient, setSendRecipient, sendAlias, setSendAlias, sen
                             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
                         </button>
                         <h4 className="text-xl font-bold mb-4 text-center">Scan Payment QR</h4>
-                        <div id="reader" className="overflow-hidden rounded-lg"></div>
+                        <div id="reader" className="overflow-hidden rounded-lg w-full h-64 bg-black"></div>
                     </div>
                 </div>
             )}
