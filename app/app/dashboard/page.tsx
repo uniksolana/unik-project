@@ -16,6 +16,7 @@ import Image from 'next/image';
 import { contactStorage, Contact } from '../../utils/contacts';
 import { supabase } from '../../utils/supabaseClient';
 import { noteStorage, TransactionNote } from '../../utils/notes';
+import { saveAvatar, getAvatar, removeAvatar } from '../../utils/avatar';
 import { saveSharedNote, getSharedNotes, SharedNoteData } from '../../utils/sharedNotes';
 import { TOKEN_PROGRAM_ID, ASSOCIATED_TOKEN_PROGRAM_ID, getAssociatedTokenAddress } from '@solana/spl-token';
 import bs58 from 'bs58';
@@ -64,35 +65,22 @@ export default function Dashboard() {
     const [network, setNetwork] = useState('devnet');
     const [uploadingAvatar, setUploadingAvatar] = useState(false);
 
-    // New: Load Avatar Off-Chain based on Wallet Address
-    // New: Load Avatar Off-Chain based on Wallet Address with Local Storage Fallback
+    // New: Load Encrypted Avatar when session is unlocked
     useEffect(() => {
-        if (!publicKey) {
-            setAvatarUrl(null);
-            return;
-        }
-
-        const loadOffChainAvatar = () => {
-            const fileName = `${publicKey.toBase58()}_avatar`;
-            const { data: { publicUrl } } = supabase.storage.from('avatars').getPublicUrl(fileName);
-
-            // Check if image exists by trying to load it
-            const img = new window.Image();
-            img.onload = () => setAvatarUrl(`${publicUrl}?t=${Date.now()}`); // Cache bust if found on server
-            img.onerror = () => {
-                // Fallback: Check local storage if server image fails (e.g. RLS blocked or file not found)
-                const localAvatar = localStorage.getItem(`unik_avatar_${publicKey.toBase58()}`);
-                if (localAvatar) {
-                    setAvatarUrl(localAvatar);
-                } else {
-                    setAvatarUrl(null);
+        const loadEncryptedAvatar = async () => {
+            if (publicKey && encryptionKey) {
+                try {
+                    const avatar = await getAvatar(publicKey.toBase58());
+                    if (avatar) setAvatarUrl(avatar);
+                } catch (e) {
+                    console.error("Failed to load avatar", e);
                 }
-            };
-            img.src = `${publicUrl}?t=${Date.now()}`;
+            } else {
+                setAvatarUrl(null);
+            }
         };
-
-        loadOffChainAvatar();
-    }, [publicKey]);
+        loadEncryptedAvatar();
+    }, [encryptionKey, publicKey]);
 
     useEffect(() => {
         // Load settings from localStorage
@@ -166,52 +154,20 @@ export default function Dashboard() {
         }
 
         const file = e.target.files[0];
-        // Privacy: Use fixed filename
-        const fileName = `${publicKey.toBase58()}_avatar`;
-
         setUploadingAvatar(true);
+
         try {
-            // 0. Encrypt File (Client-Side)
-            const encryptedBlob = await encryptBlob(file, key!);
+            // New: Encrypted Avatar Storage (Stored as a Note)
+            // This ensures the avatar is encrypted with the same key as other user data
+            const base64 = await saveAvatar(file, publicKey.toBase58());
+            setAvatarUrl(base64);
+            toast.success("Profile picture encrypted & saved!");
 
-            // 1. Upload Encrypted Blob to Supabase
-            const { error: uploadError } = await supabase.storage
-                .from('avatars')
-                .upload(fileName, encryptedBlob, { upsert: true, contentType: 'application/octet-stream' });
-
-            if (uploadError) throw uploadError;
-
-            // 2. Fetch and Decrypt for immediate preview
-            const { data: { publicUrl } } = supabase.storage
-                .from('avatars')
-                .getPublicUrl(fileName);
-
-            const res = await fetch(`${publicUrl}?t=${Date.now()}`);
-            if (!res.ok) throw new Error("Failed to fetch uploaded file");
-
-            const blob = await res.blob();
-            const decrypted = await decryptBlob(blob, key!);
-
-            setAvatarUrl(URL.createObjectURL(decrypted));
-            toast.success("Profile picture encrypted & updated!");
+            // Dispatch event to update other components if needed
+            window.dispatchEvent(new Event('unik-avatar-updated'));
         } catch (error: any) {
-            console.error('Error uploading avatar:', error);
-
-            // Fallback: If RLS blocks upload, save to local storage for demo purposes
-            if (error.message && (error.message.includes("row-level security") || error.statusCode === '403')) {
-                const reader = new FileReader();
-                reader.onload = (re) => {
-                    const result = re.target?.result as string;
-                    if (publicKey) {
-                        localStorage.setItem(`unik_avatar_${publicKey.toBase58()}`, result);
-                        setAvatarUrl(result);
-                        toast.success("Profile saved locally");
-                    }
-                };
-                reader.readAsDataURL(file);
-            } else {
-                toast.error(error.message || "Failed to upload avatar");
-            }
+            console.error('Error saving avatar:', error);
+            toast.error("Failed to save encrypted avatar.");
         } finally {
             setUploadingAvatar(false);
         }
@@ -220,20 +176,16 @@ export default function Dashboard() {
     const handleRemoveAvatar = async () => {
         if (!publicKey) return;
         try {
-            const fileName = `${publicKey.toBase58()}_avatar`;
-            const { error } = await supabase.storage
-                .from('avatars')
-                .remove([fileName]);
-
-            if (error) throw error;
-
+            await removeAvatar(publicKey.toBase58());
             setAvatarUrl(null);
-            toast.success("Profile picture removed (Off-chain).");
+            toast.success("Profile picture removed (Encrypted Data).");
         } catch (error: any) {
             console.error("Error removing avatar:", error);
-            toast.error(error.message || "Failed to remove avatar.");
+            toast.error("Failed to remove avatar.");
         }
     };
+
+
 
 
     const [confirmModal, setConfirmModal] = useState<{
