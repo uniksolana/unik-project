@@ -11,7 +11,6 @@ import { Program, AnchorProvider, BN } from '@coral-xyz/anchor';
 import { useConnection } from '@solana/wallet-adapter-react';
 import QRCode from "react-qr-code";
 import { Html5Qrcode } from "html5-qrcode";
-import jsQR from "jsqr";
 import { Buffer } from 'buffer';
 import Image from 'next/image';
 import { contactStorage, Contact } from '../../utils/contacts';
@@ -1204,7 +1203,6 @@ function SendTab({ sendRecipient, setSendRecipient, sendAlias, setSendAlias, sen
     // QR Scanner State
     const [scanning, setScanning] = useState(false);
     const scannerRef = useRef<Html5Qrcode | null>(null);
-    const fileInputRef = useRef<HTMLInputElement | null>(null);
 
     // Contact Picker State
     const [showContactPicker, setShowContactPicker] = useState(false);
@@ -1310,58 +1308,32 @@ function SendTab({ sendRecipient, setSendRecipient, sendAlias, setSendAlias, sen
         } catch (e) { console.error("QR Parse Error", e); }
     };
 
-    const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-        if (!e.target.files || e.target.files.length === 0) return;
-        const file = e.target.files[0];
+    // Detect if running in Solflare mobile WebView
+    const isSolflareMobile = () => {
+        if (typeof window === 'undefined') return false;
+        const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+        const hasSolflare = !!(window as any).solflare;
+        const isPhantom = !!(window as any).phantom;
+        // Solflare mobile but NOT Phantom (Phantom works fine)
+        return isMobile && hasSolflare && !isPhantom;
+    };
 
-        try {
-            const img = new window.Image();
-            const url = URL.createObjectURL(file);
-
-            img.onload = async () => {
-                const canvas = document.createElement('canvas');
-                canvas.width = img.width;
-                canvas.height = img.height;
-                const ctx = canvas.getContext('2d');
-                if (!ctx) { toast.error("Canvas error"); return; }
-                ctx.drawImage(img, 0, 0);
-
-                const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-
-                // Try native BarcodeDetector first (Chrome 83+)
-                if ('BarcodeDetector' in window) {
-                    try {
-                        const detector = new (window as any).BarcodeDetector({ formats: ['qr_code'] });
-                        const barcodes = await detector.detect(img);
-                        if (barcodes.length > 0) {
-                            handleQrResult(barcodes[0].rawValue);
-                            URL.revokeObjectURL(url);
-                            return;
-                        }
-                    } catch (e) { /* Fallback to jsQR */ }
-                }
-
-                // Fallback: jsQR
-                const code = jsQR(imageData.data, imageData.width, imageData.height);
-                if (code && code.data) {
-                    handleQrResult(code.data);
-                } else {
-                    toast.error("No QR code found in image");
-                }
-
-                URL.revokeObjectURL(url);
-            };
-
-            img.onerror = () => {
-                toast.error("Could not load image");
-                URL.revokeObjectURL(url);
-            };
-
-            img.src = url;
-        } catch (err) {
-            console.error(err);
-            toast.error("Could not process image");
+    const handleScanClick = () => {
+        if (isSolflareMobile()) {
+            toast('🔒 Por seguridad, Solflare móvil no permite escanear QR desde dApps.\n\nUsa el campo de alias o selecciona un contacto.', {
+                duration: 5000,
+                style: {
+                    background: '#1f2937',
+                    color: '#fff',
+                    border: '1px solid #374151',
+                    padding: '16px',
+                    borderRadius: '12px',
+                },
+                icon: '📱',
+            });
+            return;
         }
+        setScanning(true);
     };
 
     useEffect(() => {
@@ -1627,54 +1599,7 @@ function SendTab({ sendRecipient, setSendRecipient, sendAlias, setSendAlias, sen
                             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
                         </button>
                         <h4 className="text-xl font-bold mb-4 text-center">Scan Payment QR</h4>
-                        <div id="reader" className="overflow-hidden rounded-lg w-full h-48 bg-black mb-4"></div>
-
-                        {/* File Upload Fallback */}
-                        <div className="text-center mb-4">
-                            <p className="text-xs text-gray-500 mb-2">Camera not working?</p>
-                            <div className="relative inline-flex items-center gap-2 px-4 py-2 bg-gray-800 hover:bg-gray-700 text-cyan-400 text-sm font-bold rounded-lg cursor-pointer transition-all border border-gray-700 overflow-hidden">
-                                <svg className="w-4 h-4 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
-                                <span className="pointer-events-none">Upload QR Image</span>
-                                <input
-                                    type="file"
-                                    accept="image/*"
-                                    capture="environment"
-                                    onChange={handleFileUpload}
-                                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                                />
-                            </div>
-                        </div>
-
-                        {/* Manual Input Fallback */}
-                        <div className="border-t border-gray-700 pt-4">
-                            <p className="text-xs text-gray-500 mb-2 text-center">Or enter alias/address manually:</p>
-                            <div className="flex gap-2">
-                                <input
-                                    type="text"
-                                    placeholder="@alias or wallet address"
-                                    className="flex-1 bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-500 focus:border-cyan-500 focus:outline-none"
-                                    onKeyDown={(e) => {
-                                        if (e.key === 'Enter') {
-                                            const value = (e.target as HTMLInputElement).value.trim();
-                                            if (value) {
-                                                handleQrResult(value);
-                                            }
-                                        }
-                                    }}
-                                />
-                                <button
-                                    onClick={(e) => {
-                                        const input = (e.target as HTMLElement).previousElementSibling as HTMLInputElement;
-                                        if (input && input.value.trim()) {
-                                            handleQrResult(input.value.trim());
-                                        }
-                                    }}
-                                    className="px-4 py-2 bg-cyan-600 hover:bg-cyan-500 text-white text-sm font-bold rounded-lg transition-colors"
-                                >
-                                    Go
-                                </button>
-                            </div>
-                        </div>
+                        <div id="reader" className="overflow-hidden rounded-lg w-full h-64 bg-black"></div>
                     </div>
                 </div>
             )}
@@ -1723,7 +1648,7 @@ function SendTab({ sendRecipient, setSendRecipient, sendAlias, setSendAlias, sen
 
                             {/* QR Button */}
                             <button
-                                onClick={() => setScanning(true)}
+                                onClick={handleScanClick}
                                 className="p-2 text-cyan-400 hover:text-cyan-300 hover:bg-cyan-500/10 rounded-lg transition-colors"
                                 title="Scan QR"
                             >
