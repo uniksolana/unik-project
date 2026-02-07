@@ -2248,10 +2248,40 @@ function ContactsTab({ setSendRecipient, setSendAlias, setSendNote, setActiveTab
                                         </button>
 
                                         <button
-                                            onClick={() => confirmModal.open(
-                                                `Delete ${isUnik ? `@${c.alias}` : 'contact'}?`,
-                                                () => removeContact(c.alias)
-                                            )}
+                                            onClick={() => {
+                                                if (confirmModal && confirmModal.open) {
+                                                    confirmModal.open(
+                                                        `Delete ${isUnik ? `@${c.alias}` : 'contact'}?`,
+                                                        async () => {
+                                                            const owner = wallet?.publicKey?.toBase58();
+                                                            if (!owner) return;
+                                                            try {
+                                                                await contactStorage.removeContact(c.alias, owner);
+                                                                window.dispatchEvent(new Event('unik-contacts-updated'));
+                                                                if (refreshContacts) refreshContacts();
+                                                                toast.success("Contact deleted");
+                                                            } catch (err) {
+                                                                console.error("Failed to delete contact", err);
+                                                                toast.error("Failed to delete contact");
+                                                            }
+                                                        }
+                                                    );
+                                                } else {
+                                                    // Fallback if confirmModal.open is not available (old pattern)
+                                                    setConfirmModal({
+                                                        isOpen: true,
+                                                        title: 'Delete Contact',
+                                                        message: `Delete ${isUnik ? `@${c.alias}` : 'contact'}?`,
+                                                        onConfirm: async () => {
+                                                            const owner = wallet?.publicKey?.toBase58();
+                                                            if (!owner) return;
+                                                            await contactStorage.removeContact(c.alias, owner);
+                                                            if (refreshContacts) refreshContacts();
+                                                            toast.success("Contact deleted");
+                                                        }
+                                                    });
+                                                }
+                                            }}
                                             className="p-2 text-gray-400 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors text-xs font-medium flex items-center gap-1"
                                         >
                                             <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
