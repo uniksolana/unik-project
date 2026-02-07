@@ -14,8 +14,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "UNIK - Smart Payment Routing on Solana",
-  description: "Intelligent alias system and automatic payment distribution on Solana blockchain",
+  title: "UNIK | Smart Payments on Solana",
+  description: "Send crypto easily with @aliases. Automatic payment splitting and routing on Solana blockchain.",
 };
 
 import { Toaster } from "react-hot-toast";
