@@ -1283,23 +1283,52 @@ function SendTab({ sendRecipient, setSendRecipient, sendAlias, setSendAlias, sen
 
     const activeBalance = sendToken.symbol === 'SOL' ? balance : tokenBalance;
 
+    const handleQrResult = (decodedText: string) => {
+        if (!decodedText) return;
+        try {
+            if (decodedText.includes('/pay/')) {
+                try {
+                    const url = new URL(decodedText);
+                    const pathParts = url.pathname.split('/');
+                    const aliasIndex = pathParts.indexOf('pay') + 1;
+                    if (aliasIndex < pathParts.length) {
+                        setSendRecipient(`@${pathParts[aliasIndex]}`);
+                        setSendAlias(pathParts[aliasIndex]);
+                        const amount = url.searchParams.get('amount');
+                        if (amount) setSendAmount(amount);
+                        const concept = url.searchParams.get('concept');
+                        if (concept) setSendNote(concept);
+                    }
+                } catch (e) { setSendRecipient(decodedText); }
+            } else { setSendRecipient(decodedText); setSendAlias(''); }
+
+            if (scannerRef.current) {
+                scannerRef.current.stop().then(() => { scannerRef.current?.clear(); scannerRef.current = null; setScanning(false); }).catch(console.error);
+            } else { setScanning(false); }
+        } catch (e) { console.error("QR Parse Error", e); }
+    };
+
+    const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (e.target.files && e.target.files.length > 0) {
+            const file = e.target.files[0];
+            try {
+                let html5QrCode = scannerRef.current;
+                if (!html5QrCode) {
+                    // Ensure an element exists even if temporary
+                    if (!document.getElementById("reader")) return;
+                    html5QrCode = new Html5Qrcode("reader");
+                }
+                const result = await html5QrCode.scanFile(file, true);
+                handleQrResult(result);
+            } catch (err) { console.error("File error", err); toast.error("No valid QR found."); }
+        }
+    };
+
     useEffect(() => {
         let isActive = true;
         if (scanning) {
-            // Give DOM time to render reader div (increased for mobile webviews)
-            const timer = setTimeout(async () => {
+            const timer = setTimeout(() => {
                 if (!isActive || !document.getElementById("reader")) return;
-
-                try {
-                    const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-                    stream.getTracks().forEach(track => track.stop());
-                } catch (e) {
-                    if (isActive) {
-                        toast.error("Camera access denied. Please check settings.");
-                        setScanning(false);
-                    }
-                    return;
-                }
 
                 if (!scannerRef.current) {
                     const html5QrCode = new Html5Qrcode("reader");
@@ -1309,39 +1338,7 @@ function SendTab({ sendRecipient, setSendRecipient, sendAlias, setSendAlias, sen
 
                     const onScanSuccess = (decodedText: string) => {
                         if (!isActive) return;
-                        try {
-                            if (decodedText.includes('/pay/')) {
-                                try {
-                                    const url = new URL(decodedText);
-                                    const pathParts = url.pathname.split('/');
-                                    const aliasIndex = pathParts.indexOf('pay') + 1;
-                                    if (aliasIndex < pathParts.length) {
-                                        setSendRecipient(`@${pathParts[aliasIndex]}`);
-                                        setSendAlias(pathParts[aliasIndex]);
-                                        const amount = url.searchParams.get('amount');
-                                        if (amount) setSendAmount(amount);
-                                        const concept = url.searchParams.get('concept');
-                                        if (concept) setSendNote(concept);
-                                    }
-                                } catch (e) {
-                                    // Fallback if URL parsing fails
-                                    setSendRecipient(decodedText);
-                                }
-                            } else {
-                                setSendRecipient(decodedText);
-                                setSendAlias('');
-                            }
-
-                            // Stop scanning on success
-                            html5QrCode.stop().then(() => {
-                                html5QrCode.clear();
-                                scannerRef.current = null;
-                                setScanning(false);
-                            }).catch(console.error);
-
-                        } catch (e) {
-                            console.error(e);
-                        }
+                        handleQrResult(decodedText);
                     };
 
                     // Robust start sequence: Back Camera -> Any Camera
@@ -1360,10 +1357,8 @@ function SendTab({ sendRecipient, setSendRecipient, sendAlias, setSendAlias, sen
                         );
                     }).catch(finalErr => {
                         console.error("Critical camera error:", finalErr);
-                        if (isActive) {
-                            toast.error("Could not access camera. Check permissions.");
-                            setScanning(false);
-                        }
+                        // Do not auto-close so user can use file upload fallback
+                        if (isActive) toast.error("Camera failed, try uploading an image.");
                         scannerRef.current = null;
                     });
                 }
@@ -1592,7 +1587,14 @@ function SendTab({ sendRecipient, setSendRecipient, sendAlias, setSendAlias, sen
                             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
                         </button>
                         <h4 className="text-xl font-bold mb-4 text-center">Scan Payment QR</h4>
-                        <div id="reader" className="overflow-hidden rounded-lg w-full h-64 bg-black"></div>
+                        <div id="reader" className="overflow-hidden rounded-lg w-full h-64 bg-black mb-4"></div>
+                        <div className="text-center">
+                            <p className="text-xs text-gray-500 mb-2">Camera issues?</p>
+                            <label className="inline-block px-4 py-2 bg-gray-800 hover:bg-gray-700 text-cyan-400 text-sm font-bold rounded-lg cursor-pointer transition-colors border border-gray-700">
+                                Upload QR Image
+                                <input type="file" accept="image/*" className="hidden" onChange={handleFileUpload} />
+                            </label>
+                        </div>
                     </div>
                 </div>
             )}
