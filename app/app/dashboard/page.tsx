@@ -2168,8 +2168,19 @@ function ContactsTab({ setSendRecipient, setSendAlias, setSendNote, setActiveTab
 
                                     {/* Main Content */}
                                     <div className="flex items-start gap-3 sm:gap-4 w-full mb-4">
-                                        <div className={`w-10 h-10 sm:w-12 sm:h-12 rounded-full flex-shrink-0 flex items-center justify-center text-white text-lg font-bold shadow-lg shadow-cyan-500/20 ${isUnik ? 'bg-gradient-to-br from-cyan-500 to-purple-600' : 'bg-gradient-to-br from-gray-700 to-gray-600'}`}>
-                                            {(isUnik ? c.alias : (noteText || '?'))[0]?.toUpperCase()}
+                                        <div className={`relative w-10 h-10 sm:w-12 sm:h-12 rounded-full flex-shrink-0 flex items-center justify-center text-white text-lg font-bold shadow-lg shadow-cyan-500/20 overflow-hidden ${isUnik ? 'bg-gradient-to-br from-cyan-500 to-purple-600' : 'bg-gradient-to-br from-gray-700 to-gray-600'}`}>
+                                            {/* Initials (Background) */}
+                                            <span>{(isUnik ? c.alias : (noteText || '?'))[0]?.toUpperCase()}</span>
+
+                                            {/* Public Avatar (Overlay) - Best Effort */}
+                                            <img
+                                                src={`${supabase.storage.from('avatars').getPublicUrl(`${ownerAddr}_avatar`).data.publicUrl}?t=${Date.now().toString().slice(0, -5)}`} // weak cache bust
+                                                alt=""
+                                                className="absolute inset-0 w-full h-full object-cover bg-gray-800"
+                                                style={{ display: 'none' }}
+                                                onLoad={(e) => { e.currentTarget.style.display = 'block'; }}
+                                                onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                                            />
                                         </div>
 
                                         <div className="flex flex-col min-w-0 w-full gap-2">

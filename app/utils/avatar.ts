@@ -1,56 +1,104 @@
 
 import { noteStorage, TransactionNote } from "./notes";
+import { supabase } from "./supabaseClient";
 
 export const AVATAR_NOTE_ID = '_PROFILE_AVATAR_';
 
 /**
- * Saves the avatar image as an encrypted note.
- * The image is resized and converted to Base64 before saving to ensure optimal performance.
+ * Saves the avatar image.
+ * Strategy:
+ * 1. Always save as Encrypted Note (Private, Guaranteed to work for owner).
+ * 2. Try to save to Supabase Storage (Public, allows others to see it, dependent on DB policies).
  */
 export async function saveAvatar(file: File, owner: string): Promise<string> {
     if (!owner) throw new Error("Owner required");
 
-    // 1. Resize & Convert to Base64 (Max 400x400 to keep JSON size manageable)
+    // 1. Resize & Convert to Base64 (Max 400x400 to keep note size manageable)
     const base64 = await resizeImageToBase64(file, 400, 400);
 
-    // 2. Save as a special TransactionNote
-    // We treat the avatar as a special "note" so it gets encrypted/decrypted 
-    // automatically with the user's session key alongside their other data.
+    // 2. Save Private Copy (Encrypted Note)
     const avatarNote: TransactionNote = {
         signature: AVATAR_NOTE_ID,
         note: base64, // The actual image data
         timestamp: Date.now(),
-        // Optional metadata
         token: 'UnikAvatar'
     };
-
     await noteStorage.saveNote(avatarNote, owner);
+
+    // 3. Try Save Public Copy (Best Effort)
+    try {
+        // Convert base64 back to blob for upload
+        const blob = await (await fetch(base64)).blob();
+        const fileName = `${owner}_avatar`;
+
+        const { error } = await supabase.storage
+            .from('avatars')
+            .upload(fileName, blob, { upsert: true, contentType: 'image/jpeg' });
+
+        if (error) {
+            console.warn("Public avatar upload failed (RLS blocked?):", error.message);
+        } else {
+            console.log("Public avatar uploaded successfully to Supabase Storage");
+        }
+    } catch (e) {
+        console.warn("Public avatar upload exception:", e);
+    }
 
     return base64;
 }
 
 /**
- * Retrieves the decrypted avatar from the notes storage.
+ * Retrieves the avatar for the current user (Private > Public).
  */
 export async function getAvatar(owner: string): Promise<string | null> {
     if (!owner) return null;
+
+    // 1. Try Encrypted Note (Fastest & Guaranteed for owner)
     try {
         const notes = await noteStorage.getNotes(owner);
         const avatarNote = notes[AVATAR_NOTE_ID];
-
         if (avatarNote && avatarNote.note && avatarNote.note.startsWith('data:image')) {
             return avatarNote.note;
         }
-        return null;
     } catch (e) {
-        console.error("Failed to fetch avatar:", e);
+        console.warn("Failed to fetch private avatar note", e);
+    }
+
+    // 2. Fallback to Public Storage (if private missing, e.g. new device/legacy data)
+    return await getPublicAvatar(owner);
+}
+
+/**
+ * Retrieves the public avatar for ANY user (Contacts).
+ */
+export async function getPublicAvatar(walletAddress: string): Promise<string | null> {
+    if (!walletAddress) return null;
+    try {
+        const fileName = `${walletAddress}_avatar`;
+        const { data: { publicUrl } } = supabase.storage
+            .from('avatars')
+            .getPublicUrl(fileName);
+
+        if (!publicUrl) return null;
+
+        // Check availability (optional, might slow down listing)
+        // For UI, we usually return the URL and let <img onerror> handle it.
+        return `${publicUrl}?t=${Date.now()}`;
+    } catch (e) {
         return null;
     }
 }
 
 export async function removeAvatar(owner: string): Promise<void> {
     if (!owner) return;
+
+    // Remove Private
     await noteStorage.removeNote(AVATAR_NOTE_ID, owner);
+
+    // Remove Public
+    try {
+        await supabase.storage.from('avatars').remove([`${owner}_avatar`]);
+    } catch (e) { /* ignore */ }
 }
 
 /**
