@@ -11,6 +11,7 @@ import { Program, AnchorProvider, BN } from '@coral-xyz/anchor';
 import { useConnection } from '@solana/wallet-adapter-react';
 import QRCode from "react-qr-code";
 import { Html5Qrcode } from "html5-qrcode";
+import jsQR from "jsqr";
 import { Buffer } from 'buffer';
 import Image from 'next/image';
 import { contactStorage, Contact } from '../../utils/contacts';
@@ -1309,18 +1310,56 @@ function SendTab({ sendRecipient, setSendRecipient, sendAlias, setSendAlias, sen
     };
 
     const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-        if (e.target.files && e.target.files.length > 0) {
-            const file = e.target.files[0];
-            try {
-                let html5QrCode = scannerRef.current;
-                if (!html5QrCode) {
-                    // Ensure an element exists even if temporary
-                    if (!document.getElementById("reader")) return;
-                    html5QrCode = new Html5Qrcode("reader");
+        if (!e.target.files || e.target.files.length === 0) return;
+        const file = e.target.files[0];
+
+        try {
+            const img = new window.Image();
+            const url = URL.createObjectURL(file);
+
+            img.onload = async () => {
+                const canvas = document.createElement('canvas');
+                canvas.width = img.width;
+                canvas.height = img.height;
+                const ctx = canvas.getContext('2d');
+                if (!ctx) { toast.error("Canvas error"); return; }
+                ctx.drawImage(img, 0, 0);
+
+                const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+
+                // Try native BarcodeDetector first (Chrome 83+)
+                if ('BarcodeDetector' in window) {
+                    try {
+                        const detector = new (window as any).BarcodeDetector({ formats: ['qr_code'] });
+                        const barcodes = await detector.detect(img);
+                        if (barcodes.length > 0) {
+                            handleQrResult(barcodes[0].rawValue);
+                            URL.revokeObjectURL(url);
+                            return;
+                        }
+                    } catch (e) { /* Fallback to jsQR */ }
                 }
-                const result = await html5QrCode.scanFile(file, true);
-                handleQrResult(result);
-            } catch (err) { console.error("File error", err); toast.error("No valid QR found."); }
+
+                // Fallback: jsQR
+                const code = jsQR(imageData.data, imageData.width, imageData.height);
+                if (code && code.data) {
+                    handleQrResult(code.data);
+                } else {
+                    toast.error("No QR code found in image");
+                }
+
+                URL.revokeObjectURL(url);
+            };
+
+            img.onerror = () => {
+                toast.error("Could not load image");
+                URL.revokeObjectURL(url);
+            };
+
+            img.src = url;
+        } catch (err) {
+            console.error(err);
+            toast.error("Could not process image");
         }
     };
 
