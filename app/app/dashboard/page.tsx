@@ -1665,6 +1665,9 @@ function SendTab({ sendRecipient, setSendRecipient, sendAlias, setSendAlias, sen
 
                                     return filtered.map((c: any, idx: number) => {
                                         const isAddressAlias = c.alias && c.alias.length > 32;
+                                        const displayTitle = !isAddressAlias ? `@${c.alias}` : (c.notes || 'Wallet Contact');
+                                        const displaySub = isAddressAlias ? null : (c.notes ? `“${c.notes}”` : null);
+
                                         return (
                                             <div
                                                 key={idx}
@@ -1672,24 +1675,24 @@ function SendTab({ sendRecipient, setSendRecipient, sendAlias, setSendAlias, sen
                                                     const techVal = isAddressAlias ? c.alias : `@${c.alias}`;
                                                     setSendRecipient(techVal);
                                                     setSendAlias(isAddressAlias ? '' : c.alias);
-                                                    setSendNote(c.name || '');
+                                                    setSendNote(c.notes || '');
                                                     setShowContactPicker(false);
                                                 }}
                                                 className="p-3 hover:bg-white/5 cursor-pointer flex justify-between items-center border-b border-white/5 last:border-0 transition-colors group"
                                             >
                                                 <div className="flex flex-col gap-0.5 min-w-0 pr-4">
-                                                    <span className={`font-bold text-sm truncate ${!isAddressAlias ? 'text-cyan-400' : 'text-purple-400'}`}>
-                                                        {!isAddressAlias ? `@${c.alias}` : 'Wallet Address'}
+                                                    <span className={`font-bold text-sm truncate ${!isAddressAlias ? 'text-cyan-400' : 'text-white'}`}>
+                                                        {displayTitle}
                                                     </span>
-                                                    {c.name && (
-                                                        <span className="text-xs text-gray-300 italic truncate">“{c.name}”</span>
+                                                    {displaySub && (
+                                                        <span className="text-xs text-gray-400 italic truncate">{displaySub}</span>
                                                     )}
                                                     <div className="flex items-center gap-2 opacity-70 mt-1">
                                                         <span className="text-[10px] uppercase font-bold tracking-wider text-gray-500 border border-gray-700 px-1.5 py-0.5 rounded bg-black/20">
                                                             {!isAddressAlias ? 'ALIAS' : 'ADDRESS'}
                                                         </span>
                                                         <span className="text-[10px] font-mono text-gray-600 truncate max-w-[140px]">
-                                                            {c.wallet_address}
+                                                            {c.wallet_address || c.alias}
                                                         </span>
                                                     </div>
                                                 </div>
@@ -2017,10 +2020,10 @@ function ContactsTab({ setSendRecipient, setSendAlias, setSendNote, setActiveTab
                 }
 
                 await contactStorage.saveContact({
-                    alias: label,
+                    alias: inputLower,
                     aliasOwner: inputLower,
                     savedAt: Date.now(),
-                    notes: `Address: ${inputLower.slice(0, 4)}...${inputLower.slice(-4)}`
+                    notes: label // Save user label (e.g. "Pepe") as note
                 }, ownerKey);
 
                 showTransactionToast({ signature: '', message: `Address added as ${label}`, type: 'success' });
@@ -2170,12 +2173,12 @@ function ContactsTab({ setSendRecipient, setSendAlias, setSendNote, setActiveTab
                                         </div>
 
                                         <div className="flex flex-col min-w-0 gap-0.5">
-                                            <h5 className={`font-bold text-base sm:text-lg truncate ${isUnik ? 'text-cyan-400' : 'text-purple-300'}`}>
-                                                {isUnik ? `@${c.alias}` : (noteText ? 'Wallet Contact' : 'Direct Address')}
+                                            <h5 className={`font-bold text-base sm:text-lg truncate ${isUnik ? 'text-cyan-400' : 'text-white'}`}>
+                                                {isUnik ? `@${c.alias}` : (noteText || 'Wallet Contact')}
                                             </h5>
 
-                                            {noteText && (
-                                                <p className="text-xs sm:text-sm text-gray-300 italic truncate max-w-[200px]">
+                                            {isUnik && noteText && (
+                                                <p className="text-xs sm:text-sm text-gray-400 italic truncate max-w-[200px]">
                                                     “{noteText}”
                                                 </p>
                                             )}
