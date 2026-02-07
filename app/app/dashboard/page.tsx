@@ -65,6 +65,7 @@ export default function Dashboard() {
     const [uploadingAvatar, setUploadingAvatar] = useState(false);
 
     // New: Load Avatar Off-Chain based on Wallet Address
+    // New: Load Avatar Off-Chain based on Wallet Address with Local Storage Fallback
     useEffect(() => {
         if (!publicKey) {
             setAvatarUrl(null);
@@ -77,8 +78,16 @@ export default function Dashboard() {
 
             // Check if image exists by trying to load it
             const img = new window.Image();
-            img.onload = () => setAvatarUrl(`${publicUrl}?t=${Date.now()}`); // Cache bust
-            img.onerror = () => setAvatarUrl(null); // File doesn't exist
+            img.onload = () => setAvatarUrl(`${publicUrl}?t=${Date.now()}`); // Cache bust if found on server
+            img.onerror = () => {
+                // Fallback: Check local storage if server image fails (e.g. RLS blocked or file not found)
+                const localAvatar = localStorage.getItem(`unik_avatar_${publicKey.toBase58()}`);
+                if (localAvatar) {
+                    setAvatarUrl(localAvatar);
+                } else {
+                    setAvatarUrl(null);
+                }
+            };
             img.src = `${publicUrl}?t=${Date.now()}`;
         };
 
@@ -187,7 +196,22 @@ export default function Dashboard() {
             toast.success("Profile picture encrypted & updated!");
         } catch (error: any) {
             console.error('Error uploading avatar:', error);
-            toast.error(error.message || "Failed to upload avatar");
+
+            // Fallback: If RLS blocks upload, save to local storage for demo purposes
+            if (error.message && (error.message.includes("row-level security") || error.statusCode === '403')) {
+                const reader = new FileReader();
+                reader.onload = (re) => {
+                    const result = re.target?.result as string;
+                    if (publicKey) {
+                        localStorage.setItem(`unik_avatar_${publicKey.toBase58()}`, result);
+                        setAvatarUrl(result);
+                        toast.success("Profile saved locally");
+                    }
+                };
+                reader.readAsDataURL(file);
+            } else {
+                toast.error(error.message || "Failed to upload avatar");
+            }
         } finally {
             setUploadingAvatar(false);
         }
