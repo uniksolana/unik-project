@@ -1206,6 +1206,7 @@ function SendTab({ sendRecipient, setSendRecipient, sendAlias, setSendAlias, sen
 
     // Contact Picker State
     const [showContactPicker, setShowContactPicker] = useState(false);
+    const [contactSearch, setContactSearch] = useState(''); // New state for dropdown search
 
     // Token Balance State
     const [tokenBalance, setTokenBalance] = useState<number | null>(null);
@@ -1649,22 +1650,44 @@ function SendTab({ sendRecipient, setSendRecipient, sendAlias, setSendAlias, sen
 
                         {/* Contact Picker Dropdown */}
                         {showContactPicker && (
-                            <div className="absolute top-full left-0 right-0 mt-2 bg-[#1A1A24] border border-gray-700/80 rounded-xl z-50 max-h-60 overflow-y-auto shadow-2xl backdrop-blur-xl">
-                                <div className="p-2 sticky top-0 bg-[#1A1A24] border-b border-white/5 flex justify-between items-center z-10">
-                                    <span className="text-xs font-bold text-gray-400 pl-2">CONTACTS</span>
-                                    <button onClick={() => setShowContactPicker(false)} className="text-gray-500 hover:text-white"><svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg></button>
+                            <div className="absolute top-full left-0 right-0 mt-2 bg-[#1A1A24] border border-gray-700/80 rounded-xl z-50 max-h-72 overflow-y-auto shadow-2xl backdrop-blur-xl animate-in fade-in zoom-in-95 duration-200">
+                                <div className="p-3 sticky top-0 bg-[#1A1A24] border-b border-white/5 z-10 space-y-2">
+                                    <div className="flex justify-between items-center px-1">
+                                        <span className="text-xs font-bold text-gray-400">YOUR CONTACTS</span>
+                                        <button onClick={() => setShowContactPicker(false)} className="text-gray-500 hover:text-white transition-colors">
+                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                                        </button>
+                                    </div>
+                                    <div className="relative">
+                                        <input
+                                            type="text"
+                                            placeholder="Find by name or alias..."
+                                            value={contactSearch}
+                                            onChange={(e) => setContactSearch(e.target.value)}
+                                            className="w-full bg-black/20 text-sm text-white px-3 py-2 pl-9 rounded-lg border border-gray-700/50 focus:border-cyan-500/50 focus:ring-1 focus:ring-cyan-500/20 focus:outline-none transition-all placeholder:text-gray-600"
+                                            autoFocus
+                                            onClick={(e) => e.stopPropagation()}
+                                        />
+                                        <svg className="w-4 h-4 text-gray-500 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+                                    </div>
                                 </div>
                                 {(() => {
+                                    const filterQ = (contactSearch || sendRecipient || '').replace('@', '').toLowerCase();
                                     const filtered = contacts?.filter((c: any) => {
-                                        if (!sendRecipient) return true;
-                                        const q = sendRecipient.replace('@', '').toLowerCase();
-                                        return (c.alias || '').toLowerCase().includes(q) || (c.name || '').toLowerCase().includes(q) || (c.wallet_address || '').toLowerCase().includes(q);
+                                        if (!filterQ) return true;
+                                        return (c.alias || '').toLowerCase().includes(filterQ) || (c.notes || '').toLowerCase().includes(filterQ) || (c.wallet_address || '').toLowerCase().includes(filterQ);
                                     }) || [];
 
-                                    if (filtered.length === 0) return <div className="p-4 text-center text-gray-500 text-xs">No matches found.</div>;
+                                    if (filtered.length === 0) return (
+                                        <div className="p-8 text-center text-gray-500 flex flex-col items-center gap-2">
+                                            <svg className="w-8 h-8 opacity-20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"></path></svg>
+                                            <span className="text-xs">No contacts match "{filterQ}"</span>
+                                        </div>
+                                    );
 
                                     return filtered.map((c: any, idx: number) => {
                                         const isAddressAlias = c.alias && c.alias.length > 32;
+
                                         const displayTitle = !isAddressAlias ? `@${c.alias}` : (c.notes || 'Wallet Contact');
                                         const displaySub = isAddressAlias ? null : (c.notes ? `“${c.notes}”` : null);
 
