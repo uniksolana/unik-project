@@ -645,13 +645,13 @@ export default function Dashboard() {
         <div className="min-h-screen bg-[#0d0d12] text-white selection:bg-cyan-500/30">
             {/* Header / Nav */}
             <nav className="border-b border-white/5 bg-[#0d0d12]/80 backdrop-blur-xl sticky top-0 z-50">
-                <div className="w-full max-w-md md:max-w-6xl mx-auto px-4 py-4 grid grid-cols-[auto_1fr_auto] items-center gap-2">
+                <div className="w-full max-w-md md:max-w-6xl mx-auto px-2 md:px-4 py-3 md:py-4 grid grid-cols-[auto_1fr_auto] items-center gap-1 md:gap-2">
                     <div className="flex items-center gap-2 flex-shrink-0 min-w-fit">
                         <img
                             src="/logo-icon.png"
                             alt="UNIK"
-                            style={{ width: '48px', height: '48px', minWidth: '48px' }}
-                            className="!w-12 !h-12 md:!w-16 md:!h-16 object-contain drop-shadow-[0_0_15px_rgba(6,182,212,0.8)]"
+                            style={{ width: '40px', height: '40px', minWidth: '40px' }}
+                            className="!w-10 !h-10 md:!w-14 md:!h-14 object-contain drop-shadow-[0_0_12px_rgba(6,182,212,0.6)]"
                         />
                         <img
                             src="/logo-text.png"
@@ -700,10 +700,10 @@ export default function Dashboard() {
                     </div>
 
                     {/* Integrated Wallet Button & Settings */}
-                    <div className="flex justify-end items-center gap-2">
+                    <div className="flex justify-end items-center gap-1 md:gap-2">
                         <button
                             onClick={() => setShowSettings(true)}
-                            className="p-2 rounded-full bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white transition-colors border border-white/5"
+                            className="p-1.5 md:p-2 rounded-full bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white transition-colors border border-white/5 flex-shrink-0"
                         >
                             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
