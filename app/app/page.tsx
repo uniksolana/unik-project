@@ -5,8 +5,8 @@ import Link from 'next/link';
 import dynamic from 'next/dynamic';
 import MobileWalletPrompt from './components/MobileWalletPrompt';
 
-const WalletMultiButton = dynamic(
-  () => import('@solana/wallet-adapter-react-ui').then(mod => mod.WalletMultiButton),
+const LandingAuth = dynamic(
+  () => import('./components/LandingAuth'),
   { ssr: false }
 );
 
@@ -40,7 +40,7 @@ export default function Home() {
         </div>
         <div className="flex items-center gap-4">
           <Link href="https://docs.unik.app" className="hidden md:block text-gray-400 hover:text-white transition-colors text-sm font-medium">Documentation</Link>
-          <WalletMultiButton />
+          <LandingAuth />
         </div>
       </nav>
 
