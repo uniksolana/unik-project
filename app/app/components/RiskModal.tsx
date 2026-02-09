@@ -2,6 +2,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { usePathname } from 'next/navigation';
 import { useWallet } from '@solana/wallet-adapter-react';
 import { supabase } from '../../utils/supabaseClient';
 import { showSimpleToast } from './CustomToast';
@@ -10,6 +11,7 @@ import { deriveKeyFromSignature } from '../../utils/crypto';
 import { getSessionKey, setSessionKey } from '../../utils/sessionState';
 
 export default function RiskModal() {
+    const pathname = usePathname();
     const { publicKey, signMessage, connected } = useWallet();
     const [isOpen, setIsOpen] = useState(false);
     const [checking, setChecking] = useState(false);
@@ -40,6 +42,11 @@ By signing this message, I acknowledge and agree that:
 
     useEffect(() => {
         const checkConsent = async () => {
+            // Skip check on public pages (Landing, Terms, Privacy)
+            if (pathname === '/' || pathname === '/terms' || pathname === '/privacy') {
+                return;
+            }
+
             if (!connected || !publicKey) return;
 
             // If we already have the session key in memory, no need to ask again
@@ -79,7 +86,7 @@ By signing this message, I acknowledge and agree that:
         };
 
         checkConsent();
-    }, [connected, publicKey]);
+    }, [connected, publicKey, pathname]);
 
     const handleAcceptAndSign = async () => {
         if (!signMessage || !publicKey) return;

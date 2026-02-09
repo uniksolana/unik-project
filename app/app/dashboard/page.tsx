@@ -2337,6 +2337,11 @@ function HistoryTab({ publicKey, connection, confirmModal, setConfirmModal }: an
             setNotes(loadedNotes);
         };
         loadNotes();
+
+        // Listen for decryption event (from RiskModal)
+        const listener = () => loadNotes();
+        window.addEventListener('unik-contacts-updated', listener);
+        return () => window.removeEventListener('unik-contacts-updated', listener);
     }, [publicKey]);
 
     useEffect(() => {
