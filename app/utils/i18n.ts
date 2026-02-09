@@ -87,6 +87,9 @@ export const translations = {
         received_from: "From",
         failed: "Failed",
         pending: "Pending...",
+        sent: "Sent",
+        received: "Received",
+        system: "System",
     },
     es: {
         welcome: "Bienvenido a UNIK",
@@ -173,6 +176,9 @@ export const translations = {
         received_from: "De",
         failed: "Fallido",
         pending: "Pendiente...",
+        sent: "Enviado",
+        received: "Recibido",
+        system: "Sistema",
     },
     fr: {
         welcome: "Bienvenue sur UNIK",
@@ -259,5 +265,8 @@ export const translations = {
         received_from: "De",
         failed: "Échoué",
         pending: "En attente...",
+        sent: "Envoyé",
+        received: "Reçu",
+        system: "Système",
     }
 };
