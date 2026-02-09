@@ -766,7 +766,7 @@ export default function Dashboard() {
                         {activeTab === 'splits' && <SplitsTab splits={splits} setSplits={setSplits} isEditing={isEditing} setIsEditing={setIsEditing} newSplitAddress={newSplitAddress} setNewSplitAddress={setNewSplitAddress} newSplitPercent={newSplitPercent} setNewSplitPercent={setNewSplitPercent} addSplit={addSplit} removeSplit={removeSplit} totalPercent={totalPercent} handleSaveConfig={handleSaveConfig} loading={loading} registeredAlias={registeredAlias} setActiveTab={setActiveTab} />}
                         {activeTab === 'alias' && <AliasTab myAliases={myAliases} showRegisterForm={showRegisterForm} setShowRegisterForm={setShowRegisterForm} alias={alias} setAlias={setAlias} handleRegister={handleRegister} loading={loading} setRegisteredAlias={setRegisteredAlias} />}
                         {activeTab === 'contacts' && <ContactsTab contacts={contacts} refreshContacts={loadContacts} setSendRecipient={setSendRecipient} setSendAlias={setSendAlias} setSendNote={setSendNote} setResolvedAddress={setResolvedAddress} setActiveTab={setActiveTab} loading={loading} setLoading={setLoading} connection={connection} wallet={wallet} confirmModal={confirmModal} setConfirmModal={setConfirmModal} noteModal={noteModal} setNoteModal={setNoteModal} />}
-                        {activeTab === 'history' && <HistoryTab publicKey={publicKey} connection={connection} />}
+                        {activeTab === 'history' && <HistoryTab publicKey={publicKey} connection={connection} contacts={contacts} />}
                     </div>
                 </div>
 
@@ -2322,7 +2322,7 @@ function ContactsTab({ setSendRecipient, setSendAlias, setSendNote, setResolvedA
     );
 }
 
-function HistoryTab({ publicKey, connection, confirmModal, setConfirmModal }: any) {
+function HistoryTab({ publicKey, connection, confirmModal, setConfirmModal, contacts }: any) {
     const { t, language } = usePreferences();
     const [history, setHistory] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
@@ -2349,31 +2349,82 @@ function HistoryTab({ publicKey, connection, confirmModal, setConfirmModal }: an
             if (!publicKey) return;
             setLoading(true);
             try {
-                const signatures = await connection.getSignaturesForAddress(publicKey, { limit: 15 });
+                const signatures = await connection.getSignaturesForAddress(publicKey, { limit: 20 });
                 const detailedHistory = await Promise.all(
                     signatures.map(async (sig: any) => {
                         try {
                             const tx = await connection.getParsedTransaction(sig.signature, { maxSupportedTransactionVersion: 0 });
 
-                            let type = 'System';
+                            let type = 'Interaction'; // Default
                             let amount = 0;
+                            let symbol = 'SOL';
                             let otherSide = '';
+                            let actionLabel = 'Interaction'; // For "System" replacements
 
-                            // Simple logic to detect SOL transfers
-                            const transferInstruction = tx?.transaction.message.instructions.find(
-                                (ins: any) => ins.program === 'system' && ins.parsed?.type === 'transfer'
-                            );
+                            // 1. Check for UNIK Interactions via Logs
+                            const logs = tx?.meta?.logMessages || [];
+                            const isRegisterAlias = logs.some((l: string) => l.includes("Instruction: RegisterAlias"));
+                            const isSetRoute = logs.some((l: string) => l.includes("Instruction: SetRouteConfig"));
 
-                            if (transferInstruction) {
-                                const info = (transferInstruction as any).parsed.info;
-                                if (info.destination === publicKey.toBase58()) {
-                                    type = 'Received';
-                                    otherSide = info.source;
-                                    amount = info.lamports / 1e9;
-                                } else {
-                                    type = 'Sent';
-                                    otherSide = info.destination;
-                                    amount = info.lamports / 1e9;
+                            if (isRegisterAlias) {
+                                type = 'System';
+                                actionLabel = 'Alias Registration';
+                            } else if (isSetRoute) {
+                                type = 'System';
+                                actionLabel = 'Routing Configuration';
+                            } else {
+                                // 2. Check for SPL Token Transfers (USDC, etc)
+                                const tokenTransfer = tx?.transaction.message.instructions.find((ins: any) => {
+                                    return (ins.program === 'spl-token' || ins.program === 'spl-token-2022') &&
+                                        (ins.parsed?.type === 'transfer' || ins.parsed?.type === 'transferChecked');
+                                });
+
+                                if (tokenTransfer) {
+                                    const info = (tokenTransfer as any).parsed.info;
+                                    // We need to check if we are source or destination.
+                                    // SPL transfers use Token Accounts, so we check authority or lookup user's ATA.
+                                    // Simplified heuristic: Check authority (source owner).
+                                    // Better: Parsing inner instructions is hard without heavy logic.
+                                    // Let's assume parsed info has authority/source/destination.
+
+                                    // If authority === publicKey (Sent)
+                                    if (info.authority === publicKey.toBase58() || info.multisigAuthority === publicKey.toBase58()) {
+                                        type = 'Sent';
+                                        otherSide = info.destination; // Receiver Token Account (not very useful visually, but best we have)
+                                        amount = info.tokenAmount?.uiAmount || info.amount / 1e6; // Fallback assumes 6 decimals if uiAmount missing
+                                        symbol = 'Token'; // Hard to know symbol without mint lookup. USDC is common.
+                                        if (info.mint === '4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU') symbol = 'USDC'; // Devnet USDC
+                                    } else {
+                                        // Hard to know if received without checking destination owner.
+                                        // But if we are here in history, it involves us.
+                                        // If we are not authority, we likely received it OR it's a random interaction.
+                                        // Let's stick to System SOL transfers for clarity unless we can be sure.
+                                        // If destination is OUR ASSOCIATED TOKEN ACCOUNT, it's received.
+                                        // We don't know our ATA address easily here.
+                                        // Fallback to "Token Interaction".
+                                        type = 'Token';
+                                        actionLabel = 'Token Transfer';
+                                    }
+                                }
+
+                                // 3. Check for SOL Transfers (System Program) - Overwrites Token logic if found (usually one or other)
+                                const transferInstruction = tx?.transaction.message.instructions.find(
+                                    (ins: any) => ins.program === 'system' && ins.parsed?.type === 'transfer'
+                                );
+
+                                if (transferInstruction && !tokenTransfer) {
+                                    const info = (transferInstruction as any).parsed.info;
+                                    if (info.destination === publicKey.toBase58()) {
+                                        type = 'Received';
+                                        otherSide = info.source;
+                                        amount = info.lamports / 1e9;
+                                        symbol = 'SOL';
+                                    } else if (info.source === publicKey.toBase58()) {
+                                        type = 'Sent';
+                                        otherSide = info.destination;
+                                        amount = info.lamports / 1e9;
+                                        symbol = 'SOL';
+                                    }
                                 }
                             }
 
@@ -2382,16 +2433,20 @@ function HistoryTab({ publicKey, connection, confirmModal, setConfirmModal }: an
                                 time: sig.blockTime,
                                 type,
                                 amount,
+                                symbol,
                                 otherSide,
+                                actionLabel,
                                 success: !tx?.meta?.err
                             };
                         } catch (e) {
                             return {
                                 signature: sig.signature,
                                 time: sig.blockTime,
-                                type: 'Transaction',
+                                type: 'Interaction',
                                 amount: 0,
+                                symbol: '',
                                 otherSide: '',
+                                actionLabel: 'Unknown',
                                 success: true
                             };
                         }
@@ -2399,7 +2454,7 @@ function HistoryTab({ publicKey, connection, confirmModal, setConfirmModal }: an
                 );
                 setHistory(detailedHistory);
 
-                // Load shared notes for all signatures
+                // Load shared notes
                 const sigList = detailedHistory.map(tx => tx.signature);
                 const loadedSharedNotes = await getSharedNotes(sigList);
                 setSharedNotes(loadedSharedNotes);
@@ -2413,43 +2468,23 @@ function HistoryTab({ publicKey, connection, confirmModal, setConfirmModal }: an
         fetchHistory();
     }, [publicKey, connection]);
 
-    // Helper to get display label for transaction (destination/source info)
-    const getDisplayLabel = (tx: any) => {
-        const savedNote = notes[tx.signature];
-
-        // For sent transactions: show recipient (alias if available, otherwise address)
-        if (tx.type === 'Sent') {
-            // If we have a saved recipient alias (like @tests), use it
-            if (savedNote?.recipient) {
-                return `${t('sent_to')} ${savedNote.recipient}`;
-            }
-            // Otherwise use the address
-            if (tx.otherSide) {
-                return `${t('sent_to')} ${tx.otherSide.slice(0, 6)}...`;
-            }
-            return t('send');
-        }
-
-        // For received transactions: show sender info
-        if (tx.type === 'Received' && tx.otherSide) {
-            return `${t('received_from')} ${tx.otherSide.slice(0, 6)}...`;
-        }
-
-        return tx.type;
+    const getContactAlias = (address: string) => {
+        if (!contacts || !address) return null;
+        const contact = contacts.find((c: any) => c.address === address);
+        return contact ? contact.alias : null;
     };
 
-    // Helper to get the concept/note for a transaction
-    // First check personal notes, then shared notes (for received transactions)
-    const getConceptLabel = (tx: any) => {
-        // Check personal notes first (for sent transactions)
-        const savedNote = notes[tx.signature];
-        if (savedNote?.note) return savedNote.note;
-
-        // Check shared notes (works for both sent and received)
-        const sharedNote = sharedNotes[tx.signature];
-        if (sharedNote) return sharedNote.note;
-
-        return null;
+    const formatTime = (timestamp: number) => {
+        if (!timestamp) return '';
+        const date = new Date(timestamp * 1000);
+        return new Intl.DateTimeFormat(language === 'es' ? 'es-ES' : language === 'fr' ? 'fr-FR' : 'en-US', {
+            month: 'numeric',
+            day: 'numeric',
+            year: 'numeric',
+            hour: 'numeric',
+            minute: 'numeric',
+            hour12: true
+        }).format(date);
     };
 
     if (loading) {
@@ -2465,60 +2500,81 @@ function HistoryTab({ publicKey, connection, confirmModal, setConfirmModal }: an
         <div className="space-y-4">
             <h3 className="font-bold text-xl mb-4">{t('history_title')}</h3>
 
-            <div className="space-y-2">
+            <div className="space-y-3">
                 {history.length === 0 ? (
                     <p className="text-center text-gray-500 py-12">{t('no_history')}</p>
                 ) : (
                     history.map((tx: any, i: number) => {
-                        const conceptNote = getConceptLabel(tx);
-                        const hasNote = !!conceptNote;
-                        const sharedData = sharedNotes[tx.signature];
-                        const senderAlias = sharedData?.senderAlias;
+                        const savedNote = notes[tx.signature];
+                        const sharedNote = sharedNotes[tx.signature];
+
+                        // Resolve Display Name
+                        let displayName = tx.type;
+                        let secondaryText = tx.actionLabel;
+
+                        if (tx.type === 'Sent') {
+                            const alias = getContactAlias(tx.otherSide) || savedNote?.recipient;
+                            displayName = alias ? `Sent to @${alias}` : `Sent to ${tx.otherSide.slice(0, 4)}...${tx.otherSide.slice(-4)}`;
+                            secondaryText = savedNote?.note || t('sent');
+                        } else if (tx.type === 'Received') {
+                            const alias = getContactAlias(tx.otherSide) || sharedNote?.senderAlias;
+                            displayName = alias ? `Received from @${alias}` : `Received from ${tx.otherSide.slice(0, 4)}...${tx.otherSide.slice(-4)}`;
+                            secondaryText = sharedNote?.note || t('received');
+                        } else if (tx.type === 'System') {
+                            displayName = tx.actionLabel; // e.g., Alias Registration
+                            secondaryText = 'System Interaction';
+                        }
+
+                        // Determine Icon
+                        let Icon = (
+                            <div className="w-10 h-10 rounded-full bg-gray-700/50 flex items-center justify-center text-gray-400">
+                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+                            </div>
+                        );
+
+                        if (tx.type === 'Sent') {
+                            Icon = (
+                                <div className="w-10 h-10 rounded-full bg-red-500/20 flex items-center justify-center text-red-500 border border-red-500/30">
+                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 17L17 7M17 7H7M17 7V17" /></svg>
+                                </div>
+                            );
+                        } else if (tx.type === 'Received') {
+                            Icon = (
+                                <div className="w-10 h-10 rounded-full bg-green-500/20 flex items-center justify-center text-green-500 border border-green-500/30">
+                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 7L7 17M7 17H17M7 17V7" /></svg>
+                                </div>
+                            );
+                        }
 
                         return (
-                            <div key={i} className="flex items-center justify-between p-4 bg-gray-800 border border-gray-700 hover:border-gray-600 transition-colors rounded-xl">
+                            <div key={i} className="flex items-center justify-between p-4 bg-[#13131f]/50 border border-white/5 hover:border-white/10 hover:bg-[#13131f] transition-all rounded-xl group">
                                 <div className="flex items-center gap-4 min-w-0">
-                                    <div className={`w-10 h-10 flex items-center justify-center text-xl rounded-lg ${tx.type === 'Received' ? 'text-green-500 bg-green-500/10' :
-                                        tx.type === 'Sent' ? 'text-red-500 bg-red-500/10' : 'text-cyan-500 bg-cyan-500/10'
-                                        }`}>
-                                        {tx.type === 'Received' ? '↙' : tx.type === 'Sent' ? '↗' : '⚙'}
-                                    </div>
+                                    {Icon}
                                     <div className="min-w-0">
-                                        <div className="flex items-center gap-2 flex-wrap">
-                                            <p className="font-bold text-white truncate max-w-[200px]">
-                                                {getDisplayLabel(tx)}
-                                            </p>
-                                            {hasNote && (
-                                                <span className="text-amber-300 text-sm truncate max-w-[150px]">
-                                                    • {conceptNote}
-                                                </span>
-                                            )}
-                                            {senderAlias && tx.type === 'Received' && (
-                                                <span className="text-cyan-400 text-xs bg-cyan-900/30 px-1.5 py-0.5 rounded border border-cyan-500/20">
-                                                    {t('received_from')} @{senderAlias}
-                                                </span>
-                                            )}
-                                            {!tx.success && <span className="text-[10px] bg-red-500 text-white px-1 uppercase leading-none py-0.5 rounded">{t('failed')}</span>}
+                                        <h4 className="font-bold text-white text-sm truncate">{displayName}</h4>
+                                        <div className="flex items-center gap-2 text-xs text-gray-400">
+                                            <span className="truncate max-w-[150px]">{secondaryText}</span>
+                                            <span className="w-1 h-1 bg-gray-600 rounded-full"></span>
+                                            <span className="whitespace-nowrap">{formatTime(tx.time)}</span>
                                         </div>
-                                        <p className="text-xs text-gray-500 font-mono">
-                                            {tx.time ? new Date(tx.time * 1000).toLocaleDateString(language) + ' ' + new Date(tx.time * 1000).toLocaleTimeString(language, { hour: '2-digit', minute: '2-digit' }) : t('pending')}
-                                        </p>
                                     </div>
                                 </div>
 
-                                <div className="text-right ml-4">
-                                    {tx.amount > 0 && (
-                                        <p className={`font-bold ${tx.type === 'Received' ? 'text-green-400' : 'text-red-400'}`}>
-                                            {tx.type === 'Received' ? '+' : '-'}{tx.amount.toFixed(4)} {notes[tx.signature]?.token || 'SOL'}
-                                        </p>
-                                    )}
+                                <div className="text-right pl-4">
+                                    {tx.type === 'Sent' && <p className="font-bold text-red-400 text-sm whitespace-nowrap">- {tx.amount.toFixed(4)} {tx.symbol}</p>}
+                                    {tx.type === 'Received' && <p className="font-bold text-green-400 text-sm whitespace-nowrap">+ {tx.amount.toFixed(4)} {tx.symbol}</p>}
+                                    {tx.type === 'System' && <p className="font-bold text-gray-400 text-xs uppercase tracking-wider">{t('system')}</p>}
+                                    {tx.type === 'Interaction' && <p className="font-bold text-blue-400 text-xs uppercase tracking-wider">Interaction</p>}
+                                    {tx.type === 'Token' && <p className="font-bold text-purple-400 text-xs uppercase tracking-wider">Token</p>}
+
                                     <a
                                         href={`https://solscan.io/tx/${tx.signature}?cluster=devnet`}
                                         target="_blank"
                                         rel="noopener noreferrer"
-                                        className="text-[10px] text-cyan-500 hover:underline font-mono"
+                                        className="text-[10px] text-cyan-600 hover:text-cyan-400 font-bold mt-1 inline-flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity"
                                     >
-                                        Solscan ↗
+                                        Solscan
+                                        <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>
                                     </a>
                                 </div>
                             </div>
