@@ -2,7 +2,7 @@
 "use client";
 
 import { useState, useEffect } from 'react';
-import Image from 'next/image';
+
 import { usePreferences } from '../../context/PreferencesContext';
 
 export function SettingsModal({ isOpen, onClose, avatarUrl, handleAvatarUpload, uploadingAvatar, network, registeredAlias, handleRemoveAvatar }: any) {
@@ -78,7 +78,7 @@ export function SettingsModal({ isOpen, onClose, avatarUrl, handleAvatarUpload, 
                             <div className="flex items-center gap-4 p-4 bg-white/5 rounded-xl border border-white/5">
                                 <div className="relative w-16 h-16 rounded-full overflow-hidden bg-black/40 border border-white/10 group">
                                     {avatarUrl ? (
-                                        <Image src={avatarUrl} alt="Avatar" layout="fill" objectFit="cover" />
+                                        <img src={avatarUrl} alt="Avatar" className="w-full h-full object-cover" />
                                     ) : (
                                         <div className="w-full h-full flex items-center justify-center text-gray-600 bg-gray-900">
                                             <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
@@ -169,7 +169,7 @@ export function SettingsModal({ isOpen, onClose, avatarUrl, handleAvatarUpload, 
                     <button onClick={onClose} className="px-5 py-2.5 rounded-xl font-bold text-gray-400 hover:text-white hover:bg-white/5 transition-all">{t('cancel')}</button>
                     <button onClick={handleSave} className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-cyan-600 to-purple-600 hover:from-cyan-500 hover:to-purple-500 text-white font-bold shadow-lg transition-all">{t('save_settings')}</button>
                 </div>
-            </div>
-        </div>
+            </div >
+        </div >
     );
 }

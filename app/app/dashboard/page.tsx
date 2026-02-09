@@ -761,7 +761,7 @@ export default function Dashboard() {
 
                     {/* RIGHT COLUMN: Content Area */}
                     <div className="flex-1 w-full bg-[#13131f]/50 backdrop-blur-sm rounded-[2rem] border border-white/5 p-4 lg:p-8 min-h-[500px]">
-                        {activeTab === 'receive' && <ReceiveTab registeredAlias={registeredAlias} linkAmount={linkAmount} setLinkAmount={setLinkAmount} linkConcept={linkConcept} setLinkConcept={setLinkConcept} requestToken={requestToken} setRequestToken={setRequestToken} />}
+                        {activeTab === 'receive' && <ReceiveTab avatarUrl={avatarUrl} registeredAlias={registeredAlias} linkAmount={linkAmount} setLinkAmount={setLinkAmount} linkConcept={linkConcept} setLinkConcept={setLinkConcept} requestToken={requestToken} setRequestToken={setRequestToken} />}
                         {activeTab === 'send' && <SendTab sendRecipient={sendRecipient} setSendRecipient={setSendRecipient} sendAlias={sendAlias} setSendAlias={setSendAlias} sendAmount={sendAmount} setSendAmount={setSendAmount} sendNote={sendNote} setSendNote={setSendNote} paymentConcept={paymentConcept} setPaymentConcept={setPaymentConcept} loading={loading} setLoading={setLoading} publicKey={publicKey} wallet={wallet} connection={connection} solPrice={liveSolPrice} balance={balances.find(b => b.symbol === 'SOL')?.amount || 0} sendToken={sendToken} setSendToken={setSendToken} myAliases={myAliases} contacts={contacts} resolvedAddress={resolvedAddress} setResolvedAddress={setResolvedAddress} />}
                         {activeTab === 'splits' && <SplitsTab splits={splits} setSplits={setSplits} isEditing={isEditing} setIsEditing={setIsEditing} newSplitAddress={newSplitAddress} setNewSplitAddress={setNewSplitAddress} newSplitPercent={newSplitPercent} setNewSplitPercent={setNewSplitPercent} addSplit={addSplit} removeSplit={removeSplit} totalPercent={totalPercent} handleSaveConfig={handleSaveConfig} loading={loading} registeredAlias={registeredAlias} setActiveTab={setActiveTab} />}
                         {activeTab === 'alias' && <AliasTab myAliases={myAliases} showRegisterForm={showRegisterForm} setShowRegisterForm={setShowRegisterForm} alias={alias} setAlias={setAlias} handleRegister={handleRegister} loading={loading} setRegisteredAlias={setRegisteredAlias} />}
@@ -885,7 +885,7 @@ function ActionButton({ icon, label, active, onClick }: { icon: string; label: s
     );
 }
 
-function ReceiveTab({ registeredAlias, linkAmount, setLinkAmount, linkConcept, setLinkConcept, requestToken, setRequestToken }: any) {
+function ReceiveTab({ avatarUrl, registeredAlias, linkAmount, setLinkAmount, linkConcept, setLinkConcept, requestToken, setRequestToken }: any) {
     const { t } = usePreferences();
     const { publicKey } = useWallet();
     const [useAddress, setUseAddress] = useState(!registeredAlias);
@@ -1080,9 +1080,15 @@ function ReceiveTab({ registeredAlias, linkAmount, setLinkAmount, linkConcept, s
                         <div className="absolute top-0 right-0 w-32 h-32 bg-cyan-500/10 blur-[60px] rounded-full group-hover:bg-cyan-500/20 transition-all duration-700"></div>
 
                         <div className="relative z-10 flex flex-col items-center text-center">
-                            <div className="w-20 h-20 bg-gradient-to-tr from-cyan-500 to-purple-600 rounded-full flex items-center justify-center text-white text-3xl font-black shadow-[0_0_30px_rgba(6,182,212,0.3)] mb-4">
-                                @
-                            </div>
+                            {avatarUrl ? (
+                                <div className="relative w-24 h-24 rounded-full overflow-hidden border-2 border-white/20 shadow-[0_0_30px_rgba(6,182,212,0.3)] mb-4">
+                                    <img src={avatarUrl} alt="Avatar" className="w-full h-full object-cover" />
+                                </div>
+                            ) : (
+                                <div className="w-20 h-20 bg-gradient-to-tr from-cyan-500 to-purple-600 rounded-full flex items-center justify-center text-white text-3xl font-black shadow-[0_0_30px_rgba(6,182,212,0.3)] mb-4">
+                                    @
+                                </div>
+                            )}
                             <h4 className="text-3xl font-black bg-gradient-to-r from-white via-cyan-200 to-white bg-clip-text text-transparent tracking-tight">
                                 @{registeredAlias}
                             </h4>
