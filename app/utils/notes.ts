@@ -135,17 +135,21 @@ class SmartNoteStorage implements NoteStorage {
     async getNotes(owner?: string): Promise<Record<string, TransactionNote>> {
         console.log('[NoteStorage] Getting notes for:', owner?.slice(0, 8));
 
+        // Always get local notes (fallback or pre-login data)
+        const localNotes = await this.local.getNotes(owner);
+
+        // If authenticated, get cloud notes and merge
         if (this.isCloudReady() && owner) {
             try {
                 const cloudNotes = await this.cloud.getNotes(owner);
                 console.log('[NoteStorage] Got cloud notes:', Object.keys(cloudNotes).length);
-                return cloudNotes;
+                // Merge: Cloud takes precedence if same key exists
+                return { ...localNotes, ...cloudNotes };
             } catch (e) {
-                console.warn("[NoteStorage] Cloud fetch failed, fallback to local", e);
+                console.warn("[NoteStorage] Cloud fetch failed, using local only", e);
             }
         }
 
-        const localNotes = await this.local.getNotes(owner);
         console.log('[NoteStorage] Got local notes:', Object.keys(localNotes).length);
         return localNotes;
     }
