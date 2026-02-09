@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { WalletContextProvider } from "./components/WalletContextProvider";
+import { PreferencesProvider } from "../context/PreferencesContext";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -32,42 +33,44 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
         <WalletContextProvider>
-          <Toaster
-            position="bottom-right"
-            toastOptions={{
-              duration: 5000,
-              style: {
-                background: "#13131f",
-                color: "#fff",
-                border: "1px solid rgba(255,255,255,0.1)",
-                borderRadius: "1rem",
-                fontSize: "14px",
-                backdropFilter: "blur(10px)",
-                padding: "12px 20px",
-                boxShadow: "0 10px 40px rgba(0,0,0,0.5)",
-              },
-              success: {
-                iconTheme: {
-                  primary: "#22c55e",
-                  secondary: "#fff",
-                },
+          <PreferencesProvider>
+            <Toaster
+              position="bottom-right"
+              toastOptions={{
+                duration: 5000,
                 style: {
-                  border: "1px solid rgba(34,197,94,0.3)",
-                }
-              },
-              error: {
-                iconTheme: {
-                  primary: "#ef4444",
-                  secondary: "#fff",
+                  background: "#13131f",
+                  color: "#fff",
+                  border: "1px solid rgba(255,255,255,0.1)",
+                  borderRadius: "1rem",
+                  fontSize: "14px",
+                  backdropFilter: "blur(10px)",
+                  padding: "12px 20px",
+                  boxShadow: "0 10px 40px rgba(0,0,0,0.5)",
                 },
-                style: {
-                  border: "1px solid rgba(239,68,68,0.3)",
+                success: {
+                  iconTheme: {
+                    primary: "#22c55e",
+                    secondary: "#fff",
+                  },
+                  style: {
+                    border: "1px solid rgba(34,197,94,0.3)",
+                  }
+                },
+                error: {
+                  iconTheme: {
+                    primary: "#ef4444",
+                    secondary: "#fff",
+                  },
+                  style: {
+                    border: "1px solid rgba(239,68,68,0.3)",
+                  }
                 }
-              }
-            }}
-          />
-          <RiskModal />
-          {children}
+              }}
+            />
+            <RiskModal />
+            {children}
+          </PreferencesProvider>
         </WalletContextProvider>
       </body>
     </html>

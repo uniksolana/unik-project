@@ -22,7 +22,8 @@ import { TOKEN_PROGRAM_ID, ASSOCIATED_TOKEN_PROGRAM_ID, getAssociatedTokenAddres
 import bs58 from 'bs58';
 import { deriveKeyFromSignature, encryptBlob, decryptBlob } from '../../utils/crypto';
 import { getSessionKey, setSessionKey } from '../../utils/sessionState';
-
+import { usePreferences } from '../../context/PreferencesContext';
+import { SettingsModal } from './SettingsModal';
 const TOKEN_OPTIONS = [
     { label: 'SOL', symbol: 'SOL', mint: null, decimals: 9, icon: '/sol.png' },
     { label: 'USDC (Devnet)', symbol: 'USDC', mint: new PublicKey('4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU'), decimals: 6, icon: '/usdc.png' },
@@ -40,7 +41,7 @@ export default function Dashboard() {
     const [registeredAlias, setRegisteredAlias] = useState<string | null>(null);
     const [myAliases, setMyAliases] = useState<string[]>([]);
     const [balances, setBalances] = useState<{ symbol: string; amount: number; valueUsd: number | null; icon: string }[]>([]);
-    const [solPrice, setSolPrice] = useState<number | null>(null);
+
     const [showRegisterForm, setShowRegisterForm] = useState(false);
     const [linkAmount, setLinkAmount] = useState('');
     const [linkConcept, setLinkConcept] = useState('');
@@ -61,9 +62,10 @@ export default function Dashboard() {
     // Settings State
     const [showSettings, setShowSettings] = useState(false);
     const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
-    const [userCurrency, setUserCurrency] = useState('USD');
-    const [userLanguage, setUserLanguage] = useState('en');
     const [network, setNetwork] = useState('devnet');
+
+    // Global Prefs
+    const { t, convertPrice, currency, solPrice: liveSolPrice } = usePreferences();
     const [uploadingAvatar, setUploadingAvatar] = useState(false);
 
     // New: Load Encrypted Avatar when session is unlocked
@@ -83,25 +85,7 @@ export default function Dashboard() {
         loadEncryptedAvatar();
     }, [encryptionKey, publicKey]);
 
-    useEffect(() => {
-        // Load settings from localStorage
-        const storedCurrency = localStorage.getItem('unik_currency');
-        const storedLanguage = localStorage.getItem('unik_language');
-        const storedNetwork = localStorage.getItem('unik_network');
-        if (storedCurrency) setUserCurrency(storedCurrency);
-        if (storedLanguage) setUserLanguage(storedLanguage);
-        if (storedNetwork) setNetwork(storedNetwork);
-    }, []);
 
-    const saveSettings = (currency: string, language: string, net: string) => {
-        setUserCurrency(currency);
-        setUserLanguage(language);
-        setNetwork(net);
-        localStorage.setItem('unik_currency', currency);
-        localStorage.setItem('unik_language', language);
-        localStorage.setItem('unik_network', net);
-        toast.success("Settings saved locally");
-    };
 
     // Sync with global session (re-check on focus or mount)
     useEffect(() => {
@@ -270,7 +254,7 @@ export default function Dashboard() {
 
                 // Construct Balance State
                 const newBalances = [
-                    { symbol: 'SOL', amount: solAmount, valueUsd: solPrice ? solAmount * solPrice : null, icon: TOKEN_OPTIONS[0].icon },
+                    { symbol: 'SOL', amount: solAmount, valueUsd: liveSolPrice ? solAmount * liveSolPrice : null, icon: TOKEN_OPTIONS[0].icon },
                     ...tokenBalancesData.map(t => ({
                         symbol: t.symbol,
                         amount: t.amount,
@@ -290,7 +274,7 @@ export default function Dashboard() {
             const timer = setInterval(fetchAllBalances, 10000);
             return () => clearInterval(timer);
         }
-    }, [connected, publicKey, connection, solPrice]);
+    }, [connected, publicKey, connection, liveSolPrice]);
 
     useEffect(() => {
         const checkExistingAlias = async () => {
@@ -515,19 +499,7 @@ export default function Dashboard() {
     };
 
 
-    useEffect(() => {
-        // Fetch SOL price
-        const fetchPrice = async () => {
-            try {
-                const res = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=solana&vs_currencies=usd');
-                const data = await res.json();
-                setSolPrice(data.solana.usd);
-            } catch (e) {
-                console.error("Failed to fetch price", e);
-            }
-        };
-        fetchPrice();
-    }, []);
+
 
     // ... existing alias and config effects ...
 
@@ -613,8 +585,8 @@ export default function Dashboard() {
 
                 <div className="text-center z-10 p-8 border border-white/10 bg-white/5 backdrop-blur-xl rounded-3xl shadow-2xl">
                     <Image src="/logo-icon.png" alt="UNIK" width={80} height={80} className="mx-auto mb-6 drop-shadow-[0_0_15px_rgba(6,182,212,0.5)]" priority />
-                    <h1 className="text-4xl font-bold mb-3 tracking-tight">Welcome to UNIK</h1>
-                    <p className="text-gray-400 mb-8 max-w-xs mx-auto">The next-gen payment router for Solana.</p>
+                    <h1 className="text-4xl font-bold mb-3 tracking-tight">{t('welcome')}</h1>
+                    <p className="text-gray-400 mb-8 max-w-xs mx-auto">{t('subtitle')}</p>
                     <WalletMultiButton />
                 </div>
             </div>
@@ -711,7 +683,7 @@ export default function Dashboard() {
                         <div className="relative overflow-hidden rounded-[2rem] p-[1px] bg-gradient-to-br from-cyan-500/50 via-purple-500/50 to-pink-500/50 shadow-2xl shadow-purple-900/20">
                             <div className="bg-[#13131f] rounded-[2rem] p-6 text-center relative overflow-hidden">
                                 <div className="absolute top-0 left-1/2 -translate-x-1/2 w-3/4 h-24 bg-cyan-500/10 blur-[50px] rounded-full"></div>
-                                <p className="text-xs font-bold tracking-[0.2em] text-gray-500 uppercase mb-4">Portfolio</p>
+                                <p className="text-xs font-bold tracking-[0.2em] text-gray-500 uppercase mb-4">{t('portfolio')}</p>
 
                                 <div className="space-y-4">
                                     {balances.length > 0 ? balances.map((b) => (
@@ -734,8 +706,8 @@ export default function Dashboard() {
                                             </div>
                                             <div className="text-right">
                                                 <p className="font-bold text-white">{b.amount.toLocaleString(undefined, { maximumFractionDigits: 4 })}</p>
-                                                {b.symbol === 'SOL' && b.valueUsd !== null && (
-                                                    <p className="text-[10px] text-cyan-400">≈ ${b.valueUsd.toFixed(2)}</p>
+                                                {b.symbol === 'SOL' && (
+                                                    <p className="text-[10px] text-cyan-400">≈ {convertPrice(b.amount)}</p>
                                                 )}
                                             </div>
                                         </div>
@@ -750,37 +722,37 @@ export default function Dashboard() {
                         <div className="grid grid-cols-3 lg:grid-cols-2 gap-3">
                             <ActionButton
                                 icon="receive"
-                                label="Receive"
+                                label={t('receive')}
                                 active={activeTab === 'receive'}
                                 onClick={() => setActiveTab('receive')}
                             />
                             <ActionButton
                                 icon="send"
-                                label="Send"
+                                label={t('send')}
                                 active={activeTab === 'send'}
                                 onClick={() => setActiveTab('send')}
                             />
                             <ActionButton
                                 icon="splits"
-                                label="Splits"
+                                label={t('splits')}
                                 active={activeTab === 'splits'}
                                 onClick={() => setActiveTab('splits')}
                             />
                             <ActionButton
                                 icon="alias"
-                                label="Alias"
+                                label={t('alias')}
                                 active={activeTab === 'alias'}
                                 onClick={() => setActiveTab('alias')}
                             />
                             <ActionButton
                                 icon="contacts"
-                                label="Contacts"
+                                label={t('contacts')}
                                 active={activeTab === 'contacts'}
                                 onClick={() => setActiveTab('contacts')}
                             />
                             <ActionButton
                                 icon="history"
-                                label="History"
+                                label={t('history')}
                                 active={activeTab === 'history'}
                                 onClick={() => setActiveTab('history')}
                             />
@@ -790,7 +762,7 @@ export default function Dashboard() {
                     {/* RIGHT COLUMN: Content Area */}
                     <div className="flex-1 w-full bg-[#13131f]/50 backdrop-blur-sm rounded-[2rem] border border-white/5 p-4 lg:p-8 min-h-[500px]">
                         {activeTab === 'receive' && <ReceiveTab registeredAlias={registeredAlias} linkAmount={linkAmount} setLinkAmount={setLinkAmount} linkConcept={linkConcept} setLinkConcept={setLinkConcept} requestToken={requestToken} setRequestToken={setRequestToken} />}
-                        {activeTab === 'send' && <SendTab sendRecipient={sendRecipient} setSendRecipient={setSendRecipient} sendAlias={sendAlias} setSendAlias={setSendAlias} sendAmount={sendAmount} setSendAmount={setSendAmount} sendNote={sendNote} setSendNote={setSendNote} paymentConcept={paymentConcept} setPaymentConcept={setPaymentConcept} loading={loading} setLoading={setLoading} publicKey={publicKey} wallet={wallet} connection={connection} solPrice={solPrice} balance={balances.find(b => b.symbol === 'SOL')?.amount || 0} sendToken={sendToken} setSendToken={setSendToken} myAliases={myAliases} contacts={contacts} resolvedAddress={resolvedAddress} setResolvedAddress={setResolvedAddress} />}
+                        {activeTab === 'send' && <SendTab sendRecipient={sendRecipient} setSendRecipient={setSendRecipient} sendAlias={sendAlias} setSendAlias={setSendAlias} sendAmount={sendAmount} setSendAmount={setSendAmount} sendNote={sendNote} setSendNote={setSendNote} paymentConcept={paymentConcept} setPaymentConcept={setPaymentConcept} loading={loading} setLoading={setLoading} publicKey={publicKey} wallet={wallet} connection={connection} solPrice={liveSolPrice} balance={balances.find(b => b.symbol === 'SOL')?.amount || 0} sendToken={sendToken} setSendToken={setSendToken} myAliases={myAliases} contacts={contacts} resolvedAddress={resolvedAddress} setResolvedAddress={setResolvedAddress} />}
                         {activeTab === 'splits' && <SplitsTab splits={splits} setSplits={setSplits} isEditing={isEditing} setIsEditing={setIsEditing} newSplitAddress={newSplitAddress} setNewSplitAddress={setNewSplitAddress} newSplitPercent={newSplitPercent} setNewSplitPercent={setNewSplitPercent} addSplit={addSplit} removeSplit={removeSplit} totalPercent={totalPercent} handleSaveConfig={handleSaveConfig} loading={loading} registeredAlias={registeredAlias} setActiveTab={setActiveTab} />}
                         {activeTab === 'alias' && <AliasTab myAliases={myAliases} showRegisterForm={showRegisterForm} setShowRegisterForm={setShowRegisterForm} alias={alias} setAlias={setAlias} handleRegister={handleRegister} loading={loading} setRegisteredAlias={setRegisteredAlias} />}
                         {activeTab === 'contacts' && <ContactsTab contacts={contacts} refreshContacts={loadContacts} setSendRecipient={setSendRecipient} setSendAlias={setSendAlias} setSendNote={setSendNote} setResolvedAddress={setResolvedAddress} setActiveTab={setActiveTab} loading={loading} setLoading={setLoading} connection={connection} wallet={wallet} confirmModal={confirmModal} setConfirmModal={setConfirmModal} noteModal={noteModal} setNoteModal={setNoteModal} />}
@@ -806,10 +778,7 @@ export default function Dashboard() {
                         avatarUrl={avatarUrl}
                         handleAvatarUpload={handleAvatarUpload}
                         uploadingAvatar={uploadingAvatar}
-                        userCurrency={userCurrency}
-                        userLanguage={userLanguage}
                         network={network}
-                        saveSettings={saveSettings}
                         registeredAlias={registeredAlias}
                         handleRemoveAvatar={handleRemoveAvatar}
                     />
@@ -917,6 +886,7 @@ function ActionButton({ icon, label, active, onClick }: { icon: string; label: s
 }
 
 function ReceiveTab({ registeredAlias, linkAmount, setLinkAmount, linkConcept, setLinkConcept, requestToken, setRequestToken }: any) {
+    const { t } = usePreferences();
     const { publicKey } = useWallet();
     const [useAddress, setUseAddress] = useState(!registeredAlias);
 
@@ -962,7 +932,7 @@ function ReceiveTab({ registeredAlias, linkAmount, setLinkAmount, linkConcept, s
 
     return (
         <div>
-            <h3 className="text-2xl font-bold mb-6">Receive Payments</h3>
+            <h3 className="text-2xl font-bold mb-6">{t('receive_payments')}</h3>
 
             {/* Source Toggle */}
             <div className="flex justify-center mb-8">
@@ -976,20 +946,20 @@ function ReceiveTab({ registeredAlias, linkAmount, setLinkAmount, linkConcept, s
                         </button>
                     ) : (
                         <button disabled className="px-4 py-2 rounded-lg text-sm font-bold text-gray-600 cursor-not-allowed">
-                            No Alias
+                            {t('no_alias')}
                         </button>
                     )}
                     <button
                         onClick={() => setUseAddress(true)}
                         className={`px-4 py-2 rounded-lg text-sm font-bold transition-all ${useAddress ? 'bg-purple-500/20 text-purple-400 shadow-[0_0_15px_rgba(168,85,247,0.3)]' : 'text-gray-500 hover:text-gray-300'}`}
                     >
-                        Wallet Address
+                        {t('wallet_address')}
                     </button>
                 </div>
             </div>
 
             <div className="mb-6">
-                <label className="text-sm text-gray-400 block mb-2">Request specific amount (optional)</label>
+                <label className="text-sm text-gray-400 block mb-2">{t('request_amount')}</label>
                 <div className="flex items-center gap-3">
                     <input
                         type="number"
@@ -1004,7 +974,7 @@ function ReceiveTab({ registeredAlias, linkAmount, setLinkAmount, linkConcept, s
             </div>
 
             <div className="mb-6">
-                <label className="text-sm text-gray-400 block mb-2">Select Token</label>
+                <label className="text-sm text-gray-400 block mb-2">{t('select_token')}</label>
                 <div className="flex gap-2">
                     {TOKEN_OPTIONS.map(token => (
                         <button
@@ -1019,7 +989,7 @@ function ReceiveTab({ registeredAlias, linkAmount, setLinkAmount, linkConcept, s
             </div>
 
             <div className="mb-6">
-                <label className="text-sm text-gray-400 block mb-2">Payment Concept (optional, off-chain)</label>
+                <label className="text-sm text-gray-400 block mb-2">{t('payment_concept_offchain')}</label>
                 <input
                     type="text"
                     placeholder="e.g. For dinner, Project XYZ..."
@@ -1030,7 +1000,7 @@ function ReceiveTab({ registeredAlias, linkAmount, setLinkAmount, linkConcept, s
             </div>
 
             <div className="bg-gray-800 p-6 border border-gray-700">
-                <label className="text-sm text-gray-400 block mb-3">Your Payment Link & QR Code</label>
+                <label className="text-sm text-gray-400 block mb-3">{t('payment_link_label')}</label>
 
                 {/* QR Code Display */}
                 <div className="flex justify-center mb-6">
@@ -1054,14 +1024,14 @@ function ReceiveTab({ registeredAlias, linkAmount, setLinkAmount, linkConcept, s
                     <button
                         onClick={() => {
                             navigator.clipboard.writeText(getPaymentUrl());
-                            toast.success("Link copied to clipboard!");
+                            toast.success(t('link_copied'));
                         }}
                         className="flex items-center justify-center gap-2 px-4 py-3 bg-gray-700 hover:bg-gray-600 font-semibold transition-colors rounded-xl border border-white/5"
                     >
                         <svg className="w-5 h-5 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
                         </svg>
-                        Copy
+                        {t('copy')}
                     </button>
 
                     <button
@@ -1071,7 +1041,7 @@ function ReceiveTab({ registeredAlias, linkAmount, setLinkAmount, linkConcept, s
                         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
                         </svg>
-                        Share
+                        {t('share')}
                     </button>
                 </div>
 
@@ -1087,7 +1057,7 @@ function ReceiveTab({ registeredAlias, linkAmount, setLinkAmount, linkConcept, s
                             <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
                                 <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z" />
                             </svg>
-                            WhatsApp
+                            {t('whatsapp')}
                         </button>
 
                         <button
@@ -1100,7 +1070,7 @@ function ReceiveTab({ registeredAlias, linkAmount, setLinkAmount, linkConcept, s
                             <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
                                 <path d="M11.944 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0a12 12 0 0 0-.056 0zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 0 1 .171.325c.016.093.036.306.02.472-.18 1.898-.962 6.502-1.36 8.627-.168.9-.499 1.201-.82 1.23-.696.065-1.225-.46-1.9-.902-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.48.33-.913.49-1.302.48-.428-.008-1.252-.241-1.865-.44-.752-.245-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.83-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635z" />
                             </svg>
-                            Telegram
+                            {t('telegram')}
                         </button>
                     </div>
                 )}
@@ -1117,21 +1087,21 @@ function ReceiveTab({ registeredAlias, linkAmount, setLinkAmount, linkConcept, s
                                 @{registeredAlias}
                             </h4>
                             <p className="text-sm text-gray-400 mt-2 mb-8 font-medium max-w-[200px]">
-                                Share your personal UNIK contact identifier
+                                {t('add_contact_share')}
                             </p>
 
                             <div className="grid grid-cols-2 gap-4 w-full">
                                 <button
                                     onClick={() => {
                                         navigator.clipboard.writeText(getContactUrl());
-                                        toast.success("Contact link copied!");
+                                        toast.success(t('contact_link_copied'));
                                     }}
                                     className="flex items-center justify-center gap-2 py-4 bg-white/5 hover:bg-white/10 text-white font-bold rounded-2xl border border-white/10 transition-all active:scale-95 px-4"
                                 >
                                     <svg className="w-5 h-5 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
                                     </svg>
-                                    Copy
+                                    {t('copy')}
                                 </button>
 
                                 <button
@@ -1141,7 +1111,7 @@ function ReceiveTab({ registeredAlias, linkAmount, setLinkAmount, linkConcept, s
                                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
                                     </svg>
-                                    Share
+                                    {t('share')}
                                 </button>
                             </div>
 
@@ -1157,7 +1127,7 @@ function ReceiveTab({ registeredAlias, linkAmount, setLinkAmount, linkConcept, s
                                         <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
                                             <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z" />
                                         </svg>
-                                        WhatsApp
+                                        {t('whatsapp')}
                                     </button>
                                     <button
                                         onClick={() => {
@@ -1169,7 +1139,7 @@ function ReceiveTab({ registeredAlias, linkAmount, setLinkAmount, linkConcept, s
                                         <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
                                             <path d="M11.944 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0a12 12 0 0 0-.056 0zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 0 1 .171.325c.016.093.036.306.02.472-.18 1.898-.962 6.502-1.36 8.627-.168.9-.499 1.201-.82 1.23-.696.065-1.225-.46-1.9-.902-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.48.33-.913.49-1.302.48-.428-.008-1.252-.241-1.865-.44-.752-.245-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.83-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635z" />
                                         </svg>
-                                        Telegram
+                                        {t('telegram')}
                                     </button>
                                 </div>
                             )}
@@ -1182,6 +1152,7 @@ function ReceiveTab({ registeredAlias, linkAmount, setLinkAmount, linkConcept, s
 }
 
 function SendTab({ sendRecipient, setSendRecipient, sendAlias, setSendAlias, sendAmount, setSendAmount, sendNote, setSendNote, paymentConcept, setPaymentConcept, loading, setLoading, publicKey, wallet, connection, solPrice, balance, sendToken, setSendToken, myAliases, contacts, resolvedAddress, setResolvedAddress }: any) {
+    const { t, convertPrice } = usePreferences();
     // QR Scanner State
     const [scanning, setScanning] = useState(false);
     const scannerRef = useRef<Html5Qrcode | null>(null);
@@ -1560,7 +1531,7 @@ function SendTab({ sendRecipient, setSendRecipient, sendAlias, setSendAlias, sen
     return (
         <div>
             <div className="flex justify-between items-center mb-6">
-                <h3 className="text-2xl font-bold">Send Payment</h3>
+                <h3 className="text-2xl font-bold">{t('send')}</h3>
                 <div className="flex gap-2">
                     {TOKEN_OPTIONS.map(token => (
                         <button
@@ -1588,7 +1559,7 @@ function SendTab({ sendRecipient, setSendRecipient, sendAlias, setSendAlias, sen
                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" />
                     </svg>
-                    {scanning ? 'Cancel Scan' : 'Scan QR Code'}
+                    {scanning ? t('cancel_scan') : t('scan_qr')}
                 </button>
             </div>
 
@@ -1606,12 +1577,12 @@ function SendTab({ sendRecipient, setSendRecipient, sendAlias, setSendAlias, sen
 
             <div className="space-y-6">
                 <div>
-                    <label className="text-sm text-gray-400 block mb-2">Recipient</label>
+                    <label className="text-sm text-gray-400 block mb-2">{t('recipient')}</label>
 
                     <div className="relative">
                         <input
                             type="text"
-                            placeholder="@alias or wallet address"
+                            placeholder={t('recipient_placeholder')}
                             value={sendRecipient}
                             onChange={(e) => { setSendRecipient(e.target.value); setSendAlias(''); setSendNote(''); }}
                             className={`w-full pl-4 pr-20 py-4 bg-gray-800 rounded-xl text-white border font-mono text-sm focus:outline-none transition-colors ${isValidRecipient === true ? 'border-green-500/50 focus:border-green-500' :
@@ -1646,7 +1617,7 @@ function SendTab({ sendRecipient, setSendRecipient, sendAlias, setSendAlias, sen
                             <div className="absolute top-full left-0 right-0 mt-2 bg-[#1A1A24] border border-gray-700/80 rounded-xl z-50 max-h-72 overflow-y-auto shadow-2xl backdrop-blur-xl animate-in fade-in zoom-in-95 duration-200">
                                 <div className="p-3 sticky top-0 bg-[#1A1A24] border-b border-white/5 z-10 space-y-2">
                                     <div className="flex justify-between items-center px-1">
-                                        <span className="text-xs font-bold text-gray-400">YOUR CONTACTS</span>
+                                        <span className="text-xs font-bold text-gray-400">{t('your_contacts')}</span>
                                         <button onClick={() => setShowContactPicker(false)} className="text-gray-500 hover:text-white transition-colors">
                                             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
                                         </button>
@@ -1654,7 +1625,7 @@ function SendTab({ sendRecipient, setSendRecipient, sendAlias, setSendAlias, sen
                                     <div className="relative">
                                         <input
                                             type="text"
-                                            placeholder="Find by name or alias..."
+                                            placeholder={t('search_placeholder')}
                                             value={contactSearch}
                                             onChange={(e) => setContactSearch(e.target.value)}
                                             className="w-full bg-black/20 text-sm text-white px-3 py-2 pl-9 rounded-lg border border-gray-700/50 focus:border-cyan-500/50 focus:ring-1 focus:ring-cyan-500/20 focus:outline-none transition-all placeholder:text-gray-600"
@@ -1674,7 +1645,7 @@ function SendTab({ sendRecipient, setSendRecipient, sendAlias, setSendAlias, sen
                                     if (filtered.length === 0) return (
                                         <div className="p-8 text-center text-gray-500 flex flex-col items-center gap-2">
                                             <svg className="w-8 h-8 opacity-20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"></path></svg>
-                                            <span className="text-xs">No contacts match "{filterQ}"</span>
+                                            <span className="text-xs">{t('no_contacts')} "{filterQ}"</span>
                                         </div>
                                     );
 
@@ -1749,15 +1720,15 @@ function SendTab({ sendRecipient, setSendRecipient, sendAlias, setSendAlias, sen
                                     </span>}
                                 </div>
                             </div>
-                            <button onClick={() => { setSendRecipient(''); setSendAlias(''); setSendNote(''); setPaymentConcept(''); }} className="text-xs text-red-400 hover:text-red-300 px-3 py-1.5 hover:bg-red-500/10 rounded-lg transition-colors font-medium">Clear</button>
+                            <button onClick={() => { setSendRecipient(''); setSendAlias(''); setSendNote(''); setPaymentConcept(''); }} className="text-xs text-red-400 hover:text-red-300 px-3 py-1.5 hover:bg-red-500/10 rounded-lg transition-colors font-medium">{t('clear')}</button>
                         </div>
                     )}
                 </div>
 
                 <div>
-                    <label className="text-sm text-gray-400 block mb-2">Amount ({sendToken.symbol})
+                    <label className="text-sm text-gray-400 block mb-2">{t('amount')} ({sendToken.symbol})
                         <span className="float-right text-xs text-gray-500">
-                            Balance: {activeBalance !== null ? activeBalance.toFixed(sendToken.symbol === 'SOL' ? 4 : 2) : 'Loading...'}
+                            {t('balance')}: {activeBalance !== null ? `${activeBalance.toFixed(sendToken.symbol === 'SOL' ? 4 : 2)} ${sendToken.symbol === 'SOL' ? `(≈ ${convertPrice(activeBalance)})` : ''}` : t('loading')}
                         </span>
                     </label>
                     <input
@@ -1771,10 +1742,10 @@ function SendTab({ sendRecipient, setSendRecipient, sendAlias, setSendAlias, sen
                 </div>
 
                 <div>
-                    <label className="text-sm text-gray-400 block mb-2">Payment Concept (optional)</label>
+                    <label className="text-sm text-gray-400 block mb-2">{t('concept')}</label>
                     <input
                         type="text"
-                        placeholder="What's this for?"
+                        placeholder={t('concept_placeholder')}
                         value={paymentConcept}
                         onChange={(e) => setPaymentConcept(e.target.value)}
                         className="w-full px-4 py-4 bg-gray-800 rounded-xl text-white border border-gray-700 focus:outline-none focus:border-cyan-500"
@@ -1786,7 +1757,7 @@ function SendTab({ sendRecipient, setSendRecipient, sendAlias, setSendAlias, sen
                     disabled={loading || !sendRecipient || !sendAmount || parseFloat(sendAmount) <= 0 || activeBalance === null || parseFloat(sendAmount) > activeBalance}
                     className="w-full py-5 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 rounded-xl font-bold text-lg shadow-lg disabled:opacity-50 disabled:cursor-not-allowed transition-all transform active:scale-95"
                 >
-                    {loading ? 'Sending...' : `Send ${sendToken.symbol} Now`}
+                    {loading ? t('sending') : `${t('send')} ${sendToken.symbol}`}
                 </button>
             </div>
         </div >
@@ -1794,6 +1765,7 @@ function SendTab({ sendRecipient, setSendRecipient, sendAlias, setSendAlias, sen
 }
 
 function SplitsTab({ splits, setSplits, isEditing, setIsEditing, newSplitAddress, setNewSplitAddress, newSplitPercent, setNewSplitPercent, addSplit, removeSplit, totalPercent, handleSaveConfig, loading, registeredAlias, setActiveTab }: any) {
+    const { t } = usePreferences();
     if (!registeredAlias) {
         return (
             <div className="flex flex-col items-center justify-center h-full min-h-[400px] text-center p-8 bg-gray-900/30 rounded-2xl border border-dashed border-gray-700">
@@ -1802,16 +1774,15 @@ function SplitsTab({ splits, setSplits, isEditing, setIsEditing, newSplitAddress
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
                     </svg>
                 </div>
-                <h3 className="text-2xl font-bold mb-3">Alias Required</h3>
+                <h3 className="text-2xl font-bold mb-3">{t('alias_required')}</h3>
                 <p className="text-gray-400 mb-8 max-w-md leading-relaxed">
-                    Splits allows you to programmatically distribute incoming funds.
-                    <br />You need a registered UNIK Alias to enable these routing rules on-chain.
+                    {t('alias_required_desc')}
                 </p>
                 <button
                     onClick={() => setActiveTab('alias')}
                     className="px-8 py-4 bg-gradient-to-r from-cyan-600 to-purple-600 hover:from-cyan-500 hover:to-purple-500 rounded-xl font-bold text-white shadow-lg shadow-purple-900/20 transition-all transform hover:-translate-y-1 active:scale-95 flex items-center gap-2"
                 >
-                    <span>Register an Alias</span>
+                    <span>{t('register_btn')}</span>
                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" /></svg>
                 </button>
             </div>
@@ -1821,12 +1792,12 @@ function SplitsTab({ splits, setSplits, isEditing, setIsEditing, newSplitAddress
     return (
         <div>
             <div className="flex justify-between items-center mb-6">
-                <h3 className="text-2xl font-bold">Routing Rules</h3>
+                <h3 className="text-2xl font-bold">{t('routing_rules')}</h3>
                 <button
                     onClick={() => setIsEditing(!isEditing)}
                     className="px-4 py-2 bg-cyan-600 hover:bg-cyan-700 rounded-xl font-semibold text-sm transition-colors"
                 >
-                    {isEditing ? 'Cancel' : '+ Add Split'}
+                    {isEditing ? t('cancel') : t('add_split')}
                 </button>
             </div>
 
@@ -1878,14 +1849,14 @@ function SplitsTab({ splits, setSplits, isEditing, setIsEditing, newSplitAddress
 
             <div className="flex justify-between items-center pt-6 border-t border-gray-800">
                 <p className={`font-semibold ${totalPercent === 100 ? 'text-green-400' : 'text-red-400'}`}>
-                    Total Allocation: {totalPercent}%
+                    {t('total_allocation')}: {totalPercent}%
                 </p>
                 <button
                     onClick={handleSaveConfig}
                     disabled={totalPercent !== 100 || loading}
                     className="px-6 py-3 bg-gradient-to-r from-cyan-600 to-purple-600 hover:from-cyan-700 hover:to-purple-700 rounded-xl font-bold disabled:opacity-50 disabled:cursor-not-allowed transition-all"
                 >
-                    {loading ? 'Saving...' : 'Save on-chain'}
+                    {loading ? t('sending') : t('save_onchain')}
                 </button>
             </div>
         </div>
@@ -1893,18 +1864,19 @@ function SplitsTab({ splits, setSplits, isEditing, setIsEditing, newSplitAddress
 }
 
 function AliasTab({ myAliases, showRegisterForm, setShowRegisterForm, alias, setAlias, handleRegister, loading, setRegisteredAlias }: any) {
+    const { t } = usePreferences();
     return (
         <div>
-            <h3 className="text-2xl font-bold mb-6">Manage Aliases</h3>
+            <h3 className="text-2xl font-bold mb-6">{t('aliases_title')}</h3>
 
             {myAliases.length > 0 && !showRegisterForm && (
                 <div className="mb-6">
-                    <h4 className="text-sm text-gray-400 mb-3">Your Aliases</h4>
+                    <h4 className="text-sm text-gray-400 mb-3">{t('your_aliases')}</h4>
                     <div className="space-y-3">
                         {myAliases.map((a: string) => (
                             <div key={a} className="flex items-center justify-between p-4 bg-gray-800 rounded-xl border border-gray-700 hover:border-cyan-500 transition-colors cursor-pointer" onClick={() => setRegisteredAlias(a)}>
                                 <span className="text-lg font-semibold text-cyan-400">@{a}</span>
-                                <span className="text-sm text-gray-500">Click to switch</span>
+                                <span className="text-sm text-gray-500">{t('click_to_switch')}</span>
                             </div>
                         ))}
                     </div>
@@ -1912,14 +1884,14 @@ function AliasTab({ myAliases, showRegisterForm, setShowRegisterForm, alias, set
                         onClick={() => setShowRegisterForm(true)}
                         className="mt-4 w-full py-3 bg-gray-800 hover:bg-gray-700 rounded-xl font-semibold border border-gray-700 transition-colors"
                     >
-                        + Register New Alias
+                        + {t('register_alias')}
                     </button>
                 </div>
             )}
 
             {(showRegisterForm || myAliases.length === 0) && (
                 <div className="bg-gray-800 p-6 rounded-xl border border-gray-700">
-                    <h4 className="text-lg font-semibold mb-4">Register New Alias</h4>
+                    <h4 className="text-lg font-semibold mb-4">{t('register_alias')}</h4>
                     <div className="space-y-4">
                         <div>
                             <input
@@ -1939,10 +1911,10 @@ function AliasTab({ myAliases, showRegisterForm, setShowRegisterForm, alias, set
                             disabled={loading || !alias}
                             className="w-full py-4 bg-gradient-to-r from-cyan-600 to-purple-600 hover:from-cyan-700 hover:to-purple-700 rounded-xl font-bold text-lg disabled:opacity-50 disabled:cursor-not-allowed transition-all transform active:scale-95"
                         >
-                            {loading ? 'Registering...' : 'Register Alias'}
+                            {loading ? t('loading') : t('register_btn')}
                         </button>
                         {myAliases.length > 0 && (
-                            <button onClick={() => setShowRegisterForm(false)} className="w-full py-3 text-gray-400 hover:text-white transition-colors">Cancel</button>
+                            <button onClick={() => setShowRegisterForm(false)} className="w-full py-3 text-gray-400 hover:text-white transition-colors">{t('cancel')}</button>
                         )}
                     </div>
                 </div>
@@ -2002,6 +1974,7 @@ function NoteModal({ isOpen, alias, initialNote, onSave, onClose }: any) {
 }
 
 function ContactsTab({ setSendRecipient, setSendAlias, setSendNote, setResolvedAddress, setActiveTab, loading, setLoading, connection, wallet, confirmModal, setConfirmModal, noteModal, setNoteModal, contacts, refreshContacts }: any) {
+    const { t } = usePreferences();
     const [newContactAlias, setNewContactAlias] = useState('');
     const [filter, setFilter] = useState('recent');
     const [searchTerm, setSearchTerm] = useState('');
@@ -2106,13 +2079,13 @@ function ContactsTab({ setSendRecipient, setSendAlias, setSendNote, setResolvedA
     return (
         <div>
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
-                <h3 className="text-2xl font-bold">My Contacts</h3>
+                <h3 className="text-2xl font-bold">{t('contacts')}</h3>
                 <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto">
                     {/* Search Field */}
                     <div className="relative flex-1 sm:w-64">
                         <input
                             type="text"
-                            placeholder="Search contacts..."
+                            placeholder={t('search_placeholder')}
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
                             className="w-full pl-10 pr-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-sm focus:outline-none focus:border-cyan-500 transition-all font-medium"
@@ -2124,15 +2097,15 @@ function ContactsTab({ setSendRecipient, setSendAlias, setSendNote, setResolvedA
 
                     {/* Filter Dropdown */}
                     <div className="flex items-center gap-2 bg-gray-800 px-3 py-2 rounded-lg border border-gray-700">
-                        <span className="text-[10px] text-gray-500 uppercase font-bold tracking-wider">Sort:</span>
+                        <span className="text-[10px] text-gray-500 uppercase font-bold tracking-wider">{t('sort')}:</span>
                         <select
                             value={filter}
                             onChange={(e) => setFilter(e.target.value)}
                             className="bg-transparent text-sm font-semibold text-cyan-400 focus:outline-none appearance-none cursor-pointer pr-1"
                         >
-                            <option value="recent" className="bg-gray-800">Recent</option>
-                            <option value="alpha" className="bg-gray-800">A-Z</option>
-                            <option value="notes" className="bg-gray-800">Notes</option>
+                            <option value="recent" className="bg-gray-800">{t('recent')}</option>
+                            <option value="alpha" className="bg-gray-800">{t('az')}</option>
+                            <option value="notes" className="bg-gray-800">{t('notes')}</option>
                         </select>
                         <svg className="w-3 h-3 text-gray-500 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
@@ -2144,12 +2117,12 @@ function ContactsTab({ setSendRecipient, setSendAlias, setSendNote, setResolvedA
             <div className="mb-6 bg-gray-800 p-6 rounded-xl border border-gray-700 shadow-xl">
                 <h4 className="font-semibold mb-3 flex items-center gap-2">
                     <span className="w-2 h-2 bg-cyan-500 rounded-full animate-pulse"></span>
-                    Add New Contact
+                    {t('add_contact')}
                 </h4>
                 <div className="flex flex-col sm:flex-row gap-3">
                     <input
                         type="text"
-                        placeholder="Enter alias OR address (sol...)"
+                        placeholder={t('recipient_placeholder')}
                         value={newContactAlias}
                         onChange={(e) => setNewContactAlias(e.target.value)}
                         className="flex-1 px-4 py-3 rounded-xl bg-gray-900 border border-gray-700 focus:outline-none focus:border-cyan-500 transition-all font-mono text-sm"
@@ -2163,8 +2136,8 @@ function ContactsTab({ setSendRecipient, setSendAlias, setSendNote, setResolvedA
                             <div className="animate-spin h-5 w-5 border-2 border-white/20 border-t-white rounded-full mx-auto"></div>
                         ) : (
                             <>
-                                <span className="sm:hidden">Add</span>
-                                <span className="hidden sm:inline">Add Contact</span>
+                                <span className="sm:hidden">{t('add_contact')}</span>
+                                <span className="hidden sm:inline">{t('add_contact')}</span>
                             </>
                         )}
                     </button>
@@ -2174,8 +2147,8 @@ function ContactsTab({ setSendRecipient, setSendAlias, setSendNote, setResolvedA
             {contacts.length === 0 ? (
                 <div className="text-center py-16 bg-gray-800/50 rounded-2xl border-2 border-dashed border-gray-700">
                     <div className="text-5xl mb-4">👥</div>
-                    <p className="text-gray-400 font-medium">No contacts yet.</p>
-                    <p className="text-sm text-gray-500">Add your first one to start sending SOL faster!</p>
+                    <p className="text-gray-400 font-medium">{t('no_contacts_yet')}</p>
+                    <p className="text-sm text-gray-500">{t('add_first_contact')}</p>
                 </div>
             ) : filteredContacts.length === 0 ? (
                 <div className="text-center py-12 bg-gray-800/30 rounded-xl border border-gray-700">
@@ -2344,6 +2317,7 @@ function ContactsTab({ setSendRecipient, setSendAlias, setSendNote, setResolvedA
 }
 
 function HistoryTab({ publicKey, connection, confirmModal, setConfirmModal }: any) {
+    const { t, language } = usePreferences();
     const [history, setHistory] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [notes, setNotes] = useState<Record<string, TransactionNote>>({});
@@ -2436,18 +2410,18 @@ function HistoryTab({ publicKey, connection, confirmModal, setConfirmModal }: an
         if (tx.type === 'Sent') {
             // If we have a saved recipient alias (like @tests), use it
             if (savedNote?.recipient) {
-                return `Sent to ${savedNote.recipient}`;
+                return `${t('sent_to')} ${savedNote.recipient}`;
             }
             // Otherwise use the address
             if (tx.otherSide) {
-                return `Sent to ${tx.otherSide.slice(0, 6)}...`;
+                return `${t('sent_to')} ${tx.otherSide.slice(0, 6)}...`;
             }
-            return 'Sent';
+            return t('send');
         }
 
         // For received transactions: show sender info
         if (tx.type === 'Received' && tx.otherSide) {
-            return `From ${tx.otherSide.slice(0, 6)}...`;
+            return `${t('received_from')} ${tx.otherSide.slice(0, 6)}...`;
         }
 
         return tx.type;
@@ -2471,18 +2445,18 @@ function HistoryTab({ publicKey, connection, confirmModal, setConfirmModal }: an
         return (
             <div className="py-12 text-center text-gray-500">
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-cyan-500 mx-auto mb-4"></div>
-                Loading history...
+                {t('loading')}
             </div>
         );
     }
 
     return (
         <div className="space-y-4">
-            <h3 className="font-bold text-xl mb-4">Transaction History</h3>
+            <h3 className="font-bold text-xl mb-4">{t('history_title')}</h3>
 
             <div className="space-y-2">
                 {history.length === 0 ? (
-                    <p className="text-center text-gray-500 py-12">No transactions found.</p>
+                    <p className="text-center text-gray-500 py-12">{t('no_history')}</p>
                 ) : (
                     history.map((tx: any, i: number) => {
                         const conceptNote = getConceptLabel(tx);
@@ -2510,13 +2484,13 @@ function HistoryTab({ publicKey, connection, confirmModal, setConfirmModal }: an
                                             )}
                                             {senderAlias && tx.type === 'Received' && (
                                                 <span className="text-cyan-400 text-xs bg-cyan-900/30 px-1.5 py-0.5 rounded border border-cyan-500/20">
-                                                    From @{senderAlias}
+                                                    {t('received_from')} @{senderAlias}
                                                 </span>
                                             )}
-                                            {!tx.success && <span className="text-[10px] bg-red-500 text-white px-1 uppercase leading-none py-0.5 rounded">Failed</span>}
+                                            {!tx.success && <span className="text-[10px] bg-red-500 text-white px-1 uppercase leading-none py-0.5 rounded">{t('failed')}</span>}
                                         </div>
                                         <p className="text-xs text-gray-500 font-mono">
-                                            {tx.time ? new Date(tx.time * 1000).toLocaleDateString() + ' ' + new Date(tx.time * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Pending...'}
+                                            {tx.time ? new Date(tx.time * 1000).toLocaleDateString(language) + ' ' + new Date(tx.time * 1000).toLocaleTimeString(language, { hour: '2-digit', minute: '2-digit' }) : t('pending')}
                                         </p>
                                     </div>
                                 </div>
@@ -2545,169 +2519,5 @@ function HistoryTab({ publicKey, connection, confirmModal, setConfirmModal }: an
     );
 }
 
-function SettingsModal({ isOpen, onClose, avatarUrl, handleAvatarUpload, uploadingAvatar, userCurrency, userLanguage, network, saveSettings, registeredAlias, handleRemoveAvatar }: any) {
-    const [activeTab, setActiveTab] = useState('general');
-    const [tempCurrency, setTempCurrency] = useState(userCurrency);
-    const [tempLang, setTempLang] = useState(userLanguage);
-    const [tempNet, setTempNet] = useState(network);
-    const [removingAvatar, setRemovingAvatar] = useState(false);
 
-    const handleSave = () => {
-        saveSettings(tempCurrency, tempLang, tempNet);
-        onClose();
-    };
-
-    const onRemove = async () => {
-        if (!confirm("Are you sure you want to remove your profile picture?")) return;
-        setRemovingAvatar(true);
-        await handleRemoveAvatar(); // Call parent function
-        setRemovingAvatar(false);
-    };
-
-    if (!isOpen) return null;
-
-    return (
-        <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4">
-            <div className="absolute inset-0 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200" onClick={onClose}></div>
-            <div className="relative bg-[#1a1a2e] w-full max-w-lg rounded-2xl border border-white/10 shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
-
-                {/* Header */}
-                <div className="flex justify-between items-center p-6 border-b border-white/5 bg-[#13131f]">
-                    <h3 className="text-xl font-bold flex items-center gap-2">
-                        <svg className="w-5 h-5 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
-                        Settings
-                    </h3>
-                    <button onClick={onClose} className="text-gray-400 hover:text-white transition-colors">
-                        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
-                    </button>
-                </div>
-
-                {/* Tabs */}
-                <div className="flex border-b border-white/5 bg-[#13131f]">
-                    <button
-                        onClick={() => setActiveTab('general')}
-                        className={`flex-1 py-3 text-sm font-bold border-b-2 transition-colors ${activeTab === 'general' ? 'border-cyan-500 text-cyan-400' : 'border-transparent text-gray-500 hover:text-gray-300'}`}
-                    >
-                        General
-                    </button>
-                    <button
-                        onClick={() => setActiveTab('network')}
-                        className={`flex-1 py-3 text-sm font-bold border-b-2 transition-colors ${activeTab === 'network' ? 'border-cyan-500 text-cyan-400' : 'border-transparent text-gray-500 hover:text-gray-300'}`}
-                    >
-                        Network
-                    </button>
-                </div>
-
-                {/* Content */}
-                <div className="p-6 space-y-6">
-                    {activeTab === 'general' && (
-                        <div className="space-y-6 animate-in fade-in duration-300">
-                            {/* Avatar Section */}
-                            <div className="flex items-center gap-4 p-4 bg-white/5 rounded-xl border border-white/5">
-                                <div className="relative w-16 h-16 rounded-full overflow-hidden bg-black/40 border border-white/10 group">
-                                    {avatarUrl ? (
-                                        <Image src={avatarUrl} alt="Avatar" layout="fill" objectFit="cover" />
-                                    ) : (
-                                        <div className="w-full h-full flex items-center justify-center text-gray-600 bg-gray-900">
-                                            <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
-                                        </div>
-                                    )}
-                                    <label className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center cursor-pointer transition-opacity">
-                                        {uploadingAvatar ? (
-                                            <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
-                                        ) : (
-                                            <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
-                                        )}
-                                        <input type="file" className="hidden" accept="image/*" onChange={handleAvatarUpload} disabled={uploadingAvatar} />
-                                    </label>
-                                </div>
-                                <div>
-                                    <h4 className="font-bold text-white">Profile Picture</h4>
-                                    <p className="text-xs text-gray-400">Visible to others in contacts & payments.</p>
-                                    {!registeredAlias && <p className="text-xs text-red-400 font-bold mt-1">Register an alias first.</p>}
-                                    {avatarUrl && registeredAlias && (
-                                        <button
-                                            onClick={onRemove}
-                                            disabled={removingAvatar}
-                                            className="mt-2 text-xs text-red-500 hover:text-red-400 font-bold transition-colors flex items-center gap-1"
-                                        >
-                                            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                                            {removingAvatar ? 'Removing...' : 'Remove Photo'}
-                                        </button>
-                                    )}
-                                </div>
-                            </div>
-
-                            {/* Preferences */}
-                            <div className="grid grid-cols-2 gap-4">
-                                <div>
-                                    <label className="block text-xs font-bold text-gray-500 uppercase mb-2">Language</label>
-                                    <select
-                                        value={tempLang}
-                                        onChange={(e) => setTempLang(e.target.value)}
-                                        className="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:border-cyan-500 outline-none appearance-none"
-                                    >
-                                        <option value="en">English</option>
-                                        <option value="es">Español</option>
-                                        <option value="fr">Français</option>
-                                    </select>
-                                </div>
-                                <div>
-                                    <label className="block text-xs font-bold text-gray-500 uppercase mb-2">Currency</label>
-                                    <select
-                                        value={tempCurrency}
-                                        onChange={(e) => setTempCurrency(e.target.value)}
-                                        className="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:border-cyan-500 outline-none appearance-none"
-                                    >
-                                        <option value="USD">USD ($)</option>
-                                        <option value="EUR">EUR (€)</option>
-                                        <option value="GBP">GBP (£)</option>
-                                    </select>
-                                </div>
-                            </div>
-                        </div>
-                    )}
-
-                    {activeTab === 'network' && (
-                        <div className="space-y-4 animate-in fade-in duration-300">
-                            <div className="p-4 bg-yellow-500/10 border border-yellow-500/20 rounded-xl">
-                                <h4 className="font-bold text-yellow-500 text-sm mb-1">Developer Network</h4>
-                                <p className="text-xs text-gray-300">UNIK is currently optimized for Solana Devnet. Switching to Mainnet requires real funds.</p>
-                            </div>
-
-                            <div>
-                                <label className="block text-xs font-bold text-gray-500 uppercase mb-2">Blockchain Network</label>
-                                <div className="space-y-2">
-                                    <label className={`flex items-center justify-between p-4 rounded-xl border cursor-pointer transition-all ${tempNet === 'devnet' ? 'bg-cyan-500/10 border-cyan-500' : 'bg-black/20 border-white/10'}`}>
-                                        <div className="flex items-center gap-3">
-                                            <div className={`w-3 h-3 rounded-full ${tempNet === 'devnet' ? 'bg-cyan-400 shadow-[0_0_8px_cyan]' : 'bg-gray-600'}`}></div>
-                                            <span className="font-bold text-sm">Devnet (Recommended)</span>
-                                        </div>
-                                        <input type="radio" name="network" value="devnet" checked={tempNet === 'devnet'} onChange={() => setTempNet('devnet')} className="hidden" />
-                                        {tempNet === 'devnet' && <svg className="w-5 h-5 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>}
-                                    </label>
-
-                                    <label className={`flex items-center justify-between p-4 rounded-xl border cursor-pointer transition-all ${tempNet === 'mainnet' ? 'bg-purple-500/10 border-purple-500' : 'bg-black/20 border-white/10'}`}>
-                                        <div className="flex items-center gap-3">
-                                            <div className={`w-3 h-3 rounded-full ${tempNet === 'mainnet' ? 'bg-purple-400 shadow-[0_0_8px_purple]' : 'bg-gray-600'}`}></div>
-                                            <span className="font-bold text-sm">Mainnet Beta</span>
-                                        </div>
-                                        <input type="radio" name="network" value="mainnet" checked={tempNet === 'mainnet'} onChange={() => setTempNet('mainnet')} className="hidden" />
-                                        {tempNet === 'mainnet' && <svg className="w-5 h-5 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>}
-                                    </label>
-                                </div>
-                            </div>
-                        </div>
-                    )}
-                </div>
-
-                {/* Footer */}
-                <div className="p-6 border-t border-white/5 bg-[#13131f] flex justify-end gap-3">
-                    <button onClick={onClose} className="px-5 py-2.5 rounded-xl font-bold text-gray-400 hover:text-white hover:bg-white/5 transition-all">Cancel</button>
-                    <button onClick={handleSave} className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-cyan-600 to-purple-600 hover:from-cyan-500 hover:to-purple-500 text-white font-bold shadow-lg transition-all">Save Changes</button>
-                </div>
-            </div>
-        </div>
-    );
-}
 
