@@ -243,8 +243,11 @@ export async function POST(request: NextRequest) {
         if (e.message?.includes('Unauthorized')) {
             return NextResponse.json({ error: e.message }, { status: 401 });
         }
-        if (e.message?.includes('Missing SUPABASE')) {
-            return NextResponse.json({ error: 'Server Config Error: Missing Supabase Keys' }, { status: 500 });
+        if (e.message?.includes('Missing NEXT_PUBLIC_SUPABASE_URL')) {
+            return NextResponse.json({ error: 'Config Error: Missing Supabase URL' }, { status: 500 });
+        }
+        if (e.message?.includes('Missing SUPABASE_SERVICE_ROLE_KEY')) {
+            return NextResponse.json({ error: 'Config Error: Missing SERVICE_ROLE_KEY' }, { status: 500 });
         }
         console.error('[API /data] Error:', e);
         return NextResponse.json({ error: 'Internal server error: ' + (e.message || 'Unknown') }, { status: 500 });
