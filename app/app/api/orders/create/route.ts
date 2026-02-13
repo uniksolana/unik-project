@@ -2,14 +2,17 @@ import { NextRequest, NextResponse } from 'next/server';
 import crypto from 'crypto';
 import { getServerSupabase } from '../../../../utils/supabaseServer';
 
-const HMAC_SECRET = process.env.PAYMENT_HMAC_SECRET!;
-if (!HMAC_SECRET) {
-    throw new Error('Missing PAYMENT_HMAC_SECRET');
-}
+const getHmacSecret = () => {
+    const secret = process.env.PAYMENT_HMAC_SECRET;
+    if (!secret) {
+        throw new Error('Missing PAYMENT_HMAC_SECRET');
+    }
+    return secret;
+};
 
 function signOrder(alias: string, amount: string, token: string, orderId: string): string {
     const payload = `order|${alias.toLowerCase().trim()}|${amount}|${token.toUpperCase()}|${orderId}`;
-    return crypto.createHmac('sha256', HMAC_SECRET).update(payload).digest('hex').slice(0, 24);
+    return crypto.createHmac('sha256', getHmacSecret()).update(payload).digest('hex').slice(0, 24);
 }
 
 /**
