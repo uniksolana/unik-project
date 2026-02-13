@@ -68,10 +68,14 @@ export default function Dashboard() {
     const { t, convertPrice, currency, solPrice: liveSolPrice } = usePreferences();
     const [uploadingAvatar, setUploadingAvatar] = useState(false);
 
+    const lastUploadTime = useRef(0);
     // New: Load Encrypted Avatar when session is unlocked
     useEffect(() => {
         const loadEncryptedAvatar = async () => {
             if (publicKey && encryptionKey) {
+                // Prevent overwriting if we just uploaded (race condition fix)
+                if (Date.now() - lastUploadTime.current < 5000) return;
+
                 try {
                     const avatar = await getAvatar(publicKey.toBase58());
                     if (avatar) setAvatarUrl(avatar);
@@ -150,6 +154,8 @@ export default function Dashboard() {
             // New: Encrypted Avatar Storage (Stored as a Note)
             // This ensures the avatar is encrypted with the same key as other user data
             const base64 = await saveAvatar(file, publicKey.toBase58());
+
+            lastUploadTime.current = Date.now(); // Mark upload time to block effect overwrite
             setAvatarUrl(base64);
             toast.success("Profile picture encrypted & saved!");
 

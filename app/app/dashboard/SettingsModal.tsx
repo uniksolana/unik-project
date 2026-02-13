@@ -13,6 +13,11 @@ export function SettingsModal({ isOpen, onClose, avatarUrl, handleAvatarUpload, 
     const [tempLang, setTempLang] = useState(language);
     const [tempNet, setTempNet] = useState(network);
     const [removingAvatar, setRemovingAvatar] = useState(false);
+    const [imageError, setImageError] = useState(false);
+
+    useEffect(() => {
+        setImageError(false);
+    }, [avatarUrl]);
 
     // Sync temp state when modal opens
     useEffect(() => {
@@ -77,8 +82,13 @@ export function SettingsModal({ isOpen, onClose, avatarUrl, handleAvatarUpload, 
                             {/* Avatar Section */}
                             <div className="flex items-center gap-4 p-4 bg-white/5 rounded-xl border border-white/5">
                                 <div className="relative w-16 h-16 rounded-full overflow-hidden bg-black/40 border border-white/10 group">
-                                    {avatarUrl ? (
-                                        <img src={avatarUrl} alt="Avatar" className="w-full h-full object-cover" />
+                                    {avatarUrl && !imageError ? (
+                                        <img
+                                            src={avatarUrl}
+                                            alt="Avatar"
+                                            className="w-full h-full object-cover"
+                                            onError={() => setImageError(true)}
+                                        />
                                     ) : (
                                         <div className="w-full h-full flex items-center justify-center text-gray-600 bg-gray-900">
                                             <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
