@@ -18,15 +18,7 @@ export interface ContactStorage {
     updateContact(alias: string, update: Partial<Contact>, owner?: string): Promise<void>;
 }
 
-// Helper to call server-side API
-async function apiCall(body: Record<string, unknown>) {
-    const res = await fetch('/api/data', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
-    });
-    return res.json();
-}
+import { authenticatedApiCall as apiCall } from "./apiClient";
 
 // 1. Cloud Storage with E2E Encryption (via server API)
 class SupabaseEncryptedStorage implements ContactStorage {

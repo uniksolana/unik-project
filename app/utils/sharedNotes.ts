@@ -64,15 +64,7 @@ async function decryptNote(encryptedNote: string, signature: string): Promise<st
     }
 }
 
-// Helper to call server-side API
-async function apiCall(body: Record<string, unknown>) {
-    const res = await fetch('/api/data', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
-    });
-    return res.json();
-}
+import { authenticatedApiCall as apiCall } from "./apiClient";
 
 export interface SharedNoteData {
     note: string;

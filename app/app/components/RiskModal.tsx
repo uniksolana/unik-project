@@ -9,6 +9,7 @@ import { showSimpleToast } from './CustomToast';
 import { deriveKeyFromSignature } from '../../utils/crypto';
 
 import { getSessionKey, setSessionKey } from '../../utils/sessionState';
+import { setAuthToken, getAuthToken, getAuthMessage } from '../../utils/authState';
 
 export default function RiskModal() {
     const pathname = usePathname();
@@ -103,6 +104,14 @@ By signing this message, I acknowledge and agree that:
             // Generate encryption key from signature (same message = same key)
             const key = await deriveKeyFromSignature(signatureBase64);
             setSessionKey(key);
+
+            // Generate auth token for API authentication (proves wallet ownership)
+            const walletAddr = publicKey.toBase58();
+            const authMsg = getAuthMessage(walletAddr);
+            const authMsgBytes = new TextEncoder().encode(authMsg);
+            const authSigBytes = await signMessage(authMsgBytes);
+            const authSigBase64 = Buffer.from(authSigBytes).toString('base64');
+            setAuthToken({ wallet: walletAddr, signature: authSigBase64, message: authMsg });
 
             // 2. Only save to Supabase if NEW user
             if (!isReturningUser) {

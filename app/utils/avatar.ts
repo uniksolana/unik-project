@@ -2,15 +2,7 @@
 import { noteStorage, TransactionNote } from "./notes";
 import { supabase } from "./supabaseClient";
 
-// Helper to call server-side API
-async function apiCall(body: Record<string, unknown>) {
-    const res = await fetch('/api/data', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
-    });
-    return res.json();
-}
+import { authenticatedApiCall as apiCall } from "./apiClient";
 
 export const AVATAR_NOTE_ID = '_PROFILE_AVATAR_';
 
