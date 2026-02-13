@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import crypto from 'crypto';
 import { getServerSupabase } from '../../../../utils/supabaseServer';
+import { checkRateLimit } from '../../../../utils/rateLimit';
 
 const getHmacSecret = () => {
     const secret = process.env.PAYMENT_HMAC_SECRET;
@@ -10,6 +11,7 @@ const getHmacSecret = () => {
     return secret;
 };
 
+// ... signature logic ...
 function signOrder(alias: string, amount: string, token: string, orderId: string): string {
     const payload = `order|${alias.toLowerCase().trim()}|${amount}|${token.toUpperCase()}|${orderId}`;
     return crypto.createHmac('sha256', getHmacSecret()).update(payload).digest('hex').slice(0, 24);
@@ -22,6 +24,17 @@ function signOrder(alias: string, amount: string, token: string, orderId: string
  */
 export async function POST(request: NextRequest) {
     try {
+        // N-002: Rate Limiting
+        const failOverIp = '0.0.0.0';
+        const ip = request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || failOverIp;
+
+        // Limit: 10 requests per 1 minute (60s)
+        const { success, remaining } = await checkRateLimit(ip.split(',')[0].trim(), 10, 60);
+
+        if (!success) {
+            return NextResponse.json({ error: 'Too many requests. Please try again later.' }, { status: 429 });
+        }
+
         const { alias, amount, token, merchant_wallet, concept } = await request.json();
 
         if (!alias || !amount || !merchant_wallet) {
