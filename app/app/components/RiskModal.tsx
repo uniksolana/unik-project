@@ -105,30 +105,43 @@ By signing this message, I acknowledge and agree that:
             const key = await deriveKeyFromSignature(signatureBase64);
             setSessionKey(key);
 
+            // Small delay to prevent wallet from rejecting rapid requests
+            await new Promise(resolve => setTimeout(resolve, 500));
+
             // Generate auth token for API authentication (proves wallet ownership)
-            const walletAddr = publicKey.toBase58();
-            const authMsg = getAuthMessage(walletAddr);
-            const authMsgBytes = new TextEncoder().encode(authMsg);
-            const authSigBytes = await signMessage(authMsgBytes);
-            const authSigBase64 = Buffer.from(authSigBytes).toString('base64');
-            setAuthToken({ wallet: walletAddr, signature: authSigBase64, message: authMsg });
+            try {
+                const walletAddr = publicKey.toBase58();
+                const authMsg = getAuthMessage(walletAddr);
+                const authMsgBytes = new TextEncoder().encode(authMsg);
+                const authSigBytes = await signMessage(authMsgBytes);
+                const authSigBase64 = Buffer.from(authSigBytes).toString('base64');
+                setAuthToken({ wallet: walletAddr, signature: authSigBase64, message: authMsg });
+            } catch (err) {
+                console.error("Auth signing failed:", err);
+                throw new Error("Failed to sign authentication message");
+            }
 
             // 2. Only save to Supabase if NEW user
             if (!isReturningUser) {
-                const res = await fetch('/api/data', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        action: 'save_consent',
-                        wallet_address: publicKey.toBase58(),
-                        signature_base64: signatureBase64,
-                        consent_version: TERMS_VERSION,
-                    }),
-                });
-                const { error } = await res.json();
+                try {
+                    const res = await fetch('/api/data', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            action: 'save_consent',
+                            wallet_address: publicKey.toBase58(),
+                            signature_base64: signatureBase64,
+                            consent_version: TERMS_VERSION,
+                        }),
+                    });
+                    const { error } = await res.json();
 
-                if (error && !error.includes('unique constraint')) {
-                    throw new Error(error);
+                    if (error && !error.includes('unique constraint')) {
+                        throw new Error(error);
+                    }
+                } catch (e) {
+                    console.error("Save consent failed:", e);
+                    // We continue even if saving consent fails, as the user has signed locally
                 }
             }
 
@@ -139,9 +152,9 @@ By signing this message, I acknowledge and agree that:
             // Trigger storage load to refresh contacts with new key
             window.dispatchEvent(new Event('unik-contacts-updated'));
 
-        } catch (err) {
-            console.error("Signing failed:", err);
-            showSimpleToast('User rejected signing', 'error');
+        } catch (err: any) {
+            console.error("Signing flowchart failed:", err);
+            showSimpleToast(err.message || 'Signing failed. Please try again.', 'error');
         } finally {
             setSigning(false);
         }
