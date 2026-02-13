@@ -48,6 +48,43 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ verified: false, status: 'expired', message: 'Order has expired' });
         }
 
+        // N-003: Replay Attack Protection
+        // Check if this signature has already been used to fulfill a DIFFERENT order
+        const { data: existingUsage } = await supabase
+            .from('payment_orders')
+            .select('id')
+            .eq('tx_signature', tx_signature)
+            .neq('id', order_id) // ignore self (idempotency is fine)
+            .eq('status', 'paid') // only care if it successfully paid another order
+            .single();
+
+        if (existingUsage) {
+            return NextResponse.json({
+                verified: false,
+                status: 'replay_attack',
+                message: 'This transaction signature has already been used for another order.'
+            });
+        }
+
+        // Also check dedicated replay table if present (for stricter checks across systems)
+        const { data: replayCheck } = await supabase
+            .from('processed_signatures')
+            .select('signature')
+            .eq('signature', tx_signature)
+            .single();
+
+        if (replayCheck) {
+            // If signature is in processed_signatures but NOT in payment_orders for this ID?
+            // It means it was used elsewhere.
+            // We need to be careful not to block retries of the SAME order.
+            // But processed_signatures doesn't store order_id.
+            // So this check is strict: 1 signature = 1 verification attempt globally.
+            // This is safer but less user-friendly if they retry.
+            // Given we check payment_orders above, we can skip this strict check unless we want to enforce "1 attempt".
+            // Let's rely on payment_orders for user-friendliness (retry same order is OK).
+            // BUT, we should insert into processed_signatures on SUCCESS to future-proof.
+        }
+
         // 2. Verify on-chain transaction
         const connection = new Connection(SOLANA_RPC, 'confirmed');
 
@@ -162,6 +199,13 @@ export async function POST(request: NextRequest) {
                 paid_at: isAmountCorrect ? new Date().toISOString() : null,
             })
             .eq('id', order_id);
+
+        // N-003: If successful, record signature globally to prevent reuse in other contexts
+        if (isAmountCorrect) {
+            await supabase
+                .from('processed_signatures')
+                .upsert({ signature: tx_signature });
+        }
 
         if (isAmountCorrect) {
             return NextResponse.json({
