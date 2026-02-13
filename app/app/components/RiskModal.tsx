@@ -41,52 +41,58 @@ By signing this message, I acknowledge and agree that:
 5. I am solely responsible for the security of my keys and funds.
 `;
 
-    useEffect(() => {
-        const checkConsent = async () => {
-            // Skip check on public pages (Landing, Terms, Privacy)
-            if (pathname === '/' || pathname === '/terms' || pathname === '/privacy') {
-                return;
-            }
+    const [errorChecking, setErrorChecking] = useState<string | null>(null);
 
-            if (!connected || !publicKey) return;
+    const checkConsent = async () => {
+        // Skip check on public pages (Landing, Terms, Privacy)
+        if (pathname === '/' || pathname === '/terms' || pathname === '/privacy') {
+            return;
+        }
 
-            // If we already have the session key in memory, no need to ask again
-            if (getSessionKey()) {
-                setIsOpen(false);
-                return;
-            }
+        if (!connected || !publicKey) return;
 
-            console.log("Checking consent for:", publicKey.toBase58());
-            setChecking(true);
-            try {
-                const res = await fetch('/api/data', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        action: 'get_consent',
-                        wallet_address: publicKey.toBase58(),
-                    }),
-                });
-                const { data, error } = await res.json();
+        // If we already have the session key in memory, no need to ask again
+        if (getSessionKey()) {
+            setIsOpen(false);
+            return;
+        }
 
-                if (data && !error) {
-                    console.log("User already signed. Needs to login to decrypt.");
-                    setIsReturningUser(true); // Switch to login mode
-                    setIsOpen(true);          // Open modal for login
-                } else {
-                    console.log("User needs to sign terms.");
-                    setIsReturningUser(false); // Switch to terms mode
-                    setIsOpen(true);
-                }
-            } catch (err) {
-                console.error("Consent check failed:", err);
-                setIsReturningUser(false); // Fail safe: show terms
+        console.log("Checking consent for:", publicKey.toBase58());
+        setChecking(true);
+        setErrorChecking(null);
+        try {
+            const res = await fetch('/api/data', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    action: 'get_consent',
+                    wallet_address: publicKey.toBase58(),
+                }),
+            });
+
+            if (!res.ok) throw new Error('Network error');
+
+            const { data, error } = await res.json();
+
+            if (data && !error) {
+                console.log("User already signed. Needs to login to decrypt.");
+                setIsReturningUser(true); // Switch to login mode
+                setIsOpen(true);          // Open modal for login
+            } else {
+                console.log("User needs to sign terms.");
+                setIsReturningUser(false); // Switch to terms mode
                 setIsOpen(true);
-            } finally {
-                setChecking(false);
             }
-        };
+        } catch (err) {
+            console.error("Consent check failed:", err);
+            setErrorChecking("Failed to check status. Please try again.");
+            setIsOpen(true);
+        } finally {
+            setChecking(false);
+        }
+    };
 
+    useEffect(() => {
         checkConsent();
     }, [connected, publicKey, pathname]);
 
@@ -191,25 +197,41 @@ By signing this message, I acknowledge and agree that:
                 )}
 
                 <div className="flex flex-col gap-3">
-                    <button
-                        onClick={handleAcceptAndSign}
-                        disabled={signing}
-                        className={`w-full py-4 bg-gradient-to-r ${isReturningUser ? 'from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500' : 'from-red-600 to-orange-600 hover:from-red-500 hover:to-orange-500'} text-white font-bold rounded-xl transition-all shadow-lg flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed`}
-                    >
-                        {signing ? (
-                            <>
-                                <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                                {isReturningUser ? "Decrypting..." : "Signing Agreement..."}
-                            </>
-                        ) : (
-                            <>
-                                {isReturningUser ? "🔓 Sign to Unlock" : "✍️ Accept Risks & Sign"}
-                            </>
-                        )}
-                    </button>
-                    <p className="text-center text-xs text-gray-500">
-                        This signature is free (off-chain) and is used to generate your encryption key.
-                    </p>
+                    {errorChecking ? (
+                        <button
+                            onClick={checkConsent}
+                            className="w-full py-4 bg-red-600 hover:bg-red-500 text-white font-bold rounded-xl transition-all shadow-lg flex items-center justify-center gap-2"
+                        >
+                            🔄 Retry Connection
+                        </button>
+                    ) : (
+                        <button
+                            onClick={handleAcceptAndSign}
+                            disabled={signing || checking}
+                            className={`w-full py-4 bg-gradient-to-r ${isReturningUser ? 'from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500' : 'from-red-600 to-orange-600 hover:from-red-500 hover:to-orange-500'} text-white font-bold rounded-xl transition-all shadow-lg flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed`}
+                        >
+                            {signing || checking ? (
+                                <>
+                                    <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                                    {checking ? "Checking..." : (isReturningUser ? "Decrypting..." : "Signing Agreement...")}
+                                </>
+                            ) : (
+                                <>
+                                    {isReturningUser ? "🔓 Sign to Unlock" : "✍️ Accept Risks & Sign"}
+                                </>
+                            )}
+                        </button>
+                    )}
+
+                    {errorChecking && (
+                        <p className="text-center text-xs text-red-400 mt-2">{errorChecking}</p>
+                    )}
+
+                    {!errorChecking && (
+                        <p className="text-center text-xs text-gray-500">
+                            This signature is free (off-chain) and is used to generate your encryption key.
+                        </p>
+                    )}
                 </div>
             </div>
         </div>
