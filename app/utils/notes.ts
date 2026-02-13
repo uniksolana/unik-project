@@ -1,5 +1,4 @@
 
-import { supabase } from "./supabaseClient";
 import { encryptData, decryptData } from "./crypto";
 import { getSessionKey } from "./sessionState";
 
@@ -18,7 +17,17 @@ export interface NoteStorage {
     removeNote(signature: string, owner?: string): Promise<void>;
 }
 
-// Cloud Storage with E2E Encryption (same table as contacts, different column)
+// Helper to call server-side API
+async function apiCall(body: Record<string, unknown>) {
+    const res = await fetch('/api/data', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+    });
+    return res.json();
+}
+
+// Cloud Storage with E2E Encryption (via server API)
 class SupabaseEncryptedNoteStorage implements NoteStorage {
 
     async getNotes(owner?: string): Promise<Record<string, TransactionNote>> {
@@ -30,15 +39,14 @@ class SupabaseEncryptedNoteStorage implements NoteStorage {
             return {};
         }
 
-        const { data, error } = await supabase
-            .from('user_encrypted_data')
-            .select('encrypted_notes')
-            .eq('wallet_address', owner)
-            .single();
+        const { data, error } = await apiCall({
+            action: 'get_encrypted_data',
+            wallet_address: owner,
+        });
 
         if (error || !data || !data.encrypted_notes) return {};
 
-        // Skip if it's not valid encrypted data (empty objects, plain JSON, etc)
+        // Skip if it's not valid encrypted data
         const encryptedNotes = data.encrypted_notes.trim();
         if (!encryptedNotes || encryptedNotes === '{}' || encryptedNotes === '[]' || encryptedNotes === 'null') {
             return {};
@@ -58,25 +66,18 @@ class SupabaseEncryptedNoteStorage implements NoteStorage {
         const sessionKey = getSessionKey();
         if (!sessionKey) throw new Error("No encryption key available");
 
-        // 1. Get current notes
         const current = await this.getNotes(owner);
-
-        // 2. Add/Update note
         current[note.signature] = note;
 
-        // 3. Encrypt & Upload
         const encryptedNotes = await encryptData(current, sessionKey);
 
-        // Use update instead of upsert to avoid NOT NULL constraint on encrypted_blob
-        const { error } = await supabase
-            .from('user_encrypted_data')
-            .update({
-                encrypted_notes: encryptedNotes,
-                updated_at: new Date().toISOString()
-            })
-            .eq('wallet_address', owner);
+        const { error } = await apiCall({
+            action: 'save_encrypted_data',
+            wallet_address: owner,
+            encrypted_notes: encryptedNotes,
+        });
 
-        if (error) throw error;
+        if (error) throw new Error(error);
     }
 
     async removeNote(signature: string, owner?: string): Promise<void> {
@@ -88,13 +89,11 @@ class SupabaseEncryptedNoteStorage implements NoteStorage {
         delete current[signature];
 
         const encryptedNotes = await encryptData(current, sessionKey);
-        await supabase
-            .from('user_encrypted_data')
-            .update({
-                encrypted_notes: encryptedNotes,
-                updated_at: new Date().toISOString()
-            })
-            .eq('wallet_address', owner);
+        await apiCall({
+            action: 'save_encrypted_data',
+            wallet_address: owner,
+            encrypted_notes: encryptedNotes,
+        });
     }
 }
 
@@ -127,39 +126,29 @@ class SmartNoteStorage implements NoteStorage {
     private local = new LocalNoteStorage();
 
     private isCloudReady() {
-        const ready = !!getSessionKey();
-        return ready;
+        return !!getSessionKey();
     }
 
     async getNotes(owner?: string): Promise<Record<string, TransactionNote>> {
-
-
-        // Always get local notes (fallback or pre-login data)
         const localNotes = await this.local.getNotes(owner);
 
-        // If authenticated, get cloud notes and merge
         if (this.isCloudReady() && owner) {
             try {
                 const cloudNotes = await this.cloud.getNotes(owner);
-
-                // Merge: Cloud takes precedence if same key exists
                 return { ...localNotes, ...cloudNotes };
             } catch (e) {
                 console.warn("[NoteStorage] Cloud fetch failed, using local only", e);
             }
         }
 
-
         return localNotes;
     }
 
     async saveNote(note: TransactionNote, owner?: string): Promise<void> {
 
-
         if (this.isCloudReady() && owner) {
             try {
                 await this.cloud.saveNote(note, owner);
-
                 return;
             } catch (e) {
                 console.warn("[NoteStorage] Cloud save failed, fallback to local", e);
@@ -167,7 +156,6 @@ class SmartNoteStorage implements NoteStorage {
         }
 
         await this.local.saveNote(note, owner);
-
     }
 
     async removeNote(signature: string, owner?: string): Promise<void> {
@@ -184,4 +172,3 @@ class SmartNoteStorage implements NoteStorage {
 }
 
 export const noteStorage = new SmartNoteStorage();
-

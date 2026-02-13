@@ -4,7 +4,7 @@
 import { useState, useEffect } from 'react';
 import { usePathname } from 'next/navigation';
 import { useWallet } from '@solana/wallet-adapter-react';
-import { supabase } from '../../utils/supabaseClient';
+
 import { showSimpleToast } from './CustomToast';
 import { deriveKeyFromSignature } from '../../utils/crypto';
 
@@ -58,14 +58,15 @@ By signing this message, I acknowledge and agree that:
             console.log("Checking consent for:", publicKey.toBase58());
             setChecking(true);
             try {
-                const { data, error } = await supabase
-                    .from('legal_consents')
-                    .select('signature')
-                    .eq('wallet_address', publicKey.toBase58())
-                    .eq('terms_version', TERMS_VERSION)
-                    .single();
-
-                console.log("Supabase check result:", { data, error });
+                const res = await fetch('/api/data', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        action: 'get_consent',
+                        wallet_address: publicKey.toBase58(),
+                    }),
+                });
+                const { data, error } = await res.json();
 
                 if (data && !error) {
                     console.log("User already signed. Needs to login to decrypt.");
@@ -105,18 +106,20 @@ By signing this message, I acknowledge and agree that:
 
             // 2. Only save to Supabase if NEW user
             if (!isReturningUser) {
-                const { error } = await supabase
-                    .from('legal_consents')
-                    .insert([
-                        {
-                            wallet_address: publicKey.toBase58(),
-                            signature: signatureBase64,
-                            terms_version: TERMS_VERSION
-                        }
-                    ]);
+                const res = await fetch('/api/data', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        action: 'save_consent',
+                        wallet_address: publicKey.toBase58(),
+                        signature_base64: signatureBase64,
+                        consent_version: TERMS_VERSION,
+                    }),
+                });
+                const { error } = await res.json();
 
-                if (error && !error.message.includes('unique constraint')) {
-                    throw error;
+                if (error && !error.includes('unique constraint')) {
+                    throw new Error(error);
                 }
             }
 

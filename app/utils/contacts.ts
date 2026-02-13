@@ -1,6 +1,5 @@
 
 import { PublicKey } from "@solana/web3.js";
-import { supabase } from "./supabaseClient";
 import { encryptData, decryptData } from "./crypto";
 import { getSessionKey } from "./sessionState";
 
@@ -19,26 +18,34 @@ export interface ContactStorage {
     updateContact(alias: string, update: Partial<Contact>, owner?: string): Promise<void>;
 }
 
-// 1. Cloud Storage with E2E Encryption
+// Helper to call server-side API
+async function apiCall(body: Record<string, unknown>) {
+    const res = await fetch('/api/data', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+    });
+    return res.json();
+}
+
+// 1. Cloud Storage with E2E Encryption (via server API)
 class SupabaseEncryptedStorage implements ContactStorage {
 
     async getContacts(owner?: string): Promise<Contact[]> {
         if (!owner) return [];
         const sessionKey = getSessionKey();
 
-        // If no key (user didn't sign/login), return empty or rely on caller to fallback
         if (!sessionKey) {
             console.warn("No encryption key available. Cannot decrypt cloud contacts.");
             return [];
         }
 
-        const { data, error } = await supabase
-            .from('user_encrypted_data')
-            .select('encrypted_blob')
-            .eq('wallet_address', owner)
-            .single();
+        const { data, error } = await apiCall({
+            action: 'get_encrypted_data',
+            wallet_address: owner,
+        });
 
-        if (error || !data) return [];
+        if (error || !data || !data.encrypted_blob) return [];
 
         try {
             const contacts = await decryptData(data.encrypted_blob, sessionKey);
@@ -54,10 +61,7 @@ class SupabaseEncryptedStorage implements ContactStorage {
         const sessionKey = getSessionKey();
         if (!sessionKey) throw new Error("No encryption key available");
 
-        // 1. Get current list
         const current = await this.getContacts(owner);
-
-        // 2. Update list
         const existingIndex = current.findIndex(c => c.alias === contact.alias);
         if (existingIndex >= 0) {
             current[existingIndex] = contact;
@@ -65,18 +69,15 @@ class SupabaseEncryptedStorage implements ContactStorage {
             current.push(contact);
         }
 
-        // 3. Encrypt & Upload
         const encryptedBlob = await encryptData(current, sessionKey);
 
-        const { error } = await supabase
-            .from('user_encrypted_data')
-            .upsert({
-                wallet_address: owner,
-                encrypted_blob: encryptedBlob,
-                updated_at: new Date().toISOString()
-            });
+        const { error } = await apiCall({
+            action: 'save_encrypted_data',
+            wallet_address: owner,
+            encrypted_blob: encryptedBlob,
+        });
 
-        if (error) throw error;
+        if (error) throw new Error(error);
     }
 
     async removeContact(alias: string, owner?: string): Promise<void> {
@@ -88,13 +89,11 @@ class SupabaseEncryptedStorage implements ContactStorage {
         const filtered = current.filter(c => c.alias !== alias);
 
         const encryptedBlob = await encryptData(filtered, sessionKey);
-        await supabase
-            .from('user_encrypted_data')
-            .upsert({
-                wallet_address: owner,
-                encrypted_blob: encryptedBlob,
-                updated_at: new Date().toISOString()
-            });
+        await apiCall({
+            action: 'save_encrypted_data',
+            wallet_address: owner,
+            encrypted_blob: encryptedBlob,
+        });
     }
 
     async updateContact(alias: string, update: Partial<Contact>, owner?: string): Promise<void> {
@@ -108,13 +107,11 @@ class SupabaseEncryptedStorage implements ContactStorage {
             if (!sessionKey) return;
 
             const encryptedBlob = await encryptData(current, sessionKey);
-            await supabase
-                .from('user_encrypted_data')
-                .upsert({
-                    wallet_address: owner,
-                    encrypted_blob: encryptedBlob,
-                    updated_at: new Date().toISOString()
-                });
+            await apiCall({
+                action: 'save_encrypted_data',
+                wallet_address: owner,
+                encrypted_blob: encryptedBlob,
+            });
         }
     }
 }
@@ -168,11 +165,7 @@ class SmartContactStorage implements ContactStorage {
     async getContacts(owner?: string): Promise<Contact[]> {
         if (this.isCloudReady() && owner) {
             try {
-                // Try cloud first
                 const contacts = await this.cloud.getContacts(owner);
-                // If cloud returns something, return it. If empty (new user?), check local?
-                // For privacy, we probably shouldn't merge automatically. 
-                // Let's just return cloud if available.
                 return contacts;
             } catch (e) {
                 console.warn("Cloud fetch failed, fallback to local", e);

@@ -3,7 +3,7 @@
 
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { useWallet } from '@solana/wallet-adapter-react';
-import { supabase } from '../utils/supabaseClient';
+
 import { translations, Language, Currency } from '../utils/i18n';
 
 interface PreferencesContextType {
@@ -40,11 +40,15 @@ export function PreferencesProvider({ children }: { children: React.ReactNode })
         const loadProfile = async () => {
             if (!publicKey) return;
             try {
-                const { data, error } = await supabase
-                    .from('profiles')
-                    .select('preferred_language, preferred_currency')
-                    .eq('wallet_address', publicKey.toBase58())
-                    .single();
+                const res = await fetch('/api/data', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        action: 'get_profile',
+                        wallet_address: publicKey.toBase58(),
+                    }),
+                });
+                const { data, error } = await res.json();
 
                 if (data && !error) {
                     if (data.preferred_language) {
@@ -68,10 +72,15 @@ export function PreferencesProvider({ children }: { children: React.ReactNode })
         setLanguageState(lang);
         localStorage.setItem('unik_language', lang);
         if (publicKey) {
-            await supabase.from('profiles').upsert({
-                wallet_address: publicKey.toBase58(),
-                preferred_language: lang
-            }, { onConflict: 'wallet_address' });
+            fetch('/api/data', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    action: 'save_profile',
+                    wallet_address: publicKey.toBase58(),
+                    preferred_language: lang,
+                }),
+            });
         }
     };
 
@@ -79,10 +88,15 @@ export function PreferencesProvider({ children }: { children: React.ReactNode })
         setCurrencyState(curr);
         localStorage.setItem('unik_currency', curr);
         if (publicKey) {
-            await supabase.from('profiles').upsert({
-                wallet_address: publicKey.toBase58(),
-                preferred_currency: curr
-            }, { onConflict: 'wallet_address' });
+            fetch('/api/data', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    action: 'save_profile',
+                    wallet_address: publicKey.toBase58(),
+                    preferred_currency: curr,
+                }),
+            });
         }
     };
 

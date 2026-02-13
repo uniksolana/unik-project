@@ -6,17 +6,13 @@
  * Admin cannot read (they just see encrypted blobs).
  */
 
-import { supabase } from "./supabaseClient";
-
 // Derive encryption key from signature (using Web Crypto API)
 async function deriveKeyFromSignature(signature: string): Promise<CryptoKey> {
     const encoder = new TextEncoder();
     const data = encoder.encode(signature);
 
-    // Create a hash of the signature
     const hashBuffer = await crypto.subtle.digest('SHA-256', data.buffer as ArrayBuffer);
 
-    // Import as AES key
     return crypto.subtle.importKey(
         'raw',
         hashBuffer,
@@ -32,17 +28,14 @@ async function encryptNote(note: string, signature: string): Promise<string> {
     const encoder = new TextEncoder();
     const data = encoder.encode(note);
 
-    // Generate random IV
     const iv = crypto.getRandomValues(new Uint8Array(12));
 
-    // Encrypt
     const encrypted = await crypto.subtle.encrypt(
         { name: 'AES-GCM', iv: iv.buffer as ArrayBuffer },
         key,
         data.buffer as ArrayBuffer
     );
 
-    // Combine IV + encrypted data and encode as base64
     const combined = new Uint8Array(iv.length + encrypted.byteLength);
     combined.set(iv);
     combined.set(new Uint8Array(encrypted), iv.length);
@@ -54,15 +47,10 @@ async function encryptNote(note: string, signature: string): Promise<string> {
 async function decryptNote(encryptedNote: string, signature: string): Promise<string | null> {
     try {
         const key = await deriveKeyFromSignature(signature);
-
-        // Decode base64
         const combined = Uint8Array.from(atob(encryptedNote), c => c.charCodeAt(0));
-
-        // Extract IV and encrypted data
         const iv = combined.slice(0, 12);
         const encrypted = combined.slice(12);
 
-        // Decrypt
         const decrypted = await crypto.subtle.decrypt(
             { name: 'AES-GCM', iv: iv.buffer as ArrayBuffer },
             key,
@@ -76,6 +64,16 @@ async function decryptNote(encryptedNote: string, signature: string): Promise<st
     }
 }
 
+// Helper to call server-side API
+async function apiCall(body: Record<string, unknown>) {
+    const res = await fetch('/api/data', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+    });
+    return res.json();
+}
+
 export interface SharedNoteData {
     note: string;
     senderAlias?: string;
@@ -83,7 +81,6 @@ export interface SharedNoteData {
 
 /**
  * Save a shared note (encrypted with signature-derived key)
- * Both sender and recipient can later decrypt it.
  */
 export async function saveSharedNote(
     signature: string,
@@ -93,26 +90,22 @@ export async function saveSharedNote(
     senderAlias?: string
 ): Promise<boolean> {
     try {
-        console.log('[SharedNotes] Saving shared note for signature:', signature.slice(0, 8), 'alias:', senderAlias);
-
         const encryptedNote = await encryptNote(note, signature);
 
-        const { error } = await supabase
-            .from('transaction_notes')
-            .insert({
-                signature,
-                encrypted_note: encryptedNote,
-                sender_wallet: senderWallet,
-                recipient_wallet: recipientWallet,
-                sender_alias: senderAlias || null
-            });
+        const { error } = await apiCall({
+            action: 'save_shared_note',
+            signature,
+            encrypted_note: encryptedNote,
+            sender_wallet: senderWallet,
+            recipient_wallet: recipientWallet,
+            sender_alias: senderAlias || null,
+        });
 
         if (error) {
             console.error('[SharedNotes] Save failed:', error);
             return false;
         }
 
-        console.log('[SharedNotes] Saved successfully');
         return true;
     } catch (e) {
         console.error('[SharedNotes] Error saving:', e);
@@ -125,18 +118,16 @@ export async function saveSharedNote(
  */
 export async function getSharedNote(signature: string): Promise<string | null> {
     try {
-        // Fallback for single fetch if needed, though getSharedNotes is preferred
-        const { data, error } = await supabase
-            .from('transaction_notes')
-            .select('encrypted_note')
-            .eq('signature', signature)
-            .single();
+        const { data } = await apiCall({
+            action: 'get_shared_notes',
+            signatures: [signature],
+        });
 
-        if (error || !data?.encrypted_note) {
+        if (!data || data.length === 0 || !data[0]?.encrypted_note) {
             return null;
         }
 
-        return await decryptNote(data.encrypted_note, signature);
+        return await decryptNote(data[0].encrypted_note, signature);
     } catch (e) {
         console.error('[SharedNotes] Error getting note:', e);
         return null;
@@ -150,10 +141,10 @@ export async function getSharedNotes(signatures: string[]): Promise<Record<strin
     if (signatures.length === 0) return {};
 
     try {
-        const { data, error } = await supabase
-            .from('transaction_notes')
-            .select('signature, encrypted_note, sender_alias')
-            .in('signature', signatures);
+        const { data, error } = await apiCall({
+            action: 'get_shared_notes',
+            signatures,
+        });
 
         if (error || !data) {
             return {};
@@ -162,7 +153,7 @@ export async function getSharedNotes(signatures: string[]): Promise<Record<strin
         const notes: Record<string, SharedNoteData> = {};
 
         await Promise.all(
-            data.map(async (row) => {
+            data.map(async (row: { signature: string; encrypted_note: string; sender_alias?: string }) => {
                 const decrypted = await decryptNote(row.encrypted_note, row.signature);
                 if (decrypted) {
                     notes[row.signature] = {
@@ -173,7 +164,6 @@ export async function getSharedNotes(signatures: string[]): Promise<Record<strin
             })
         );
 
-        console.log('[SharedNotes] Loaded', Object.keys(notes).length, 'shared notes');
         return notes;
     } catch (e) {
         console.error('[SharedNotes] Error getting notes:', e);
