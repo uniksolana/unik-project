@@ -63,6 +63,7 @@ export default function Dashboard() {
     const [showSettings, setShowSettings] = useState(false);
     const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
     const [network, setNetwork] = useState('devnet');
+    const [registeredAt, setRegisteredAt] = useState<number | null>(null);
 
     // Global Prefs
     const { t, convertPrice, currency, solPrice: liveSolPrice } = usePreferences();
@@ -305,6 +306,7 @@ export default function Dashboard() {
                     if (!registeredAlias) {
                         setRegisteredAlias(aliasList[0]);
                         setAlias(aliasList[0]);
+                        setRegisteredAt(aliases[0].account.registeredAt.toNumber() * 1000); // Convert to JS ms
                     }
                 } else {
                     setMyAliases([]);
@@ -423,6 +425,7 @@ export default function Dashboard() {
 
             setRegisteredAlias(normalizedAlias);
             setMyAliases([...myAliases, normalizedAlias]);
+            setRegisteredAt(Date.now()); // Set approximate registration time (JS ms)
             setShowRegisterForm(false);
             toast.success(`Alias @${normalizedAlias} registered!`);
         } catch (error: any) {
@@ -601,6 +604,73 @@ export default function Dashboard() {
 
     if (!isMounted) return null;
 
+    const handleDeleteAlias = async (aliasToDelete: string) => {
+        if (!publicKey || !wallet) return;
+        setLoading(true);
+        try {
+            const provider = new AnchorProvider(connection, wallet as any, {});
+            const program = new Program(IDL as any, provider);
+
+            const [aliasPDA] = PublicKey.findProgramAddressSync(
+                [Buffer.from("alias"), Buffer.from(aliasToDelete)],
+                PROGRAM_ID
+            );
+
+            const instruction = await program.methods
+                .deleteAlias(aliasToDelete)
+                .accounts({
+                    aliasAccount: aliasPDA,
+                    user: publicKey,
+                })
+                .instruction();
+
+            const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash('finalized');
+
+            const messageV0 = new TransactionMessage({
+                payerKey: publicKey,
+                recentBlockhash: blockhash,
+                instructions: [
+                    ComputeBudgetProgram.setComputeUnitLimit({ units: 50_000 }),
+                    ComputeBudgetProgram.setComputeUnitPrice({ microLamports: 1000 }),
+                    instruction
+                ],
+            }).compileToV0Message();
+
+            const transaction = new VersionedTransaction(messageV0);
+
+            const signature = await wallet.sendTransaction(transaction, connection);
+            await connection.confirmTransaction({ signature, blockhash, lastValidBlockHeight });
+
+            toast.success(`Alias @${aliasToDelete} deleted successfully!`);
+
+            // Update local state
+            const updatedAliases = myAliases.filter(a => a !== aliasToDelete);
+            setMyAliases(updatedAliases);
+            if (registeredAlias === aliasToDelete) {
+                if (updatedAliases.length > 0) {
+                    setRegisteredAlias(updatedAliases[0]);
+                    // registeredAt will be updated by the switching logic/initial fetch if we trigger it, 
+                    // or we could trigger a re-fetch here.
+                } else {
+                    setRegisteredAlias(null);
+                    setRegisteredAt(null);
+                    setShowRegisterForm(true);
+                }
+            }
+        } catch (error: any) {
+            console.error("Error deleting alias:", error);
+            let message = "Deletion failed.";
+            if (error.message?.includes("0x1780") || error.logs?.some((l: string) => l.includes("AliasTooNew"))) {
+                message = "You must hold the alias for at least 90 days before deleting it.";
+            } else if (error.message?.includes("User rejected")) {
+                message = "Request rejected.";
+            }
+            toast.error(message);
+        } finally {
+            setLoading(false);
+        }
+    };
+
     return (
         <div className="min-h-screen bg-[#0d0d12] text-white selection:bg-cyan-500/30">
             {/* Header / Nav */}
@@ -643,10 +713,23 @@ export default function Dashboard() {
                                     {myAliases.map(a => (
                                         <button
                                             key={a}
-                                            onClick={(e) => {
+                                            onClick={async (e) => {
                                                 e.stopPropagation();
                                                 setRegisteredAlias(a);
                                                 setAliasDropdownOpen(false);
+                                                // Fetch registration time for this specific alias
+                                                try {
+                                                    const provider = new AnchorProvider(connection, wallet as any, {});
+                                                    const program = new Program(IDL as any, provider);
+                                                    const [aliasPDA] = PublicKey.findProgramAddressSync(
+                                                        [Buffer.from("alias"), Buffer.from(a)],
+                                                        PROGRAM_ID
+                                                    );
+                                                    const acc = await (program.account as any).aliasAccount.fetch(aliasPDA);
+                                                    setRegisteredAt(acc.registeredAt.toNumber() * 1000);
+                                                } catch (e) {
+                                                    console.error("Failed to fetch registration time", e);
+                                                }
                                             }}
                                             className={`w-full text-left px-4 py-2.5 text-xs font-mono transition-all flex items-center gap-2 hover:bg-white/10 group/item ${registeredAlias === a ? 'text-cyan-400 bg-cyan-500/10' : 'text-gray-400 hover:text-white'}`}
                                         >
@@ -677,7 +760,6 @@ export default function Dashboard() {
                 </div>
             </nav>
 
-            {/* Main Container */}
             {/* Main Container */}
             <div className="max-w-7xl mx-auto px-4 py-8 lg:py-12">
 
@@ -1234,10 +1316,13 @@ function SendTab({ sendRecipient, setSendRecipient, sendAlias, setSendAlias, sen
         return () => clearTimeout(timer);
     }, [sendRecipient]);
 
+    const [securityWarning, setSecurityWarning] = useState<string | null>(null);
+
     useEffect(() => {
         const validateRecipient = async () => {
             if (!debouncedRecipient || debouncedRecipient.length < 3) {
                 setIsValidRecipient(null);
+                setSecurityWarning(null);
                 return;
             }
 
@@ -1250,6 +1335,7 @@ function SendTab({ sendRecipient, setSendRecipient, sendAlias, setSendAlias, sen
                         setIsValidRecipient(true);
                         setIsCheckingRecipient(false);
                         setResolvedAddress(debouncedRecipient);
+                        setSecurityWarning(null);
                         return;
                     }
                 } catch { }
@@ -1265,25 +1351,37 @@ function SendTab({ sendRecipient, setSendRecipient, sendAlias, setSendAlias, sen
                 const program = new Program(IDL as any, provider);
                 try {
                     const account: any = await (program.account as any).aliasAccount.fetch(aliasPDA);
+                    const currentOwner = account.owner.toBase58();
                     setIsValidRecipient(true);
-                    setResolvedAddress(account.owner.toBase58());
+                    setResolvedAddress(currentOwner);
+
+                    // SECURITY CHECK: Compare with contact list
+                    const contact = contacts.find((c: any) => c.alias?.toLowerCase() === aliasToCheck);
+                    if (contact && contact.wallet_address !== currentOwner) {
+                        setSecurityWarning(`Security Alert: The owner of @${aliasToCheck} has changed since you added this contact. Please verify with the recipient before sending funds.`);
+                    } else {
+                        setSecurityWarning(null);
+                    }
                 } catch {
-                    // Fallback to getAccountInfo if fetch fails (though fetch usually throws on missing account)
                     const info = await connection.getAccountInfo(aliasPDA);
                     setIsValidRecipient(!!info);
-                    if (!info) setResolvedAddress(null);
+                    if (!info) {
+                        setResolvedAddress(null);
+                        setSecurityWarning(null);
+                    }
                 }
 
             } catch (error) {
                 console.error("Validation error:", error);
                 setIsValidRecipient(false);
+                setSecurityWarning(null);
             } finally {
                 setIsCheckingRecipient(false);
             }
         };
 
         validateRecipient();
-    }, [debouncedRecipient, connection]);
+    }, [debouncedRecipient, connection, contacts]);
     useEffect(() => {
         if (!publicKey || !sendToken.mint) {
             setTokenBalance(null);
@@ -1636,6 +1734,20 @@ function SendTab({ sendRecipient, setSendRecipient, sendAlias, setSendAlias, sen
             )}
 
             <div className="space-y-6">
+                {/* Security Warning */}
+                {securityWarning && (
+                    <div className="mb-6 p-4 bg-red-500/10 border border-red-500/30 rounded-2xl flex gap-4 animate-in shake duration-500">
+                        <div className="w-10 h-10 bg-red-500/20 rounded-full flex items-center justify-center text-red-500 flex-shrink-0">
+                            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
+                        </div>
+                        <div className="flex-1">
+                            <h4 className="text-sm font-bold text-red-500 mb-1">Security Alert</h4>
+                            <p className="text-[11px] text-red-200/80 leading-relaxed font-medium">
+                                {securityWarning}
+                            </p>
+                        </div>
+                    </div>
+                )}
                 <div>
                     <label className="text-sm text-gray-400 block mb-2">{t('recipient')}</label>
 

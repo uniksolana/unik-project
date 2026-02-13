@@ -253,7 +253,7 @@ export const IDL = {
         60,
         6,
         198,
-        168
+        251
       ],
       "accounts": [
         {
@@ -589,6 +589,16 @@ export const IDL = {
       "code": 6014,
       "name": "AliasAlreadyActive",
       "msg": "Alias is already active."
+    },
+    {
+      "code": 6015,
+      "name": "AmountTooSmall",
+      "msg": "Amount too small. Minimum is 10000 units to prevent dust transactions."
+    },
+    {
+      "code": 6016,
+      "name": "AliasTooNew",
+      "msg": "You must hold the alias for at least 90 days before deleting it."
     }
   ],
   "types": [

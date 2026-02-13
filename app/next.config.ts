@@ -23,15 +23,6 @@ const nextConfig: NextConfig = {
           { key: 'Referrer-Policy', value: 'origin-when-cross-origin' },
         ],
       },
-      {
-        source: '/pay/:alias*',
-        headers: [
-          // Embeddable payment pages might need specific framing?
-          // For now, allow framing only from same origin for better security
-          // Or remove X-Frame-Options if we intend for this to be embedded elsewhere?
-          // The default above is SAMEORIGIN, which is good.
-        ]
-      }
     ];
   },
 };

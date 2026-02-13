@@ -1,11 +1,10 @@
-
 "use client";
 
 import { useState, useEffect } from 'react';
 
 import { usePreferences } from '../../context/PreferencesContext';
 
-export function SettingsModal({ isOpen, onClose, avatarUrl, handleAvatarUpload, uploadingAvatar, network, registeredAlias, handleRemoveAvatar }: any) {
+export function SettingsModal({ isOpen, onClose, avatarUrl, handleAvatarUpload, uploadingAvatar, network, registeredAlias, registeredAt, handleRemoveAvatar, handleDeleteAlias }: any) {
     const { language, setLanguage, currency, setCurrency, t } = usePreferences();
 
     const [activeTab, setActiveTab] = useState('general');
@@ -13,7 +12,9 @@ export function SettingsModal({ isOpen, onClose, avatarUrl, handleAvatarUpload, 
     const [tempLang, setTempLang] = useState(language);
     const [tempNet, setTempNet] = useState(network);
     const [removingAvatar, setRemovingAvatar] = useState(false);
+    const [deletingAlias, setDeletingAlias] = useState(false);
     const [imageError, setImageError] = useState(false);
+    const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
     useEffect(() => {
         setImageError(false);
@@ -41,7 +42,26 @@ export function SettingsModal({ isOpen, onClose, avatarUrl, handleAvatarUpload, 
         setRemovingAvatar(false);
     };
 
+    const onDelete = async () => {
+        setDeletingAlias(true);
+        try {
+            await handleDeleteAlias(registeredAlias);
+            setShowDeleteConfirm(false);
+            onClose();
+        } catch (e) {
+            console.error("Delete failed", e);
+        } finally {
+            setDeletingAlias(false);
+        }
+    };
+
     if (!isOpen) return null;
+
+    const MIN_HOLDING_DAYS = 90;
+    const msSinceRegistration = registeredAt ? Date.now() - registeredAt : 0;
+    const daysSinceRegistration = Math.floor(msSinceRegistration / (1000 * 60 * 60 * 24));
+    const isDeletable = daysSinceRegistration >= MIN_HOLDING_DAYS;
+    const registrationDate = registeredAt ? new Date(registeredAt).toLocaleDateString() : 'N/A';
 
     return (
         <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4">
@@ -76,7 +96,7 @@ export function SettingsModal({ isOpen, onClose, avatarUrl, handleAvatarUpload, 
                 </div>
 
                 {/* Content */}
-                <div className="p-6 space-y-6">
+                <div className="p-6 space-y-6 max-h-[60vh] overflow-y-auto">
                     {activeTab === 'general' && (
                         <div className="space-y-6 animate-in fade-in duration-300">
                             {/* Avatar Section */}
@@ -146,6 +166,42 @@ export function SettingsModal({ isOpen, onClose, avatarUrl, handleAvatarUpload, 
                                     </select>
                                 </div>
                             </div>
+
+                            {/* Alias Management Section */}
+                            {registeredAlias && (
+                                <div className="pt-4 border-t border-white/5">
+                                    <h4 className="text-sm font-bold text-gray-400 uppercase mb-4 tracking-wider">Alias Lifecycle</h4>
+                                    <div className="p-4 bg-white/5 rounded-xl border border-white/5 space-y-4">
+                                        <div className="flex justify-between items-center text-sm">
+                                            <span className="text-gray-400">Alias Active Since</span>
+                                            <span className="font-bold text-white">{registrationDate}</span>
+                                        </div>
+                                        <div className="flex justify-between items-center text-sm">
+                                            <span className="text-gray-400">Holding Period</span>
+                                            <span className={`font-bold ${isDeletable ? 'text-green-400' : 'text-yellow-400'}`}>
+                                                {daysSinceRegistration} / {MIN_HOLDING_DAYS} days
+                                            </span>
+                                        </div>
+
+                                        {!isDeletable && (
+                                            <div className="p-3 bg-yellow-500/10 border border-yellow-500/20 rounded-lg flex gap-3">
+                                                <svg className="w-5 h-5 text-yellow-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
+                                                <p className="text-[10px] text-yellow-500 leading-tight">
+                                                    Aliases must be held for at least 90 days before deletion to ensure network stability and prevent name squatting.
+                                                </p>
+                                            </div>
+                                        )}
+
+                                        <button
+                                            onClick={() => setShowDeleteConfirm(true)}
+                                            disabled={!isDeletable || deletingAlias}
+                                            className={`w-full py-2.5 rounded-lg text-xs font-bold transition-all border ${isDeletable ? 'bg-red-500/10 border-red-500/30 text-red-500 hover:bg-red-500 hover:text-white' : 'bg-gray-800 border-gray-700 text-gray-600 cursor-not-allowed'}`}
+                                        >
+                                            {deletingAlias ? 'Processing...' : 'Delete Alias Permanently'}
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     )}
 
@@ -179,7 +235,40 @@ export function SettingsModal({ isOpen, onClose, avatarUrl, handleAvatarUpload, 
                     <button onClick={onClose} className="px-5 py-2.5 rounded-xl font-bold text-gray-400 hover:text-white hover:bg-white/5 transition-all">{t('cancel')}</button>
                     <button onClick={handleSave} className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-cyan-600 to-purple-600 hover:from-cyan-500 hover:to-purple-500 text-white font-bold shadow-lg transition-all">{t('save_settings')}</button>
                 </div>
-            </div >
-        </div >
+
+                {/* Critical Security Confirmation Modal */}
+                {showDeleteConfirm && (
+                    <div className="fixed inset-0 z-[1100] flex items-center justify-center p-4">
+                        <div className="absolute inset-0 bg-black/95 backdrop-blur-md" onClick={() => setShowDeleteConfirm(false)}></div>
+                        <div className="relative bg-[#0d0d12] w-full max-w-sm rounded-3xl border border-red-500/50 shadow-2xl shadow-red-900/40 p-8 text-center animate-in zoom-in-95 duration-200">
+                            <div className="w-16 h-16 bg-red-500/20 rounded-full flex items-center justify-center mx-auto mb-6 text-red-500 shadow-[0_0_20px_rgba(239,68,68,0.3)]">
+                                <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
+                            </div>
+                            <h4 className="text-xl font-black text-white mb-2 uppercase tracking-tight">Irreversible Action</h4>
+                            <p className="text-xs text-gray-400 mb-8 leading-relaxed">
+                                You are about to delete <span className="text-white font-bold">@{registeredAlias}</span>.
+                                <br /><br />
+                                <span className="text-red-400 font-bold tracking-wide">WARNING:</span> This alias will be available for <span className="text-white font-bold">anyone else to register</span>. Contacts who try to pay @{registeredAlias} might send funds to a different person if they register it.
+                            </p>
+                            <div className="space-y-3">
+                                <button
+                                    onClick={onDelete}
+                                    disabled={deletingAlias}
+                                    className="w-full py-4 bg-red-600 hover:bg-red-500 text-white font-bold rounded-2xl shadow-[0_4px_15px_rgba(220,38,38,0.4)] transition-all active:scale-95"
+                                >
+                                    {deletingAlias ? 'Processing...' : 'Confirm Permanent Deletion'}
+                                </button>
+                                <button
+                                    onClick={() => setShowDeleteConfirm(false)}
+                                    className="w-full py-4 bg-white/5 hover:bg-white/10 text-gray-400 font-bold rounded-2xl transition-all"
+                                >
+                                    Cancel
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )}
+            </div>
+        </div>
     );
 }
