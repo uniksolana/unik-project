@@ -290,11 +290,51 @@ function PaymentContent() {
             }
 
             setLastSignature(txSignature);
-            showTransactionToast({
-                signature: txSignature,
-                message: `Successfully sent ${amount} ${selectedToken.symbol} to @${alias}`,
-                type: 'success'
-            });
+
+            // Backend verification: verify on-chain TX matches expected order
+            const orderId = searchParams.get('order_id');
+            if (orderId && txSignature) {
+                try {
+                    const verifyRes = await fetch('/api/orders/verify', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            order_id: orderId,
+                            tx_signature: txSignature,
+                            payer_wallet: publicKey?.toBase58(),
+                        }),
+                    });
+                    const verifyData = await verifyRes.json();
+
+                    if (verifyData.verified) {
+                        showTransactionToast({
+                            signature: txSignature,
+                            message: `✅ Payment verified: ${amount} ${selectedToken.symbol} to @${alias}`,
+                            type: 'success'
+                        });
+                    } else {
+                        showTransactionToast({
+                            signature: txSignature,
+                            message: `⚠️ Payment sent but verification issue: ${verifyData.message}`,
+                            type: 'info'
+                        });
+                    }
+                } catch (e) {
+                    // Verification failed but payment was sent
+                    showTransactionToast({
+                        signature: txSignature,
+                        message: `Sent ${amount} ${selectedToken.symbol} to @${alias} (verification pending)`,
+                        type: 'success'
+                    });
+                }
+            } else {
+                showTransactionToast({
+                    signature: txSignature,
+                    message: `Successfully sent ${amount} ${selectedToken.symbol} to @${alias}`,
+                    type: 'success'
+                });
+            }
+
             setStatus('success');
             setAmount('');
         } catch (error) {

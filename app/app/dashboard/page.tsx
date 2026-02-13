@@ -904,7 +904,7 @@ function ReceiveTab({ avatarUrl, registeredAlias, linkAmount, setLinkAmount, lin
 
     const shareValue = useAddress ? publicKey?.toBase58() : registeredAlias;
 
-    const getPaymentUrl = (sig?: string) => {
+    const getPaymentUrl = (sig?: string, orderId?: string) => {
         const origin = typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000';
         let url = `${origin}/pay/${shareValue}`;
         const params = new URLSearchParams();
@@ -912,30 +912,55 @@ function ReceiveTab({ avatarUrl, registeredAlias, linkAmount, setLinkAmount, lin
         if (linkConcept) params.append('concept', encodeURIComponent(linkConcept));
         if (requestToken.symbol !== 'SOL') params.append('token', requestToken.symbol);
         if (sig) params.append('sig', sig);
+        if (orderId) params.append('order_id', orderId);
 
         if (params.toString()) url += `?${params.toString()}`;
         return url;
     };
 
-    // Auto-sign payment URL when parameters change
+    // Auto-sign payment URL and create order when parameters change
     const [signedPaymentUrl, setSignedPaymentUrl] = useState('');
     useEffect(() => {
         const baseUrl = getPaymentUrl();
         setSignedPaymentUrl(baseUrl); // Show unsigned immediately
 
-        if (linkAmount && shareValue) {
-            const signUrl = async () => {
+        if (linkAmount && shareValue && publicKey) {
+            const signAndCreateOrder = async () => {
+                // 1. Sign the URL
                 const { signPaymentParams } = await import('../../utils/paymentSecurity');
                 const sig = await signPaymentParams(
                     String(shareValue),
                     linkAmount,
                     requestToken.symbol
                 );
+
+                // 2. Create a backend order for verification
+                let orderId: string | null = null;
+                try {
+                    const orderRes = await fetch('/api/orders/create', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            alias: String(shareValue),
+                            amount: linkAmount,
+                            token: requestToken.symbol,
+                            merchant_wallet: publicKey.toBase58(),
+                            concept: linkConcept || null,
+                        }),
+                    });
+                    const orderData = await orderRes.json();
+                    if (orderData.order_id) {
+                        orderId = orderData.order_id;
+                    }
+                } catch (e) {
+                    console.warn('[Dashboard] Order creation failed, link will work without verification:', e);
+                }
+
                 if (sig) {
-                    setSignedPaymentUrl(getPaymentUrl(sig));
+                    setSignedPaymentUrl(getPaymentUrl(sig, orderId || undefined));
                 }
             };
-            signUrl();
+            signAndCreateOrder();
         }
     }, [linkAmount, linkConcept, requestToken.symbol, shareValue]);
 
