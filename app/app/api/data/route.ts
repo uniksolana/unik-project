@@ -243,7 +243,10 @@ export async function POST(request: NextRequest) {
         if (e.message?.includes('Unauthorized')) {
             return NextResponse.json({ error: e.message }, { status: 401 });
         }
+        if (e.message?.includes('Missing SUPABASE')) {
+            return NextResponse.json({ error: 'Server Config Error: Missing Supabase Keys' }, { status: 500 });
+        }
         console.error('[API /data] Error:', e);
-        return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+        return NextResponse.json({ error: 'Internal server error: ' + (e.message || 'Unknown') }, { status: 500 });
     }
 }

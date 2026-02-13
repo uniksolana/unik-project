@@ -70,7 +70,10 @@ By signing this message, I acknowledge and agree that:
                 }),
             });
 
-            if (!res.ok) throw new Error('Network error');
+            if (!res.ok) {
+                const errorData = await res.json().catch(() => ({}));
+                throw new Error(errorData.error || `Server Error: ${res.status}`);
+            }
 
             const { data, error } = await res.json();
 
@@ -83,9 +86,9 @@ By signing this message, I acknowledge and agree that:
                 setIsReturningUser(false); // Switch to terms mode
                 setIsOpen(true);
             }
-        } catch (err) {
+        } catch (err: any) {
             console.error("Consent check failed:", err);
-            setErrorChecking("Failed to check status. Please try again.");
+            setErrorChecking(err.message || "Failed to check status. Please try again.");
             setIsOpen(true);
         } finally {
             setChecking(false);
