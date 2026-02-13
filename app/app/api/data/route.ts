@@ -168,6 +168,38 @@ export async function POST(request: NextRequest) {
                 return NextResponse.json({ success: true });
             }
 
+
+            // ─── avatars (storage) ───
+            case 'upload_avatar': {
+                if (!wallet_address) return NextResponse.json({ error: 'Missing wallet_address' }, { status: 400 });
+                const { avatar_base64 } = body;
+                if (!avatar_base64) return NextResponse.json({ error: 'Missing avatar_base64' }, { status: 400 });
+
+                // Convert base64 data URL to buffer
+                const base64Data = (avatar_base64 as string).replace(/^data:image\/\w+;base64,/, '');
+                const buffer = Buffer.from(base64Data, 'base64');
+                const fileName = `${wallet_address}_avatar`;
+
+                const { error } = await supabase.storage
+                    .from('avatars')
+                    .upload(fileName, buffer, { upsert: true, contentType: 'image/jpeg' });
+
+                if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+                return NextResponse.json({ success: true });
+            }
+
+            case 'remove_avatar': {
+                if (!wallet_address) return NextResponse.json({ error: 'Missing wallet_address' }, { status: 400 });
+                const fileName = `${wallet_address}_avatar`;
+
+                const { error } = await supabase.storage
+                    .from('avatars')
+                    .remove([fileName]);
+
+                if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+                return NextResponse.json({ success: true });
+            }
+
             default:
                 return NextResponse.json({ error: `Unknown action: ${action}` }, { status: 400 });
         }

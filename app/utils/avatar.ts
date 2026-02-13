@@ -2,6 +2,16 @@
 import { noteStorage, TransactionNote } from "./notes";
 import { supabase } from "./supabaseClient";
 
+// Helper to call server-side API
+async function apiCall(body: Record<string, unknown>) {
+    const res = await fetch('/api/data', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+    });
+    return res.json();
+}
+
 export const AVATAR_NOTE_ID = '_PROFILE_AVATAR_';
 
 /**
@@ -25,20 +35,16 @@ export async function saveAvatar(file: File, owner: string): Promise<string> {
     };
     await noteStorage.saveNote(avatarNote, owner);
 
-    // 3. Try Save Public Copy (Best Effort)
+    // 3. Try Save Public Copy via server API (prevents spoofing)
     try {
-        // Convert base64 back to blob for upload
-        const blob = await (await fetch(base64)).blob();
-        const fileName = `${owner}_avatar`;
-
-        const { error } = await supabase.storage
-            .from('avatars')
-            .upload(fileName, blob, { upsert: true, contentType: 'image/jpeg' });
+        const { error } = await apiCall({
+            action: 'upload_avatar',
+            wallet_address: owner,
+            avatar_base64: base64,
+        });
 
         if (error) {
-            console.warn("Public avatar upload failed (RLS blocked?):", error.message);
-        } else {
-            console.log("Public avatar uploaded successfully to Supabase Storage");
+            console.warn("Public avatar upload failed:", error);
         }
     } catch (e) {
         console.warn("Public avatar upload exception:", e);
@@ -95,9 +101,9 @@ export async function removeAvatar(owner: string): Promise<void> {
     // Remove Private
     await noteStorage.removeNote(AVATAR_NOTE_ID, owner);
 
-    // Remove Public
+    // Remove Public via server API
     try {
-        await supabase.storage.from('avatars').remove([`${owner}_avatar`]);
+        await apiCall({ action: 'remove_avatar', wallet_address: owner });
     } catch (e) { /* ignore */ }
 }
 
