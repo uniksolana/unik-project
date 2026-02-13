@@ -128,12 +128,11 @@ class SmartNoteStorage implements NoteStorage {
 
     private isCloudReady() {
         const ready = !!getSessionKey();
-        console.log('[NoteStorage] Cloud ready:', ready);
         return ready;
     }
 
     async getNotes(owner?: string): Promise<Record<string, TransactionNote>> {
-        console.log('[NoteStorage] Getting notes for:', owner?.slice(0, 8));
+
 
         // Always get local notes (fallback or pre-login data)
         const localNotes = await this.local.getNotes(owner);
@@ -142,7 +141,7 @@ class SmartNoteStorage implements NoteStorage {
         if (this.isCloudReady() && owner) {
             try {
                 const cloudNotes = await this.cloud.getNotes(owner);
-                console.log('[NoteStorage] Got cloud notes:', Object.keys(cloudNotes).length);
+
                 // Merge: Cloud takes precedence if same key exists
                 return { ...localNotes, ...cloudNotes };
             } catch (e) {
@@ -150,17 +149,17 @@ class SmartNoteStorage implements NoteStorage {
             }
         }
 
-        console.log('[NoteStorage] Got local notes:', Object.keys(localNotes).length);
+
         return localNotes;
     }
 
     async saveNote(note: TransactionNote, owner?: string): Promise<void> {
-        console.log('[NoteStorage] Saving note:', note.note, 'for signature:', note.signature?.slice(0, 8));
+
 
         if (this.isCloudReady() && owner) {
             try {
                 await this.cloud.saveNote(note, owner);
-                console.log('[NoteStorage] Saved to cloud successfully');
+
                 return;
             } catch (e) {
                 console.warn("[NoteStorage] Cloud save failed, fallback to local", e);
@@ -168,7 +167,7 @@ class SmartNoteStorage implements NoteStorage {
         }
 
         await this.local.saveNote(note, owner);
-        console.log('[NoteStorage] Saved to local storage');
+
     }
 
     async removeNote(signature: string, owner?: string): Promise<void> {
