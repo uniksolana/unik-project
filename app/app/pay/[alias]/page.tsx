@@ -40,6 +40,7 @@ function PaymentContent() {
     const [selectedToken, setSelectedToken] = useState<any>(TOKEN_OPTIONS_MAP['SOL']);
     const [tokenLocked, setTokenLocked] = useState(false);
     const [isDirectAddress, setIsDirectAddress] = useState(false);
+    const [linkVerification, setLinkVerification] = useState<'checking' | 'valid' | 'invalid' | 'unsigned'>('checking');
 
     useEffect(() => {
         // Fetch SOL price from CoinGecko... (omitted for brevity, assume keeps existing)
@@ -85,6 +86,30 @@ function PaymentContent() {
             setTokenLocked(true);
         }
     }, [searchParams]);
+
+    // Verify HMAC signature of payment link
+    useEffect(() => {
+        const sig = searchParams.get('sig');
+        const queryAmount = searchParams.get('amount');
+        const queryToken = searchParams.get('token') || 'SOL';
+
+        if (!sig || !queryAmount || !alias) {
+            setLinkVerification(sig ? 'checking' : 'unsigned');
+            return;
+        }
+
+        const verify = async () => {
+            const { verifyPaymentSignature } = await import('../../../utils/paymentSecurity');
+            const result = await verifyPaymentSignature(
+                String(alias).toLowerCase().trim(),
+                queryAmount,
+                queryToken.toUpperCase(),
+                sig
+            );
+            setLinkVerification(result);
+        };
+        verify();
+    }, [alias, searchParams]);
 
     // ... (keep useEffect for balance/alias check same)
 
@@ -316,6 +341,20 @@ function PaymentContent() {
                             {isDirectAddress ? 'Valid Address' : (aliasOwner || routeAccount ? 'Valid Alias' : 'Alias Not Found')}
                         </p>
                     </div>
+
+                    {/* Link Verification Badge */}
+                    {linkVerification === 'valid' && (
+                        <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-green-500/10 border border-green-500/20 mt-2">
+                            <svg className="w-3.5 h-3.5 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" /></svg>
+                            <span className="text-xs font-bold text-green-400">Verified Link</span>
+                        </div>
+                    )}
+                    {linkVerification === 'invalid' && (
+                        <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-red-500/10 border border-red-500/20 mt-2 animate-pulse">
+                            <svg className="w-3.5 h-3.5 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" /></svg>
+                            <span className="text-xs font-bold text-red-400">⚠️ Link Manipulated</span>
+                        </div>
+                    )}
                 </div>
 
                 <div className="p-8 pt-2">
@@ -392,6 +431,16 @@ function PaymentContent() {
                         </div>
                     ) : (
                         <div className="space-y-6">
+                            {/* Tamper Warning */}
+                            {linkVerification === 'invalid' && (
+                                <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-4 flex items-start gap-3">
+                                    <span className="text-red-400 text-lg mt-0.5">🚨</span>
+                                    <div>
+                                        <p className="text-red-400 font-bold text-sm">Warning: This link has been modified</p>
+                                        <p className="text-red-400/70 text-xs mt-1">The payment parameters do not match the original link. The amount or token may have been tampered with. Proceed with caution.</p>
+                                    </div>
+                                </div>
+                            )}
                             <div>
                                 <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">
                                     Amount ({selectedToken.symbol}) {isLocked && <span className="text-yellow-500 ml-2">🔒 Locked</span>}

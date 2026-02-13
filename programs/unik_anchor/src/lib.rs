@@ -71,6 +71,8 @@ pub mod unik_anchor {
     }
 
     pub fn execute_transfer<'info>(ctx: Context<'_, '_, '_, 'info, ExecuteTransfer<'info>>, _alias: String, amount: u64) -> Result<()> {
+        require!(amount >= 10000, UnikError::AmountTooSmall);
+
         let route = &ctx.accounts.route_account;
         let splits = &route.splits;
         let remaining_accounts = ctx.remaining_accounts;
@@ -109,6 +111,8 @@ pub mod unik_anchor {
     }
 
     pub fn execute_token_transfer<'info>(ctx: Context<'_, '_, '_, 'info, ExecuteTokenTransfer<'info>>, _alias: String, amount: u64) -> Result<()> {
+        require!(amount >= 10000, UnikError::AmountTooSmall);
+
         let route = &ctx.accounts.route_account;
         let splits = &route.splits;
         let remaining_accounts = ctx.remaining_accounts;
@@ -377,4 +381,6 @@ pub enum UnikError {
     AliasAlreadyInactive,
     #[msg("Alias is already active.")]
     AliasAlreadyActive,
+    #[msg("Amount too small. Minimum is 10000 units to prevent dust transactions.")]
+    AmountTooSmall,
 }

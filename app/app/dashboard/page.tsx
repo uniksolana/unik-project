@@ -904,21 +904,44 @@ function ReceiveTab({ avatarUrl, registeredAlias, linkAmount, setLinkAmount, lin
 
     const shareValue = useAddress ? publicKey?.toBase58() : registeredAlias;
 
-    const getPaymentUrl = () => {
+    const getPaymentUrl = (sig?: string) => {
         const origin = typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000';
         let url = `${origin}/pay/${shareValue}`;
         const params = new URLSearchParams();
         if (linkAmount) params.append('amount', linkAmount);
         if (linkConcept) params.append('concept', encodeURIComponent(linkConcept));
         if (requestToken.symbol !== 'SOL') params.append('token', requestToken.symbol);
+        if (sig) params.append('sig', sig);
 
         if (params.toString()) url += `?${params.toString()}`;
         return url;
     };
 
+    // Auto-sign payment URL when parameters change
+    const [signedPaymentUrl, setSignedPaymentUrl] = useState('');
+    useEffect(() => {
+        const baseUrl = getPaymentUrl();
+        setSignedPaymentUrl(baseUrl); // Show unsigned immediately
+
+        if (linkAmount && shareValue) {
+            const signUrl = async () => {
+                const { signPaymentParams } = await import('../../utils/paymentSecurity');
+                const sig = await signPaymentParams(
+                    String(shareValue),
+                    linkAmount,
+                    requestToken.symbol
+                );
+                if (sig) {
+                    setSignedPaymentUrl(getPaymentUrl(sig));
+                }
+            };
+            signUrl();
+        }
+    }, [linkAmount, linkConcept, requestToken.symbol, shareValue]);
+
     const getShareMessage = () => {
         const amount = linkAmount ? ` ${linkAmount} ${requestToken.symbol}` : '';
-        return `💸 Pay me${amount} via UNIK: ${getPaymentUrl()}`;
+        return `💸 Pay me${amount} via UNIK: ${signedPaymentUrl}`;
     };
 
     const getContactUrl = () => {
@@ -1006,7 +1029,7 @@ function ReceiveTab({ avatarUrl, registeredAlias, linkAmount, setLinkAmount, lin
                 <div className="flex justify-center mb-6">
                     <div className="p-4 bg-white rounded-xl shadow-lg">
                         <QRCode
-                            value={getPaymentUrl()}
+                            value={signedPaymentUrl}
                             size={180}
                             style={{ height: "auto", maxWidth: "100%", width: "100%" }}
                             viewBox={`0 0 256 256`}
@@ -1016,14 +1039,14 @@ function ReceiveTab({ avatarUrl, registeredAlias, linkAmount, setLinkAmount, lin
 
                 <div className="mb-4">
                     <code className="block p-4 bg-black text-cyan-400 font-mono text-sm break-all border border-gray-700">
-                        {getPaymentUrl().replace(/^https?:\/\//, '')}
+                        {signedPaymentUrl.replace(/^https?:\/\//, '')}
                     </code>
                 </div>
 
                 <div className="grid grid-cols-2 gap-3">
                     <button
                         onClick={() => {
-                            navigator.clipboard.writeText(getPaymentUrl());
+                            navigator.clipboard.writeText(signedPaymentUrl);
                             toast.success(t('link_copied'));
                         }}
                         className="flex items-center justify-center gap-2 px-4 py-3 bg-gray-700 hover:bg-gray-600 font-semibold transition-colors rounded-xl border border-white/5"
@@ -1062,7 +1085,7 @@ function ReceiveTab({ avatarUrl, registeredAlias, linkAmount, setLinkAmount, lin
 
                         <button
                             onClick={() => {
-                                const telegramUrl = `https://t.me/share/url?url=${encodeURIComponent(getPaymentUrl())}&text=${encodeURIComponent(`💸 Pay me${linkAmount ? ` ${linkAmount} ${requestToken.symbol}` : ''} via UNIK`)}`;
+                                const telegramUrl = `https://t.me/share/url?url=${encodeURIComponent(signedPaymentUrl)}&text=${encodeURIComponent(`💸 Pay me${linkAmount ? ` ${linkAmount} ${requestToken.symbol}` : ''} via UNIK`)}`;
                                 window.open(telegramUrl, '_blank');
                             }}
                             className="flex items-center justify-center gap-2 px-4 py-3 bg-blue-600/20 hover:bg-blue-600/30 text-blue-400 border border-blue-600/30 rounded-xl font-semibold transition-colors"
