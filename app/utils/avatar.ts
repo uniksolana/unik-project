@@ -27,6 +27,11 @@ export async function saveAvatar(file: File, owner: string): Promise<string> {
     };
     await noteStorage.saveNote(avatarNote, owner);
 
+    // 2.5 Cache locally for immediate/offline access (Device specific)
+    if (typeof window !== 'undefined') {
+        localStorage.setItem(`avatar_cache_${owner}`, base64);
+    }
+
     // 3. Try Save Public Copy via server API (prevents spoofing)
     try {
         const { error } = await apiCall({
@@ -46,23 +51,35 @@ export async function saveAvatar(file: File, owner: string): Promise<string> {
 }
 
 /**
- * Retrieves the avatar for the current user (Private > Public).
+ * Retrieves the avatar for the current user (Local Cache > Private Note > Public Storage).
  */
 export async function getAvatar(owner: string): Promise<string | null> {
     if (!owner) return null;
 
-    // 1. Try Encrypted Note (Fastest & Guaranteed for owner)
+    // 0. Try Local Cache (Fastest, zero network)
+    if (typeof window !== 'undefined') {
+        const cached = localStorage.getItem(`avatar_cache_${owner}`);
+        if (cached && cached.startsWith('data:image')) {
+            return cached;
+        }
+    }
+
+    // 1. Try Encrypted Note (Syncs across devices if session active)
     try {
         const notes = await noteStorage.getNotes(owner);
         const avatarNote = notes[AVATAR_NOTE_ID];
         if (avatarNote && avatarNote.note && avatarNote.note.startsWith('data:image')) {
+            // Update local cache if found in cloud
+            if (typeof window !== 'undefined') {
+                localStorage.setItem(`avatar_cache_${owner}`, avatarNote.note);
+            }
             return avatarNote.note;
         }
     } catch (e) {
         console.warn("Failed to fetch private avatar note", e);
     }
 
-    // 2. Fallback to Public Storage (if private missing, e.g. new device/legacy data)
+    // 2. Fallback to Public Storage (if private missing/failed)
     return await getPublicAvatar(owner);
 }
 
