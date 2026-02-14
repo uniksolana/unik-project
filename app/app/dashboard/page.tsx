@@ -619,8 +619,6 @@ export default function Dashboard() {
                 PROGRAM_ID
             );
 
-            console.log("Deleting alias (MANUAL):", aliasToDelete, "PDA:", aliasPDA.toBase58(), "User:", publicKey.toBase58());
-
             // 1. Discriminator for "delete_alias" (sha256("global:delete_alias")[..8])
             const discriminator = Buffer.from([218, 54, 238, 46, 173, 75, 242, 207]);
 
@@ -644,6 +642,7 @@ export default function Dashboard() {
             // 4. Use Legacy Transaction with Compute Budget
             const transaction = new Transaction();
 
+            // Add compute budget instructions (standard + priority fee)
             transaction.add(
                 ComputeBudgetProgram.setComputeUnitLimit({ units: 50_000 }),
                 ComputeBudgetProgram.setComputeUnitPrice({ microLamports: 1000 })
@@ -653,25 +652,6 @@ export default function Dashboard() {
             const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash('confirmed');
             transaction.recentBlockhash = blockhash;
             transaction.feePayer = publicKey;
-
-            // --- DEBUG: SIMULATE TRANSACTION SEPARATELY ---
-            try {
-                console.log("Simulating transaction...");
-                const simulation = await connection.simulateTransaction(transaction);
-                console.log("Simulation result:", simulation);
-                if (simulation.value.err) {
-                    console.error("Simulation Error:", simulation.value.err);
-                    console.error("Simulation Logs:", simulation.value.logs);
-                    toast.error("Simulation failed: " + JSON.stringify(simulation.value.err));
-                    setLoading(false);
-                    return; // Stop if simulation fails
-                } else {
-                    console.log("Simulation success logs:", simulation.value.logs);
-                }
-            } catch (simError) {
-                console.error("Simulation crashed:", simError);
-            }
-            // ----------------------------------------------
 
             // 5. Sign and Send
             const signature = await wallet.sendTransaction(transaction, connection);
@@ -694,9 +674,6 @@ export default function Dashboard() {
             }
         } catch (error: any) {
             console.error("Error deleting alias:", error);
-            if (error.logs) {
-                console.error("Transaction logs:", error.logs);
-            }
             let message = "Deletion failed.";
             if (error.message?.includes("User rejected")) {
                 message = "Request rejected.";

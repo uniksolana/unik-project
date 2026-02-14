@@ -77,25 +77,7 @@
       "accounts": [
         {
           "name": "alias_account",
-          "writable": true,
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  97,
-                  108,
-                  105,
-                  97,
-                  115
-                ]
-              },
-              {
-                "kind": "arg",
-                "path": "alias"
-              }
-            ]
-          }
+          "writable": true
         },
         {
           "name": "user",
