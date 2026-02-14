@@ -868,7 +868,9 @@ export default function Dashboard() {
                         uploadingAvatar={uploadingAvatar}
                         network={network}
                         registeredAlias={registeredAlias}
+                        registeredAt={registeredAt}
                         handleRemoveAvatar={handleRemoveAvatar}
+                        handleDeleteAlias={handleDeleteAlias}
                     />
                 )}
 
@@ -1357,7 +1359,7 @@ function SendTab({ sendRecipient, setSendRecipient, sendAlias, setSendAlias, sen
 
                     // SECURITY CHECK: Compare with contact list
                     const contact = contacts.find((c: any) => c.alias?.toLowerCase() === aliasToCheck);
-                    if (contact && contact.wallet_address !== currentOwner) {
+                    if (contact && contact.aliasOwner && contact.aliasOwner !== currentOwner) {
                         setSecurityWarning(`Security Alert: The owner of @${aliasToCheck} has changed since you added this contact. Please verify with the recipient before sending funds.`);
                     } else {
                         setSecurityWarning(null);
