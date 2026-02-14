@@ -200,9 +200,9 @@ pub mod unik_anchor {
 
     /// Delete an alias permanently - refunds rent to owner
     /// The alias becomes available for registration by anyone
-    pub fn delete_alias(ctx: Context<DeleteAlias>, _alias: String) -> Result<()> {
+    pub fn delete_alias(ctx: Context<DeleteAlias>, alias: String) -> Result<()> {
         // Note: Anchor automatically closes the account and refunds rent to `close = user`
-        msg!("Alias deleted: {}", ctx.accounts.alias_account.alias);
+        msg!("Alias deleted: {}", alias);
         Ok(())
     }
 }

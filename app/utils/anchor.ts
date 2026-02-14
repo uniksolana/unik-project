@@ -111,7 +111,7 @@ export const IDL = {
       ],
       "args": [
         {
-          "name": "_alias",
+          "name": "alias",
           "type": "string"
         }
       ]
