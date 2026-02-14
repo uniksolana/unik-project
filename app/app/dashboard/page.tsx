@@ -608,7 +608,10 @@ export default function Dashboard() {
         if (!publicKey || !wallet) return;
         setLoading(true);
         try {
-            const provider = new AnchorProvider(connection, wallet as any, {});
+            const provider = new AnchorProvider(connection, wallet as any, {
+                commitment: 'confirmed',
+                preflightCommitment: 'confirmed',
+            });
             const program = new Program(IDL as any, provider);
 
             const [aliasPDA] = PublicKey.findProgramAddressSync(
@@ -616,41 +619,23 @@ export default function Dashboard() {
                 PROGRAM_ID
             );
 
-            const instruction = await program.methods
+            const tx = await program.methods
                 .deleteAlias(aliasToDelete)
                 .accounts({
                     aliasAccount: aliasPDA,
                     user: publicKey,
                 })
-                .instruction();
+                .rpc();
 
-            const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash('finalized');
-
-            const messageV0 = new TransactionMessage({
-                payerKey: publicKey,
-                recentBlockhash: blockhash,
-                instructions: [
-                    ComputeBudgetProgram.setComputeUnitLimit({ units: 50_000 }),
-                    ComputeBudgetProgram.setComputeUnitPrice({ microLamports: 1000 }),
-                    instruction
-                ],
-            }).compileToV0Message();
-
-            const transaction = new VersionedTransaction(messageV0);
-
-            const signature = await wallet.sendTransaction(transaction, connection);
-            await connection.confirmTransaction({ signature, blockhash, lastValidBlockHeight });
-
+            console.log("Delete alias tx:", tx);
             toast.success(`Alias @${aliasToDelete} deleted successfully!`);
 
             // Update local state
-            const updatedAliases = myAliases.filter(a => a !== aliasToDelete);
+            const updatedAliases = myAliases.filter((a: string) => a !== aliasToDelete);
             setMyAliases(updatedAliases);
             if (registeredAlias === aliasToDelete) {
                 if (updatedAliases.length > 0) {
                     setRegisteredAlias(updatedAliases[0]);
-                    // registeredAt will be updated by the switching logic/initial fetch if we trigger it, 
-                    // or we could trigger a re-fetch here.
                 } else {
                     setRegisteredAlias(null);
                     setRegisteredAt(null);
@@ -663,7 +648,7 @@ export default function Dashboard() {
             if (error.message?.includes("User rejected")) {
                 message = "Request rejected.";
             } else if (error.message) {
-                message = error.message.slice(0, 100);
+                message = error.message.slice(0, 120);
             }
             toast.error(message);
         } finally {
