@@ -200,19 +200,7 @@ pub mod unik_anchor {
 
     /// Delete an alias permanently - refunds rent to owner
     /// The alias becomes available for registration by anyone
-    /// Version will increment if someone re-registers it
     pub fn delete_alias(ctx: Context<DeleteAlias>, _alias: String) -> Result<()> {
-        let alias_account = &ctx.accounts.alias_account;
-        
-        // Security Rule: Minimum Holding Period Check
-        let clock = Clock::get()?;
-        let time_held = clock.unix_timestamp - alias_account.registered_at;
-        
-        require!(
-            time_held >= MIN_HOLDING_PERIOD, 
-            UnikError::AliasTooNew
-        );
-        
         // Note: Anchor automatically closes the account and refunds rent to `close = user`
         msg!("Alias deleted: {}", ctx.accounts.alias_account.alias);
         Ok(())
@@ -394,10 +382,6 @@ pub enum UnikError {
     AliasAlreadyActive,
     #[msg("Amount too small. Minimum is 10000 units to prevent dust transactions.")]
     AmountTooSmall,
-    #[msg("You must hold the alias for at least 90 days before deleting it.")]
-    AliasTooNew,
 }
 
-// Constant: 90 days in seconds
-const MIN_HOLDING_PERIOD: i64 = 90 * 24 * 60 * 60; 
 

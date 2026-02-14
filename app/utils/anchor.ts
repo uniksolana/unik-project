@@ -594,11 +594,6 @@ export const IDL = {
       "code": 6015,
       "name": "AmountTooSmall",
       "msg": "Amount too small. Minimum is 10000 units to prevent dust transactions."
-    },
-    {
-      "code": 6016,
-      "name": "AliasTooNew",
-      "msg": "You must hold the alias for at least 90 days before deleting it."
     }
   ],
   "types": [

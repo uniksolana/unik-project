@@ -660,10 +660,10 @@ export default function Dashboard() {
         } catch (error: any) {
             console.error("Error deleting alias:", error);
             let message = "Deletion failed.";
-            if (error.message?.includes("0x1780") || error.logs?.some((l: string) => l.includes("AliasTooNew"))) {
-                message = "You must hold the alias for at least 90 days before deleting it.";
-            } else if (error.message?.includes("User rejected")) {
+            if (error.message?.includes("User rejected")) {
                 message = "Request rejected.";
+            } else if (error.message) {
+                message = error.message.slice(0, 100);
             }
             toast.error(message);
         } finally {
@@ -852,7 +852,7 @@ export default function Dashboard() {
                         {activeTab === 'receive' && <ReceiveTab avatarUrl={avatarUrl} registeredAlias={registeredAlias} linkAmount={linkAmount} setLinkAmount={setLinkAmount} linkConcept={linkConcept} setLinkConcept={setLinkConcept} requestToken={requestToken} setRequestToken={setRequestToken} />}
                         {activeTab === 'send' && <SendTab sendRecipient={sendRecipient} setSendRecipient={setSendRecipient} sendAlias={sendAlias} setSendAlias={setSendAlias} sendAmount={sendAmount} setSendAmount={setSendAmount} sendNote={sendNote} setSendNote={setSendNote} paymentConcept={paymentConcept} setPaymentConcept={setPaymentConcept} loading={loading} setLoading={setLoading} publicKey={publicKey} wallet={wallet} connection={connection} solPrice={liveSolPrice} balance={balances.find(b => b.symbol === 'SOL')?.amount || 0} sendToken={sendToken} setSendToken={setSendToken} myAliases={myAliases} contacts={contacts} resolvedAddress={resolvedAddress} setResolvedAddress={setResolvedAddress} />}
                         {activeTab === 'splits' && <SplitsTab splits={splits} setSplits={setSplits} isEditing={isEditing} setIsEditing={setIsEditing} newSplitAddress={newSplitAddress} setNewSplitAddress={setNewSplitAddress} newSplitPercent={newSplitPercent} setNewSplitPercent={setNewSplitPercent} addSplit={addSplit} removeSplit={removeSplit} totalPercent={totalPercent} handleSaveConfig={handleSaveConfig} loading={loading} registeredAlias={registeredAlias} setActiveTab={setActiveTab} />}
-                        {activeTab === 'alias' && <AliasTab myAliases={myAliases} showRegisterForm={showRegisterForm} setShowRegisterForm={setShowRegisterForm} alias={alias} setAlias={setAlias} handleRegister={handleRegister} loading={loading} setRegisteredAlias={setRegisteredAlias} />}
+                        {activeTab === 'alias' && <AliasTab myAliases={myAliases} showRegisterForm={showRegisterForm} setShowRegisterForm={setShowRegisterForm} alias={alias} setAlias={setAlias} handleRegister={handleRegister} loading={loading} setRegisteredAlias={setRegisteredAlias} handleDeleteAlias={handleDeleteAlias} />}
                         {activeTab === 'contacts' && <ContactsTab contacts={contacts} refreshContacts={loadContacts} setSendRecipient={setSendRecipient} setSendAlias={setSendAlias} setSendNote={setSendNote} setResolvedAddress={setResolvedAddress} setActiveTab={setActiveTab} loading={loading} setLoading={setLoading} connection={connection} wallet={wallet} confirmModal={confirmModal} setConfirmModal={setConfirmModal} noteModal={noteModal} setNoteModal={setNoteModal} />}
                         {activeTab === 'history' && <HistoryTab publicKey={publicKey} connection={connection} contacts={contacts} />}
                     </div>
@@ -2037,33 +2037,106 @@ function SplitsTab({ splits, setSplits, isEditing, setIsEditing, newSplitAddress
     );
 }
 
-function AliasTab({ myAliases, showRegisterForm, setShowRegisterForm, alias, setAlias, handleRegister, loading, setRegisteredAlias }: any) {
+function AliasTab({ myAliases, showRegisterForm, setShowRegisterForm, alias, setAlias, handleRegister, loading, setRegisteredAlias, handleDeleteAlias }: any) {
     const { t } = usePreferences();
+    const [confirmDeleteAlias, setConfirmDeleteAlias] = useState<string | null>(null);
+    const [deleting, setDeleting] = useState(false);
+    const hasAlias = myAliases.length > 0;
+    const MAX_ALIASES = 1;
+    const canRegister = myAliases.length < MAX_ALIASES;
+
+    const onDeleteConfirmed = async (aliasName: string) => {
+        setDeleting(true);
+        try {
+            await handleDeleteAlias(aliasName);
+            setConfirmDeleteAlias(null);
+        } catch (e) {
+            console.error(e);
+        } finally {
+            setDeleting(false);
+        }
+    };
+
     return (
         <div>
-            <h3 className="text-2xl font-bold mb-6">{t('aliases_title')}</h3>
+            <h3 className="text-2xl font-bold mb-2">{t('aliases_title')}</h3>
+            <p className="text-xs text-gray-500 mb-6">Maximum 1 alias per wallet. You can delete and register a new one at any time.</p>
 
-            {myAliases.length > 0 && !showRegisterForm && (
+            {hasAlias && !showRegisterForm && (
                 <div className="mb-6">
                     <h4 className="text-sm text-gray-400 mb-3">{t('your_aliases')}</h4>
                     <div className="space-y-3">
                         {myAliases.map((a: string) => (
-                            <div key={a} className="flex items-center justify-between p-4 bg-gray-800 rounded-xl border border-gray-700 hover:border-cyan-500 transition-colors cursor-pointer" onClick={() => setRegisteredAlias(a)}>
-                                <span className="text-lg font-semibold text-cyan-400">@{a}</span>
-                                <span className="text-sm text-gray-500">{t('click_to_switch')}</span>
+                            <div key={a} className="p-4 bg-gray-800 rounded-xl border border-gray-700 transition-all">
+                                {confirmDeleteAlias === a ? (
+                                    /* Inline Confirmation */
+                                    <div className="space-y-3 animate-in fade-in duration-200">
+                                        <div className="flex items-center gap-3">
+                                            <div className="w-8 h-8 bg-red-500/20 rounded-full flex items-center justify-center text-red-500 flex-shrink-0">
+                                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
+                                            </div>
+                                            <div>
+                                                <p className="text-sm font-bold text-white">Delete @{a}?</p>
+                                                <p className="text-[10px] text-red-300/70">This is permanent. The name will be available for anyone to register.</p>
+                                            </div>
+                                        </div>
+                                        <div className="flex gap-2">
+                                            <button
+                                                onClick={() => setConfirmDeleteAlias(null)}
+                                                disabled={deleting}
+                                                className="flex-1 py-2.5 bg-white/5 hover:bg-white/10 text-gray-400 font-bold rounded-lg border border-white/5 transition-all text-xs"
+                                            >
+                                                Cancel
+                                            </button>
+                                            <button
+                                                onClick={() => onDeleteConfirmed(a)}
+                                                disabled={deleting}
+                                                className="flex-1 py-2.5 bg-red-600 hover:bg-red-500 text-white font-bold rounded-lg shadow-lg shadow-red-900/30 transition-all text-xs active:scale-95"
+                                            >
+                                                {deleting ? 'Deleting...' : 'Confirm Delete'}
+                                            </button>
+                                        </div>
+                                    </div>
+                                ) : (
+                                    /* Normal Alias Row */
+                                    <div className="flex items-center justify-between">
+                                        <div className="flex items-center gap-3 cursor-pointer flex-1" onClick={() => setRegisteredAlias(a)}>
+                                            <span className="text-lg font-semibold text-cyan-400">@{a}</span>
+                                            <span className="text-xs text-gray-600">{t('click_to_switch')}</span>
+                                        </div>
+                                        <button
+                                            onClick={(e) => { e.stopPropagation(); setConfirmDeleteAlias(a); }}
+                                            disabled={loading}
+                                            className="p-2 text-gray-600 hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-all"
+                                            title="Delete alias"
+                                        >
+                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                                        </button>
+                                    </div>
+                                )}
                             </div>
                         ))}
                     </div>
-                    <button
-                        onClick={() => setShowRegisterForm(true)}
-                        className="mt-4 w-full py-3 bg-gray-800 hover:bg-gray-700 rounded-xl font-semibold border border-gray-700 transition-colors"
-                    >
-                        + {t('register_alias')}
-                    </button>
+
+                    {/* Register button - only if under limit */}
+                    {canRegister && (
+                        <button
+                            onClick={() => setShowRegisterForm(true)}
+                            className="mt-4 w-full py-3 bg-gray-800 hover:bg-gray-700 rounded-xl font-semibold border border-gray-700 transition-colors"
+                        >
+                            + {t('register_alias')}
+                        </button>
+                    )}
+
+                    {!canRegister && (
+                        <div className="mt-4 p-3 bg-yellow-500/5 border border-yellow-500/20 rounded-xl text-center">
+                            <p className="text-[11px] text-yellow-500/80">You've reached the maximum of {MAX_ALIASES} alias. Delete your current alias to register a different one.</p>
+                        </div>
+                    )}
                 </div>
             )}
 
-            {(showRegisterForm || myAliases.length === 0) && (
+            {(showRegisterForm || !hasAlias) && (
                 <div className="bg-gray-800 p-6 rounded-xl border border-gray-700">
                     <h4 className="text-lg font-semibold mb-4">{t('register_alias')}</h4>
                     <div className="space-y-4">
@@ -2087,7 +2160,7 @@ function AliasTab({ myAliases, showRegisterForm, setShowRegisterForm, alias, set
                         >
                             {loading ? t('loading') : t('register_btn')}
                         </button>
-                        {myAliases.length > 0 && (
+                        {hasAlias && (
                             <button onClick={() => setShowRegisterForm(false)} className="w-full py-3 text-gray-400 hover:text-white transition-colors">{t('cancel')}</button>
                         )}
                     </div>

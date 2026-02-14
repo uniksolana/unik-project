@@ -62,8 +62,7 @@
       "name": "delete_alias",
       "docs": [
         "Delete an alias permanently - refunds rent to owner",
-        "The alias becomes available for registration by anyone",
-        "Version will increment if someone re-registers it"
+        "The alias becomes available for registration by anyone"
       ],
       "discriminator": [
         218,
@@ -248,7 +247,7 @@
         60,
         6,
         198,
-        251
+        168
       ],
       "accounts": [
         {
@@ -589,11 +588,6 @@
       "code": 6015,
       "name": "AmountTooSmall",
       "msg": "Amount too small. Minimum is 10000 units to prevent dust transactions."
-    },
-    {
-      "code": 6016,
-      "name": "AliasTooNew",
-      "msg": "You must hold the alias for at least 90 days before deleting it."
     }
   ],
   "types": [
