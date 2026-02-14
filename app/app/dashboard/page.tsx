@@ -867,7 +867,7 @@ export default function Dashboard() {
                         {activeTab === 'receive' && <ReceiveTab avatarUrl={avatarUrl} registeredAlias={registeredAlias} linkAmount={linkAmount} setLinkAmount={setLinkAmount} linkConcept={linkConcept} setLinkConcept={setLinkConcept} requestToken={requestToken} setRequestToken={setRequestToken} />}
                         {activeTab === 'send' && <SendTab sendRecipient={sendRecipient} setSendRecipient={setSendRecipient} sendAlias={sendAlias} setSendAlias={setSendAlias} sendAmount={sendAmount} setSendAmount={setSendAmount} sendNote={sendNote} setSendNote={setSendNote} paymentConcept={paymentConcept} setPaymentConcept={setPaymentConcept} loading={loading} setLoading={setLoading} publicKey={publicKey} wallet={wallet} connection={connection} solPrice={liveSolPrice} balance={balances.find(b => b.symbol === 'SOL')?.amount || 0} sendToken={sendToken} setSendToken={setSendToken} myAliases={myAliases} contacts={contacts} resolvedAddress={resolvedAddress} setResolvedAddress={setResolvedAddress} />}
                         {activeTab === 'splits' && <SplitsTab splits={splits} setSplits={setSplits} isEditing={isEditing} setIsEditing={setIsEditing} newSplitAddress={newSplitAddress} setNewSplitAddress={setNewSplitAddress} newSplitPercent={newSplitPercent} setNewSplitPercent={setNewSplitPercent} addSplit={addSplit} removeSplit={removeSplit} totalPercent={totalPercent} handleSaveConfig={handleSaveConfig} loading={loading} registeredAlias={registeredAlias} setActiveTab={setActiveTab} />}
-                        {activeTab === 'alias' && <AliasTab myAliases={myAliases} showRegisterForm={showRegisterForm} setShowRegisterForm={setShowRegisterForm} alias={alias} setAlias={setAlias} handleRegister={handleRegister} loading={loading} setRegisteredAlias={setRegisteredAlias} handleDeleteAlias={handleDeleteAlias} />}
+                        {activeTab === 'alias' && <AliasTab myAliases={myAliases} showRegisterForm={showRegisterForm} setShowRegisterForm={setShowRegisterForm} alias={alias} setAlias={setAlias} handleRegister={handleRegister} loading={loading} setRegisteredAlias={setRegisteredAlias} handleDeleteAlias={handleDeleteAlias} connection={connection} />}
                         {activeTab === 'contacts' && <ContactsTab contacts={contacts} refreshContacts={loadContacts} setSendRecipient={setSendRecipient} setSendAlias={setSendAlias} setSendNote={setSendNote} setResolvedAddress={setResolvedAddress} setActiveTab={setActiveTab} loading={loading} setLoading={setLoading} connection={connection} wallet={wallet} confirmModal={confirmModal} setConfirmModal={setConfirmModal} noteModal={noteModal} setNoteModal={setNoteModal} />}
                         {activeTab === 'history' && <HistoryTab publicKey={publicKey} connection={connection} contacts={contacts} />}
                     </div>
@@ -2052,13 +2052,61 @@ function SplitsTab({ splits, setSplits, isEditing, setIsEditing, newSplitAddress
     );
 }
 
-function AliasTab({ myAliases, showRegisterForm, setShowRegisterForm, alias, setAlias, handleRegister, loading, setRegisteredAlias, handleDeleteAlias }: any) {
+function AliasTab({ myAliases, showRegisterForm, setShowRegisterForm, alias, setAlias, handleRegister, loading, setRegisteredAlias, handleDeleteAlias, connection }: any) {
     const { t } = usePreferences();
     const [confirmDeleteAlias, setConfirmDeleteAlias] = useState<string | null>(null);
     const [deleting, setDeleting] = useState(false);
+
+    // Availability State
+    const [availability, setAvailability] = useState<'idle' | 'checking' | 'available' | 'taken'>('idle');
+    const [debouncedAlias, setDebouncedAlias] = useState(alias);
+
     const hasAlias = myAliases.length > 0;
     const MAX_ALIASES = 1;
     const canRegister = myAliases.length < MAX_ALIASES;
+
+    // Debounce alias input
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            setDebouncedAlias(alias);
+        }, 500);
+        return () => clearTimeout(timer);
+    }, [alias]);
+
+    // Check availability
+    useEffect(() => {
+        if (!debouncedAlias || debouncedAlias.length < 3) {
+            setAvailability('idle');
+            return;
+        }
+
+        const checkAvailability = async () => {
+            setAvailability('checking');
+            try {
+                // Determine expected PDA
+                const [pda] = PublicKey.findProgramAddressSync(
+                    [Buffer.from("alias"), Buffer.from(debouncedAlias)],
+                    PROGRAM_ID
+                );
+                // Check if account exists
+                const info = await connection.getAccountInfo(pda);
+
+                // If account exists, it's taken. If null, it's available.
+                // Note: We might want to check data size or discriminator to be 100% sure it's an AliasAccount, 
+                // but for now existence check is sufficient proxy as only AliasAccounts live at this PDA.
+                if (info) {
+                    setAvailability('taken');
+                } else {
+                    setAvailability('available');
+                }
+            } catch (e) {
+                console.error("Availability check failed", e);
+                setAvailability('idle');
+            }
+        };
+
+        checkAvailability();
+    }, [debouncedAlias, connection]);
 
     const onDeleteConfirmed = async (aliasName: string) => {
         setDeleting(true);
@@ -2156,24 +2204,50 @@ function AliasTab({ myAliases, showRegisterForm, setShowRegisterForm, alias, set
                     <h4 className="text-lg font-semibold mb-4">{t('register_alias')}</h4>
                     <div className="space-y-4">
                         <div>
-                            <input
-                                type="text"
-                                value={alias}
-                                onChange={(e) => {
-                                    const val = e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, '');
-                                    setAlias(val);
-                                }}
-                                placeholder="your_alias"
-                                className="w-full px-4 py-4 rounded-xl bg-gray-900 border border-gray-700 text-lg focus:outline-none focus:border-cyan-500"
-                            />
-                            <p className="text-xs text-gray-500 mt-2">3-32 characters. Lowercase alphanumeric only.</p>
+                            <div className="relative">
+                                <input
+                                    type="text"
+                                    value={alias}
+                                    onChange={(e) => {
+                                        const val = e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, '');
+                                        setAlias(val);
+                                    }}
+                                    placeholder="your_alias"
+                                    className={`w-full px-4 py-4 rounded-xl bg-gray-900 border text-lg focus:outline-none transition-colors ${availability === 'available' ? 'border-green-500/50 focus:border-green-500' :
+                                            availability === 'taken' ? 'border-red-500/50 focus:border-red-500' :
+                                                'border-gray-700 focus:border-cyan-500'
+                                        }`}
+                                />
+                                <div className="absolute right-4 top-1/2 -translate-y-1/2 flex items-center">
+                                    {availability === 'checking' && (
+                                        <div className="w-5 h-5 border-2 border-cyan-500/30 border-t-cyan-500 rounded-full animate-spin"></div>
+                                    )}
+                                    {availability === 'available' && (
+                                        <svg className="w-6 h-6 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+                                    )}
+                                    {availability === 'taken' && (
+                                        <svg className="w-6 h-6 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                                    )}
+                                </div>
+                            </div>
+
+                            <div className="flex justify-between items-start mt-2">
+                                <p className="text-xs text-gray-500">3-32 characters. Lowercase alphanumeric only.</p>
+                                {availability === 'taken' && (
+                                    <p className="text-xs text-red-400 font-bold">Alias unavailable</p>
+                                )}
+                                {availability === 'available' && (
+                                    <p className="text-xs text-green-400 font-bold">Alias available!</p>
+                                )}
+                            </div>
                         </div>
+
                         <button
                             onClick={handleRegister}
-                            disabled={loading || !alias}
-                            className="w-full py-4 bg-gradient-to-r from-cyan-600 to-purple-600 hover:from-cyan-700 hover:to-purple-700 rounded-xl font-bold text-lg disabled:opacity-50 disabled:cursor-not-allowed transition-all transform active:scale-95"
+                            disabled={loading || !alias || availability !== 'available'}
+                            className="w-full py-4 bg-gradient-to-r from-cyan-600 to-purple-600 hover:from-cyan-700 hover:to-purple-700 rounded-xl font-bold text-lg disabled:opacity-50 disabled:cursor-not-allowed transition-all transform active:scale-95 disabled:active:scale-100"
                         >
-                            {loading ? t('loading') : t('register_btn')}
+                            {loading ? t('loading') : availability === 'taken' ? 'Taken' : t('register_btn')}
                         </button>
                         {hasAlias && (
                             <button onClick={() => setShowRegisterForm(false)} className="w-full py-3 text-gray-400 hover:text-white transition-colors">{t('cancel')}</button>
