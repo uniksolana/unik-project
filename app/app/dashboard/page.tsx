@@ -621,15 +621,28 @@ export default function Dashboard() {
 
             console.log("Deleting alias:", aliasToDelete, "PDA:", aliasPDA.toBase58(), "User:", publicKey.toBase58());
 
-            const tx = await program.methods
+            // Build instruction manually to avoid Anchor auto-resolve issues
+            const ix = await program.methods
                 .deleteAlias(aliasToDelete)
-                .accountsPartial({
+                .accounts({
                     alias_account: aliasPDA,
                     user: publicKey,
                 })
-                .rpc();
+                .instruction();
 
-            console.log("Delete alias tx:", tx);
+            const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash();
+            const messageV0 = new TransactionMessage({
+                payerKey: publicKey,
+                recentBlockhash: blockhash,
+                instructions: [ix],
+            }).compileToV0Message();
+            const transaction = new VersionedTransaction(messageV0);
+
+            // Sign and send
+            const signature = await wallet.sendTransaction(transaction, connection);
+            await connection.confirmTransaction({ signature, blockhash, lastValidBlockHeight });
+
+            console.log("Delete alias tx signature:", signature);
             toast.success(`Alias @${aliasToDelete} deleted successfully!`);
 
             // Update local state
