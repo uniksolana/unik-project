@@ -5,7 +5,7 @@ import { WalletMultiButton } from '@solana/wallet-adapter-react-ui';
 import { useState, useEffect, useRef } from 'react';
 import toast from 'react-hot-toast';
 import { showTransactionToast, showSimpleToast } from '../components/CustomToast';
-import { PublicKey, SystemProgram, Transaction, VersionedTransaction, TransactionMessage, ComputeBudgetProgram } from '@solana/web3.js';
+import { PublicKey, SystemProgram, Transaction, VersionedTransaction, TransactionMessage, ComputeBudgetProgram, TransactionInstruction } from '@solana/web3.js';
 import { PROGRAM_ID, IDL } from '../../utils/anchor';
 import { Program, AnchorProvider, BN } from '@coral-xyz/anchor';
 import { useConnection } from '@solana/wallet-adapter-react';
@@ -619,26 +619,35 @@ export default function Dashboard() {
                 PROGRAM_ID
             );
 
-            console.log("Deleting alias:", aliasToDelete, "PDA:", aliasPDA.toBase58(), "User:", publicKey.toBase58());
+            console.log("Deleting alias (MANUAL):", aliasToDelete, "PDA:", aliasPDA.toBase58(), "User:", publicKey.toBase58());
 
-            // Build instruction manually to avoid Anchor auto-resolve issues
-            const ix = await program.methods
-                .deleteAlias(aliasToDelete)
-                .accounts({
-                    alias_account: aliasPDA,
-                    user: publicKey,
-                })
-                .instruction();
+            // 1. Discriminator for "delete_alias" (sha256("global:delete_alias")[..8])
+            const discriminator = Buffer.from([218, 54, 238, 46, 173, 75, 242, 207]);
 
+            // 2. Encode alias string (Borsh: 4 bytes len (LE) + utf8 bytes)
+            const aliasBuffer = Buffer.from(aliasToDelete, 'utf8');
+            const lenBuffer = Buffer.alloc(4);
+            lenBuffer.writeUInt32LE(aliasBuffer.length, 0);
+
+            const data = Buffer.concat([discriminator, lenBuffer, aliasBuffer]);
+
+            // 3. Build Instruction manually
+            const ix = new TransactionInstruction({
+                keys: [
+                    { pubkey: aliasPDA, isSigner: false, isWritable: true }, // alias_account (mut)
+                    { pubkey: publicKey, isSigner: true, isWritable: true },  // user (signer, mut)
+                ],
+                programId: PROGRAM_ID,
+                data: data
+            });
+
+            // 4. Use Legacy Transaction (safer for Phantom simulation errors)
+            const transaction = new Transaction().add(ix);
             const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash();
-            const messageV0 = new TransactionMessage({
-                payerKey: publicKey,
-                recentBlockhash: blockhash,
-                instructions: [ix],
-            }).compileToV0Message();
-            const transaction = new VersionedTransaction(messageV0);
+            transaction.recentBlockhash = blockhash;
+            transaction.feePayer = publicKey;
 
-            // Sign and send
+            // 5. Sign and Send
             const signature = await wallet.sendTransaction(transaction, connection);
             await connection.confirmTransaction({ signature, blockhash, lastValidBlockHeight });
 
