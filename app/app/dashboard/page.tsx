@@ -641,15 +641,23 @@ export default function Dashboard() {
                 data: data
             });
 
-            // 4. Use Legacy Transaction (safer for Phantom simulation errors)
-            const transaction = new Transaction().add(ix);
-            const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash();
+            // 4. Use Legacy Transaction with Compute Budget
+            const transaction = new Transaction();
+
+            // Add compute budget instructions (standard + priority fee)
+            transaction.add(
+                ComputeBudgetProgram.setComputeUnitLimit({ units: 50_000 }),
+                ComputeBudgetProgram.setComputeUnitPrice({ microLamports: 1000 })
+            );
+            transaction.add(ix);
+
+            const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash('confirmed');
             transaction.recentBlockhash = blockhash;
             transaction.feePayer = publicKey;
 
             // 5. Sign and Send
             const signature = await wallet.sendTransaction(transaction, connection);
-            await connection.confirmTransaction({ signature, blockhash, lastValidBlockHeight });
+            await connection.confirmTransaction({ signature, blockhash, lastValidBlockHeight }, 'confirmed');
 
             console.log("Delete alias tx signature:", signature);
             toast.success(`Alias @${aliasToDelete} deleted successfully!`);
@@ -668,6 +676,9 @@ export default function Dashboard() {
             }
         } catch (error: any) {
             console.error("Error deleting alias:", error);
+            if (error.logs) {
+                console.error("Transaction logs:", error.logs);
+            }
             let message = "Deletion failed.";
             if (error.message?.includes("User rejected")) {
                 message = "Request rejected.";
