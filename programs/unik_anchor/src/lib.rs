@@ -201,6 +201,15 @@ pub mod unik_anchor {
     /// Delete an alias permanently - refunds rent to owner
     /// The alias becomes available for registration by anyone
     pub fn delete_alias(ctx: Context<DeleteAlias>, alias: String) -> Result<()> {
+        // Manual PDA check for security
+        let (pda, _bump) = Pubkey::find_program_address(&[b"alias", alias.as_bytes()], ctx.program_id);
+        if pda != ctx.accounts.alias_account.key() {
+            msg!("Error: PDA mismatch!");
+            msg!("Expected: {}", pda);
+            msg!("Actual:   {}", ctx.accounts.alias_account.key());
+            return err!(UnikError::InvalidPDA); // Make sure this error exists or use Unauthorized
+        }
+
         // Note: Anchor automatically closes the account and refunds rent to `close = user`
         msg!("Alias deleted: {}", alias);
         Ok(())
@@ -246,8 +255,7 @@ pub struct UpdateAlias<'info> {
 pub struct DeleteAlias<'info> {
     #[account(
         mut,
-        seeds = [b"alias", alias.as_bytes()],
-        bump = alias_account.bump,
+        // Manual check in function body to avoid Anchor macro issues
         constraint = alias_account.owner == user.key() @ UnikError::Unauthorized,
         close = user,  // Refund rent to user
     )]
@@ -382,6 +390,8 @@ pub enum UnikError {
     AliasAlreadyActive,
     #[msg("Amount too small. Minimum is 10000 units to prevent dust transactions.")]
     AmountTooSmall,
+    #[msg("The provided alias account address does not match the derived PDA.")]
+    InvalidPDA,
 }
 
 
