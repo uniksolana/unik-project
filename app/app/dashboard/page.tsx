@@ -614,9 +614,17 @@ export default function Dashboard() {
             });
             const program = new Program(IDL as any, provider);
 
+            const [aliasPDA] = PublicKey.findProgramAddressSync(
+                [Buffer.from("alias"), Buffer.from(aliasToDelete)],
+                PROGRAM_ID
+            );
+
+            console.log("Deleting alias:", aliasToDelete, "PDA:", aliasPDA.toBase58(), "User:", publicKey.toBase58());
+
             const tx = await program.methods
                 .deleteAlias(aliasToDelete)
-                .accounts({
+                .accountsPartial({
+                    alias_account: aliasPDA,
                     user: publicKey,
                 })
                 .rpc();
