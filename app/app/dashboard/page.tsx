@@ -2194,7 +2194,7 @@ function AliasTab({ myAliases, showRegisterForm, setShowRegisterForm, alias, set
             {/* Share Section - Only if alias registered and not in register mode */}
             {hasAlias && registeredAlias && !showRegisterForm && (
                 <div className="mt-8 pt-8 border-t border-gray-700 animate-in slide-in-from-bottom-4 duration-500">
-                    <h4 className="text-sm text-gray-400 mb-4 font-semibold uppercase tracking-wider">{t('share_profile') || 'Share Profile'}</h4>
+                    <h4 className="text-sm text-gray-400 mb-4 font-semibold uppercase tracking-wider">Share Profile</h4>
 
                     <div className="bg-gray-800/50 p-6 rounded-2xl border border-gray-700 relative overflow-hidden group">
 
