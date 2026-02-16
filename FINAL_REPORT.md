@@ -21,9 +21,13 @@
 - ✅ **Explorador Integrado:** Botón directo a Solscan para cada transacción.
 - ✅ **Notas de Pago:** Visualización dedicada para conceptos de pago.
 
-### 3. UX & Estabilidad
-- ✅ **Persistencia de Sesión:** Auth de 15 minutos para evitar firmas constantes al recargar.
-- ✅ **Gestión de Contactos:** Edición de notas corregida y totalmente funcional.
+### 3. UX, Estabilidad y Rendimiento (Critico)
+- ✅ **Persistencia de Sesión:** Auth de 15 minutos para evitar firmas constantes.
+- ✅ **Fix Auth 401:** Solucionada "Race Condition" entre desbloqueo y autenticación.
+- ✅ **Fix Wallet Conflict:** Delay inteligente de 2s para evitar errores "User rejected" en Phantom.
+- ✅ **RPC Batching:** Reducción de 5 a 2 llamadas RPC para balances (adiós error 429).
+- ✅ **Precios Reales:** Caché local + Fallback Binance API para conversión instantánea a Fiat.
+- ✅ **Gestión de Contactos:** Edición de notas corregida y funcional.
 
 ---
 
