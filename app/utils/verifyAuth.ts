@@ -29,6 +29,7 @@ export function verifyWalletSignature(
         // Verify the message format is what we expect
         const expectedMessage = getExpectedMessage(walletAddress);
         if (message !== expectedMessage) {
+            console.error(`[Auth] Message mismatch.\nExpected: "${expectedMessage}"\nReceived: "${message}"`);
             return false;
         }
 
@@ -42,13 +43,18 @@ export function verifyWalletSignature(
         const messageBytes = new TextEncoder().encode(message);
 
         // Verify using tweetnacl (Ed25519)
-        return nacl.sign.detached.verify(
+        const isValid = nacl.sign.detached.verify(
             messageBytes,
             signatureBytes,
             publicKeyBytes
         );
+
+        if (!isValid) {
+            console.error(`[Auth] Signature verification failed for ${walletAddress}`);
+        }
+        return isValid;
     } catch (e) {
-        console.error('[Auth] Signature verification failed:', e);
+        console.error('[Auth] Verification exception:', e);
         return false;
     }
 }

@@ -12,6 +12,11 @@ export async function authenticatedApiCall(body: Record<string, unknown>) {
         body.auth_wallet = authToken.wallet;
         body.auth_signature = authToken.signature;
         body.auth_message = authToken.message;
+
+        // Debug
+        // console.log("[ApiClient] Sending Auth:", { w: authToken.wallet, m: authToken.message });
+    } else {
+        console.warn("[ApiClient] No auth token found or wallet mismatch", { hasToken: !!authToken, target: body.wallet_address });
     }
 
     const res = await fetch('/api/data', {
