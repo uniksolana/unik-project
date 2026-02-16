@@ -1041,44 +1041,56 @@ function ReceiveTab({ avatarUrl, registeredAlias, linkAmount, setLinkAmount, lin
         const baseUrl = getPaymentUrl();
         setSignedPaymentUrl(baseUrl); // Show unsigned immediately
 
-        if (linkAmount && shareValue && publicKey) {
-            const signAndCreateOrder = async () => {
-                // 1. Sign the URL
-                const { signPaymentParams } = await import('../../utils/paymentSecurity');
-                const sig = await signPaymentParams(
-                    String(shareValue),
-                    linkAmount,
-                    requestToken.symbol
-                );
+        // Debounce API calls (800ms) to prevent 429 Too Many Requests
+        const timer = setTimeout(() => {
+            if (linkAmount && shareValue && publicKey) {
+                const signAndCreateOrder = async () => {
+                    try {
+                        // 1. Sign the URL
+                        const { signPaymentParams } = await import('../../utils/paymentSecurity');
+                        const sig = await signPaymentParams(
+                            String(shareValue),
+                            linkAmount,
+                            requestToken.symbol
+                        );
 
-                // 2. Create a backend order for verification
-                let orderId: string | null = null;
-                try {
-                    const orderRes = await fetch('/api/orders/create', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            alias: String(shareValue),
-                            amount: linkAmount,
-                            token: requestToken.symbol,
-                            merchant_wallet: publicKey.toBase58(),
-                            concept: linkConcept || null,
-                        }),
-                    });
-                    const orderData = await orderRes.json();
-                    if (orderData.order_id) {
-                        orderId = orderData.order_id;
+                        // 2. Create a backend order for verification
+                        let orderId: string | null = null;
+                        try {
+                            const orderRes = await fetch('/api/orders/create', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({
+                                    alias: String(shareValue),
+                                    amount: linkAmount,
+                                    token: requestToken.symbol,
+                                    merchant_wallet: publicKey.toBase58(),
+                                    concept: linkConcept || null,
+                                }),
+                            });
+
+                            if (orderRes.ok) {
+                                const orderData = await orderRes.json();
+                                if (orderData.order_id) {
+                                    orderId = orderData.order_id;
+                                }
+                            }
+                        } catch (e) {
+                            console.warn('[Dashboard] Order creation failed, link will work without verification:', e);
+                        }
+
+                        if (sig) {
+                            setSignedPaymentUrl(getPaymentUrl(sig, orderId || undefined));
+                        }
+                    } catch (err) {
+                        console.error("Error signing payment:", err);
                     }
-                } catch (e) {
-                    console.warn('[Dashboard] Order creation failed, link will work without verification:', e);
-                }
+                };
+                signAndCreateOrder();
+            }
+        }, 800);
 
-                if (sig) {
-                    setSignedPaymentUrl(getPaymentUrl(sig, orderId || undefined));
-                }
-            };
-            signAndCreateOrder();
-        }
+        return () => clearTimeout(timer);
     }, [linkAmount, linkConcept, requestToken.symbol, shareValue]);
 
     const getShareMessage = () => {
