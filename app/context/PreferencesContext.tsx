@@ -111,15 +111,15 @@ export function PreferencesProvider({ children }: { children: React.ReactNode })
                 setSolPriceData(JSON.parse(cached));
             } catch (e) { }
         } else {
-            // Fallback if absolutely nothing (prevents "..." forever)
-            // Using approximate values to keep UI functional
-            setSolPriceData({ usd: 145, eur: 135 });
+            // No cache and no fetch yet -> Show loading state
+            setSolPriceData(null);
         }
 
         const fetchPrices = async () => {
             try {
+                // 1. Try CoinGecko first
                 const res = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=solana&vs_currencies=usd,eur');
-                if (!res.ok) throw new Error('Price fetch failed');
+                if (!res.ok) throw new Error('CoinGecko failed');
                 const data = await res.json();
 
                 if (data.solana) {
@@ -129,9 +129,38 @@ export function PreferencesProvider({ children }: { children: React.ReactNode })
                     };
                     setSolPriceData(newPrices);
                     localStorage.setItem(CACHE_KEY, JSON.stringify(newPrices));
+                    return; // Success
                 }
             } catch (e) {
-                console.warn("Using cached/fallback prices due to fetch error:", e);
+                console.warn("CoinGecko failed, trying Binance fallback...", e);
+            }
+
+            // 2. Fallback to Binance (SOL/USDT ~ USD) & Kraken (SOL/EUR) or estimate EUR
+            try {
+                const resBinance = await fetch('https://api.binance.com/api/v3/ticker/price?symbol=SOLUSDT');
+                if (!resBinance.ok) throw new Error('Binance failed');
+                const dataBinance = await resBinance.json();
+                const priceUsd = parseFloat(dataBinance.price);
+
+                // Estimate EUR (USD * 0.92 roughly, or fetch EUR pair if needed)
+                // Let's try fetching EUR pair too if possible, otherwise estimate
+                let priceEur = priceUsd * 0.92;
+                try {
+                    const resEur = await fetch('https://api.binance.com/api/v3/ticker/price?symbol=SOLEUR');
+                    if (resEur.ok) {
+                        const dataEur = await resEur.json();
+                        priceEur = parseFloat(dataEur.price);
+                    }
+                } catch (e) { }
+
+                if (priceUsd) {
+                    const newPrices = { usd: priceUsd, eur: priceEur };
+                    setSolPriceData(newPrices);
+                    localStorage.setItem(CACHE_KEY, JSON.stringify(newPrices));
+                }
+
+            } catch (e) {
+                console.warn("All price APIs failed. Using cache only.");
             }
         };
 
