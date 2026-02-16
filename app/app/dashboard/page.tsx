@@ -2908,19 +2908,29 @@ function HistoryTab({ publicKey, connection, confirmModal, setConfirmModal, cont
                         return (
                             <div key={i} className="flex flex-col bg-[#13131f] border border-gray-800 hover:border-gray-600 rounded-3xl p-5 transition-all group">
                                 {/* Top Row: Icon + Main Info + Amount */}
-                                <div className="flex items-start justify-between mb-4">
-                                    <div className="flex items-center gap-4">
-                                        {Icon}
-                                        <div>
-                                            <h4 className="font-bold text-gray-200 text-base">{typeLabel}</h4>
-                                            <p className="text-sm text-cyan-400 font-medium">{primaryText}</p>
+                                <div className="flex items-center justify-between gap-4 mb-4">
+                                    {/* Left Side: Icon + Text (Allows shrinking/truncating) */}
+                                    <div className="flex items-center gap-4 flex-1 min-w-0">
+                                        <div className="flex-shrink-0">
+                                            {Icon}
+                                        </div>
+                                        <div className="min-w-0 flex-1">
+                                            <h4 className="font-bold text-gray-200 text-base truncate pr-2">{typeLabel}</h4>
+                                            <p className="text-sm text-cyan-400 font-medium truncate">{primaryText}</p>
                                         </div>
                                     </div>
-                                    <div className="text-right">
-                                        <div className={`font-bold text-lg ${amountColor} font-mono tracking-tight`}>
-                                            {tx.amount > 0 ? `${amountPrefix}${tx.amount.toFixed(4)} ${tx.symbol}` : ''}
+
+                                    {/* Right Side: Amount + Status (Fixed width behavior) */}
+                                    <div className="text-right flex-shrink-0 flex flex-col items-end">
+                                        <div className={`font-bold text-lg ${amountColor} font-mono tracking-tight whitespace-nowrap`}>
+                                            {tx.amount > 0 ? (
+                                                <span className="flex items-center gap-1">
+                                                    {amountPrefix}{tx.amount.toFixed(4)}
+                                                    <span className="text-xs opacity-70 ml-0.5">{tx.symbol}</span>
+                                                </span>
+                                            ) : ''}
                                         </div>
-                                        <div className="text-[10px] text-gray-500 uppercase tracking-widest font-bold mt-1">
+                                        <div className="text-[10px] text-gray-500 uppercase tracking-widest font-bold mt-1 bg-gray-800/50 px-2 py-0.5 rounded border border-gray-700/50">
                                             {tx.success ? 'Confirmed' : 'Failed'}
                                         </div>
                                     </div>
@@ -2928,18 +2938,18 @@ function HistoryTab({ publicKey, connection, confirmModal, setConfirmModal, cont
 
                                 {/* Note Section (if exists) */}
                                 {noteContent && (
-                                    <div className="mb-4 relative">
+                                    <div className="mb-4 relative group-hover:opacity-100 transition-opacity">
                                         <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-cyan-500 to-purple-500 rounded-full"></div>
-                                        <div className="bg-gray-800/40 p-3 pl-4 rounded-r-xl rounded-l-md">
-                                            <p className="text-sm text-gray-300 italic">"{noteContent}"</p>
+                                        <div className="bg-gray-800/40 p-3 pl-4 rounded-r-xl rounded-l-md border border-white/5">
+                                            <p className="text-sm text-gray-300 italic truncate">"{noteContent}"</p>
                                         </div>
                                     </div>
                                 )}
 
                                 {/* Bottom Row: Date + Buttons */}
                                 <div className="flex items-center justify-between pt-3 border-t border-gray-800">
-                                    <div className="flex items-center gap-2 text-xs text-gray-500 font-medium">
-                                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                                    <div className="flex items-center gap-2 text-xs text-gray-500 font-medium whitespace-nowrap">
+                                        <svg className="w-3.5 h-3.5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
                                         {formatTime(tx.time)}
                                     </div>
 
@@ -2947,10 +2957,10 @@ function HistoryTab({ publicKey, connection, confirmModal, setConfirmModal, cont
                                         href={`https://solscan.io/tx/${tx.signature}?cluster=devnet`}
                                         target="_blank"
                                         rel="noopener noreferrer"
-                                        className="flex items-center gap-2 px-3 py-1.5 bg-gray-800 hover:bg-gray-700 text-gray-400 hover:text-white rounded-lg transition-colors text-xs font-bold border border-gray-700 hover:border-gray-500"
+                                        className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-800 hover:bg-gray-700 text-gray-400 hover:text-white rounded-lg transition-colors text-xs font-bold border border-gray-700 hover:border-gray-500 shadow-sm"
                                     >
                                         <span>Explorer</span>
-                                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>
+                                        <svg className="w-3 h-3 opacity-70" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>
                                     </a>
                                 </div>
                             </div>
