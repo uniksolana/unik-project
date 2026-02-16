@@ -9,7 +9,7 @@ import { showSimpleToast } from './CustomToast';
 import { deriveKeyFromSignature } from '../../utils/crypto';
 
 import { getSessionKey, setSessionKey } from '../../utils/sessionState';
-import { setAuthToken, getAuthToken, getAuthMessage } from '../../utils/authState';
+import { setAuthToken, getAuthToken, getAuthMessage, AuthToken } from '../../utils/authState';
 
 export default function RiskModal() {
     const pathname = usePathname();
@@ -22,26 +22,76 @@ export default function RiskModal() {
     // Terms version - increment this when you update your terms to force re-acceptance
     const TERMS_VERSION = "v1.0-beta";
 
-    // CRITICAL: This message MUST be constant for key derivation to work across sessions!
-    // Never include timestamps or dynamic content here.
+    // Session Persistence Config
+    const SESSION_DURATION = 15 * 60 * 1000; // 15 Minutes
     const KEY_DERIVATION_MESSAGE = `UNIK Protocol - Authenticate and Decrypt
 Version: ${TERMS_VERSION}
 Sign this message to unlock your encrypted data.
 This signature is free and does not authorize any transaction.`;
 
-    // For display only (not used for key derivation)
-    const TERMS_DISPLAY_TEXT = `
-UNIK PROTOCOL - BETA SOFTWARE RISK ACKNOWLEDGMENT
-
-By signing this message, I acknowledge and agree that:
-1. I am using UNIK Protocol "AS IS", without warranty of any kind.
-2. This is BETA software running on Solana Devnet.
-3. I understand the risks associated with cryptographic software.
-4. I have read and agree to the Terms of Service and Privacy Policy.
-5. I am solely responsible for the security of my keys and funds.
-`;
-
     const [errorChecking, setErrorChecking] = useState<string | null>(null);
+
+    // --- Session Management Helpers ---
+    const loadSession = async (walletAddr: string): Promise<boolean> => {
+        try {
+            const storedTs = localStorage.getItem(`unik_ts_${walletAddr}`);
+            if (!storedTs) return false;
+
+            const now = Date.now();
+            if (now - parseInt(storedTs) > SESSION_DURATION) {
+                console.log("Session expired");
+                clearSession(walletAddr);
+                return false;
+            }
+
+            const storedAuth = localStorage.getItem(`unik_auth_${walletAddr}`);
+            const storedKeyJwk = localStorage.getItem(`unik_key_${walletAddr}`); // Encrypted key stored as JWK string
+
+            if (storedAuth && storedKeyJwk) {
+                // Restore Auth Token
+                const authToken = JSON.parse(storedAuth) as AuthToken;
+                setAuthToken(authToken);
+
+                // Restore Crypto Key
+                const jwk = JSON.parse(storedKeyJwk);
+                const key = await window.crypto.subtle.importKey(
+                    "jwk",
+                    jwk,
+                    { name: "AES-GCM" },
+                    true,
+                    ["encrypt", "decrypt"]
+                );
+                setSessionKey(key);
+                console.log("Session restored from local storage");
+                return true;
+            }
+        } catch (e) {
+            console.error("Failed to restore session", e);
+            clearSession(walletAddr);
+        }
+        return false;
+    };
+
+    const saveSession = async (walletAddr: string, auth: AuthToken, key: CryptoKey) => {
+        try {
+            localStorage.setItem(`unik_ts_${walletAddr}`, Date.now().toString());
+            localStorage.setItem(`unik_auth_${walletAddr}`, JSON.stringify(auth));
+
+            const jwk = await window.crypto.subtle.exportKey("jwk", key);
+            localStorage.setItem(`unik_key_${walletAddr}`, JSON.stringify(jwk));
+            console.log("Session saved locally for 15 min");
+        } catch (e) {
+            console.error("Failed to save session", e);
+        }
+    };
+
+    const clearSession = (walletAddr: string | null) => {
+        if (!walletAddr) return;
+        localStorage.removeItem(`unik_ts_${walletAddr}`);
+        localStorage.removeItem(`unik_auth_${walletAddr}`);
+        localStorage.removeItem(`unik_key_${walletAddr}`);
+    };
+    // ----------------------------------
 
     const checkConsent = async () => {
         // Skip check on public pages (Landing, Terms, Privacy)
@@ -51,14 +101,25 @@ By signing this message, I acknowledge and agree that:
 
         if (!connected || !publicKey) return;
 
-        // If we already have the session key in memory, no need to ask again
+        // 1. Check Memory State first
         if (getSessionKey()) {
             setIsOpen(false);
             return;
         }
 
-        console.log("Checking consent for:", publicKey.toBase58());
+        // 2. Check Local Storage Session
         setChecking(true);
+        const restored = await loadSession(publicKey.toBase58());
+        if (restored) {
+            setChecking(false);
+            setIsOpen(false);
+            // Trigger storage load to refresh contacts with restored key
+            window.dispatchEvent(new Event('unik-contacts-updated'));
+            return;
+        }
+
+        // 3. If no session, check backend for consent status
+        console.log("Checking consent for:", publicKey.toBase58());
         setErrorChecking(null);
         try {
             const res = await fetch('/api/data', {
@@ -118,17 +179,22 @@ By signing this message, I acknowledge and agree that:
             await new Promise(resolve => setTimeout(resolve, 500));
 
             // Generate auth token for API authentication (proves wallet ownership)
+            let authToken: AuthToken;
             try {
                 const walletAddr = publicKey.toBase58();
                 const authMsg = getAuthMessage(walletAddr);
                 const authMsgBytes = new TextEncoder().encode(authMsg);
                 const authSigBytes = await signMessage(authMsgBytes);
                 const authSigBase64 = Buffer.from(authSigBytes).toString('base64');
-                setAuthToken({ wallet: walletAddr, signature: authSigBase64, message: authMsg });
+                authToken = { wallet: walletAddr, signature: authSigBase64, message: authMsg };
+                setAuthToken(authToken);
             } catch (err) {
                 console.error("Auth signing failed:", err);
                 throw new Error("Failed to sign authentication message");
             }
+
+            // Save Session for 15 min
+            await saveSession(publicKey.toBase58(), authToken, key);
 
             // 2. Only save to Supabase if NEW user
             if (!isReturningUser) {
