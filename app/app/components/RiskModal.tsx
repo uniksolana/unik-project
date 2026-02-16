@@ -173,7 +173,7 @@ This signature is free and does not authorize any transaction.`;
 
             // Generate encryption key from signature (same message = same key)
             const key = await deriveKeyFromSignature(signatureBase64);
-            setSessionKey(key);
+            // Don't set session key yet to avoid race condition with auth token
 
             // Small delay to prevent wallet from rejecting rapid requests (Fix: increased to 2000ms)
             await new Promise(resolve => setTimeout(resolve, 2000));
@@ -187,7 +187,10 @@ This signature is free and does not authorize any transaction.`;
                 const authSigBytes = await signMessage(authMsgBytes);
                 const authSigBase64 = Buffer.from(authSigBytes).toString('base64');
                 authToken = { wallet: walletAddr, signature: authSigBase64, message: authMsg };
+
+                // Set both tokens atomically (virtually) to enable app access
                 setAuthToken(authToken);
+                setSessionKey(key);
             } catch (err) {
                 console.error("Auth signing failed:", err);
                 throw new Error("Failed to sign authentication message");
