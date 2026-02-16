@@ -249,24 +249,27 @@ export default function Dashboard() {
                 const solLamports = await connection.getBalance(publicKey);
                 const solAmount = solLamports / 1e9;
 
-                // 2. SPL Token Balances (with delay to avoid 429)
-                const tokenBalancesData = [];
-                for (const token of TOKEN_OPTIONS.slice(1)) { // Skip SOL (index 0)
-                    // Add delay between requests
-                    await new Promise(r => setTimeout(r, 600));
-                    try {
-                        if (!token.mint) continue;
-                        const accounts = await connection.getParsedTokenAccountsByOwner(publicKey, { mint: token.mint });
-                        let amount = 0;
-                        if (accounts.value.length > 0) {
-                            amount = accounts.value[0].account.data.parsed.info.tokenAmount.uiAmount || 0;
-                        }
-                        tokenBalancesData.push({ ...token, amount });
-                    } catch (e) {
-                        console.error(`Failed to fetch ${token.symbol} balance`, e);
-                        tokenBalancesData.push({ ...token, amount: 0 });
+                // 2. Fetch ALL Token Accounts in ONE call (programId based)
+                // This reduces RPC calls from N to 1, avoiding rate limits without needing delays
+                const allTokenAccounts = await connection.getParsedTokenAccountsByOwner(publicKey, {
+                    programId: TOKEN_PROGRAM_ID
+                });
+
+                const tokenBalancesData = TOKEN_OPTIONS.slice(1).map(token => {
+                    if (!token.mint) return { ...token, amount: 0 };
+
+                    // Find the account for this specific mint in the batch response
+                    const account = allTokenAccounts.value.find((t: any) =>
+                        t.account.data.parsed.info.mint === token.mint?.toBase58()
+                    );
+
+                    let amount = 0;
+                    if (account) {
+                        amount = account.account.data.parsed.info.tokenAmount.uiAmount || 0;
                     }
-                }
+
+                    return { ...token, amount };
+                });
 
                 // Construct Balance State
                 const newBalances = [
