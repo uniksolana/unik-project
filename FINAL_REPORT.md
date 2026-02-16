@@ -21,6 +21,10 @@
 - ✅ **Explorador Integrado:** Botón directo a Solscan para cada transacción.
 - ✅ **Notas de Pago:** Visualización dedicada para conceptos de pago.
 
+### 3. UX & Estabilidad
+- ✅ **Persistencia de Sesión:** Auth de 15 minutos para evitar firmas constantes al recargar.
+- ✅ **Gestión de Contactos:** Edición de notas corregida y totalmente funcional.
+
 ---
 
 ## 🎉 Estado Inicial (Fase 1)
