@@ -233,18 +233,27 @@ export default function Dashboard() {
     const [isMounted, setIsMounted] = useState(false);
     useEffect(() => setIsMounted(true), []);
 
+    const lastBalanceFetch = useRef(0);
+
     useEffect(() => {
         const fetchAllBalances = async () => {
             if (!connected || !publicKey) return;
+
+            // Throttle: Max 1 request per 10s
+            const now = Date.now();
+            if (now - lastBalanceFetch.current < 10000 && balances.length > 0) return;
+            lastBalanceFetch.current = now;
 
             try {
                 // 1. SOL Balance
                 const solLamports = await connection.getBalance(publicKey);
                 const solAmount = solLamports / 1e9;
 
-                // 2. SPL Token Balances
+                // 2. SPL Token Balances (with delay to avoid 429)
                 const tokenBalancesData = [];
                 for (const token of TOKEN_OPTIONS.slice(1)) { // Skip SOL (index 0)
+                    // Add delay between requests
+                    await new Promise(r => setTimeout(r, 600));
                     try {
                         if (!token.mint) continue;
                         const accounts = await connection.getParsedTokenAccountsByOwner(publicKey, { mint: token.mint });
@@ -278,7 +287,7 @@ export default function Dashboard() {
 
         if (connected && publicKey) {
             fetchAllBalances();
-            const timer = setInterval(fetchAllBalances, 10000);
+            const timer = setInterval(fetchAllBalances, 15000); // Check every 15s instead of 10s
             return () => clearInterval(timer);
         }
     }, [connected, publicKey, connection, liveSolPrice]);
