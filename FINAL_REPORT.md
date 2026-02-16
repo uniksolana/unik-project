@@ -215,6 +215,7 @@ unik_project/
 - [ ] Dashboard completo con wallet
 - [ ] Payment link generator
 - [ ] Transaction history
+- [x] **UI Organization**: Move "Share your alias" to "Manage Aliases" tab (Completed).
 
 ### Mediano plazo
 - [ ] Deploy a Devnet
