@@ -100,20 +100,38 @@ export function PreferencesProvider({ children }: { children: React.ReactNode })
         }
     };
 
-    // 4. Fetch Prices (Real-time)
+    // 4. Fetch Prices (Real-time with Cache & Fallback)
     useEffect(() => {
+        const CACHE_KEY = 'unik_price_cache';
+
+        // Load cache first for instant UI
+        const cached = localStorage.getItem(CACHE_KEY);
+        if (cached) {
+            try {
+                setSolPriceData(JSON.parse(cached));
+            } catch (e) { }
+        } else {
+            // Fallback if absolutely nothing (prevents "..." forever)
+            // Using approximate values to keep UI functional
+            setSolPriceData({ usd: 145, eur: 135 });
+        }
+
         const fetchPrices = async () => {
             try {
                 const res = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=solana&vs_currencies=usd,eur');
+                if (!res.ok) throw new Error('Price fetch failed');
                 const data = await res.json();
+
                 if (data.solana) {
-                    setSolPriceData({
+                    const newPrices = {
                         usd: data.solana.usd,
                         eur: data.solana.eur
-                    });
+                    };
+                    setSolPriceData(newPrices);
+                    localStorage.setItem(CACHE_KEY, JSON.stringify(newPrices));
                 }
             } catch (e) {
-                console.error("Failed to fetch prices", e);
+                console.warn("Using cached/fallback prices due to fetch error:", e);
             }
         };
 
