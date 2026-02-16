@@ -2214,8 +2214,8 @@ function AliasTab({ myAliases, showRegisterForm, setShowRegisterForm, alias, set
                                     }}
                                     placeholder="your_alias"
                                     className={`w-full px-4 py-4 rounded-xl bg-gray-900 border text-lg focus:outline-none transition-colors ${availability === 'available' ? 'border-green-500/50 focus:border-green-500' :
-                                            availability === 'taken' ? 'border-red-500/50 focus:border-red-500' :
-                                                'border-gray-700 focus:border-cyan-500'
+                                        availability === 'taken' ? 'border-red-500/50 focus:border-red-500' :
+                                            'border-gray-700 focus:border-cyan-500'
                                         }`}
                                 />
                                 <div className="absolute right-4 top-1/2 -translate-y-1/2 flex items-center">
@@ -2827,90 +2827,144 @@ function HistoryTab({ publicKey, connection, confirmModal, setConfirmModal, cont
     }
 
     return (
-        <div className="space-y-4">
-            <h3 className="font-bold text-xl mb-4">{t('history_title')}</h3>
+        <div className="space-y-6">
+            <div className="flex justify-between items-center">
+                <h3 className="font-bold text-2xl text-white">{t('history_title')}</h3>
+                <div className="text-xs text-gray-500 bg-gray-800 px-3 py-1 rounded-full border border-gray-700">
+                    Devnet
+                </div>
+            </div>
 
-            <div className="space-y-3">
+            <div className="space-y-4">
                 {history.length === 0 ? (
-                    <p className="text-center text-gray-500 py-12">{t('no_history')}</p>
+                    <div className="text-center py-16 bg-gray-800/30 rounded-3xl border border-dashed border-gray-700">
+                        <div className="w-16 h-16 bg-gray-800 rounded-full flex items-center justify-center mx-auto mb-4 text-gray-600">
+                            <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                        </div>
+                        <p className="text-gray-400 font-medium">{t('no_history')}</p>
+                    </div>
                 ) : (
                     history.map((tx: any, i: number) => {
                         const savedNote = notes[tx.signature];
                         const sharedNote = sharedNotes[tx.signature];
+                        const noteContent = savedNote?.note || sharedNote?.note;
 
-                        // Resolve Display Name
-                        let displayName = tx.type;
+                        // Resolve Display Name & Metadata
+                        let typeLabel = tx.type;
+                        let primaryText = "";
                         let secondaryText = tx.actionLabel;
 
-                        if (tx.type === 'Sent') {
-                            const alias = getContactAlias(tx.otherSide) || savedNote?.recipient;
-                            displayName = alias ? `Sent to @${alias}` : `Sent to ${tx.otherSide.slice(0, 4)}...${tx.otherSide.slice(-4)}`;
-                            secondaryText = savedNote?.note || t('sent');
-                        } else if (tx.type === 'Received') {
-                            const alias = getContactAlias(tx.otherSide) || sharedNote?.senderAlias;
-                            displayName = alias ? `Received from @${alias}` : `Received from ${tx.otherSide.slice(0, 4)}...${tx.otherSide.slice(-4)}`;
-                            secondaryText = sharedNote?.note || t('received');
-                        } else if (tx.type === 'System') {
-                            displayName = tx.actionLabel; // e.g., Alias Registration
-                            secondaryText = 'System Interaction';
-                        }
-
-                        // Determine Icon
-                        let Icon = (
-                            <div className="w-10 h-10 rounded-full bg-gray-700/50 flex items-center justify-center text-gray-400">
-                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
-                            </div>
-                        );
+                        // Icon Configuration
+                        let Icon = <div className="w-12 h-12 rounded-2xl bg-gray-800 flex items-center justify-center text-gray-400"><svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg></div>;
+                        let amountColor = "text-gray-200";
+                        let amountPrefix = "";
 
                         if (tx.type === 'Sent') {
+                            const rawAlias = getContactAlias(tx.otherSide) || savedNote?.recipient;
+                            // Fix @@ issue: check if rawAlias already starts with @
+                            const cleanAlias = rawAlias ? (rawAlias.startsWith('@') ? rawAlias : `@${rawAlias}`) : null;
+
+                            typeLabel = "Sent Payment";
+                            primaryText = cleanAlias ? `To ${cleanAlias}` : `To ${tx.otherSide.slice(0, 4)}...${tx.otherSide.slice(-4)}`;
+                            secondaryText = "Transfer";
+                            amountColor = "text-red-400";
+                            amountPrefix = "-";
                             Icon = (
-                                <div className="w-10 h-10 rounded-full bg-red-500/20 flex items-center justify-center text-red-500 border border-red-500/30">
-                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 17L17 7M17 7H7M17 7V17" /></svg>
+                                <div className="w-12 h-12 rounded-2xl bg-red-500/10 flex items-center justify-center text-red-500 border border-red-500/20 shadow-[0_0_15px_rgba(239,68,68,0.1)]">
+                                    <svg className="w-6 h-6 transform -rotate-45" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 12h14M12 5l7 7-7 7" /></svg>
                                 </div>
                             );
                         } else if (tx.type === 'Received') {
+                            const rawAlias = getContactAlias(tx.otherSide) || sharedNote?.senderAlias;
+                            const cleanAlias = rawAlias ? (rawAlias.startsWith('@') ? rawAlias : `@${rawAlias}`) : null;
+
+                            typeLabel = "Received Payment";
+                            primaryText = cleanAlias ? `From ${cleanAlias}` : `From ${tx.otherSide.slice(0, 4)}...${tx.otherSide.slice(-4)}`;
+                            secondaryText = "Transfer";
+                            amountColor = "text-green-400";
+                            amountPrefix = "+";
                             Icon = (
-                                <div className="w-10 h-10 rounded-full bg-green-500/20 flex items-center justify-center text-green-500 border border-green-500/30">
-                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 7L7 17M7 17H17M7 17V7" /></svg>
+                                <div className="w-12 h-12 rounded-2xl bg-green-500/10 flex items-center justify-center text-green-500 border border-green-500/20 shadow-[0_0_15px_rgba(34,197,94,0.1)]">
+                                    <svg className="w-6 h-6 transform rotate-45" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 12H5M12 5l-7 7 7 7" /></svg>
+                                </div>
+                            );
+                        } else if (tx.type === 'System' || tx.type === 'Interaction') {
+                            // Detect Alias Registration roughly by parsing logs if possible, or context
+                            if (tx.actionLabel === 'Unknown' || tx.actionLabel === 'Interaction') {
+                                typeLabel = "Contract Interaction";
+                                primaryText = "Unik Program";
+                            } else {
+                                typeLabel = tx.actionLabel; // e.g., Register Alias
+                                primaryText = "System";
+                            }
+                            secondaryText = "On-chain";
+                            Icon = (
+                                <div className="w-12 h-12 rounded-2xl bg-purple-500/10 flex items-center justify-center text-purple-400 border border-purple-500/20">
+                                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
                                 </div>
                             );
                         }
 
                         return (
-                            <div key={i} className="flex items-center justify-between p-4 bg-[#13131f]/50 border border-white/5 hover:border-white/10 hover:bg-[#13131f] transition-all rounded-xl group">
-                                <div className="flex items-center gap-4 min-w-0">
-                                    {Icon}
-                                    <div className="min-w-0">
-                                        <h4 className="font-bold text-white text-sm truncate">{displayName}</h4>
-                                        <div className="flex items-center gap-2 text-xs text-gray-400">
-                                            <span className="truncate max-w-[150px]">{secondaryText}</span>
-                                            <span className="w-1 h-1 bg-gray-600 rounded-full"></span>
-                                            <span className="whitespace-nowrap">{formatTime(tx.time)}</span>
+                            <div key={i} className="flex flex-col bg-[#13131f] border border-gray-800 hover:border-gray-600 rounded-3xl p-5 transition-all group">
+                                {/* Top Row: Icon + Main Info + Amount */}
+                                <div className="flex items-start justify-between mb-4">
+                                    <div className="flex items-center gap-4">
+                                        {Icon}
+                                        <div>
+                                            <h4 className="font-bold text-gray-200 text-base">{typeLabel}</h4>
+                                            <p className="text-sm text-cyan-400 font-medium">{primaryText}</p>
+                                        </div>
+                                    </div>
+                                    <div className="text-right">
+                                        <div className={`font-bold text-lg ${amountColor} font-mono tracking-tight`}>
+                                            {tx.amount > 0 ? `${amountPrefix}${tx.amount.toFixed(4)} ${tx.symbol}` : ''}
+                                        </div>
+                                        <div className="text-[10px] text-gray-500 uppercase tracking-widest font-bold mt-1">
+                                            {tx.success ? 'Confirmed' : 'Failed'}
                                         </div>
                                     </div>
                                 </div>
 
-                                <div className="text-right pl-4">
-                                    {tx.type === 'Sent' && <p className="font-bold text-red-400 text-sm whitespace-nowrap">- {tx.amount.toFixed(4)} {tx.symbol}</p>}
-                                    {tx.type === 'Received' && <p className="font-bold text-green-400 text-sm whitespace-nowrap">+ {tx.amount.toFixed(4)} {tx.symbol}</p>}
-                                    {tx.type === 'System' && <p className="font-bold text-gray-400 text-xs uppercase tracking-wider">{t('system')}</p>}
-                                    {tx.type === 'Interaction' && <p className="font-bold text-blue-400 text-xs uppercase tracking-wider">Interaction</p>}
-                                    {tx.type === 'Token' && <p className="font-bold text-purple-400 text-xs uppercase tracking-wider">Token</p>}
+                                {/* Note Section (if exists) */}
+                                {noteContent && (
+                                    <div className="mb-4 relative">
+                                        <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-cyan-500 to-purple-500 rounded-full"></div>
+                                        <div className="bg-gray-800/40 p-3 pl-4 rounded-r-xl rounded-l-md">
+                                            <p className="text-sm text-gray-300 italic">"{noteContent}"</p>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Bottom Row: Date + Buttons */}
+                                <div className="flex items-center justify-between pt-3 border-t border-gray-800">
+                                    <div className="flex items-center gap-2 text-xs text-gray-500 font-medium">
+                                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                                        {formatTime(tx.time)}
+                                    </div>
 
                                     <a
                                         href={`https://solscan.io/tx/${tx.signature}?cluster=devnet`}
                                         target="_blank"
                                         rel="noopener noreferrer"
-                                        className="text-[10px] text-cyan-600 hover:text-cyan-400 font-bold mt-1 inline-flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                                        className="flex items-center gap-2 px-3 py-1.5 bg-gray-800 hover:bg-gray-700 text-gray-400 hover:text-white rounded-lg transition-colors text-xs font-bold border border-gray-700 hover:border-gray-500"
                                     >
-                                        Solscan
-                                        <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>
+                                        <span>Explorer</span>
+                                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>
                                     </a>
                                 </div>
                             </div>
                         );
                     })
                 )}
+            </div>
+
+            {/* Explorer Hint */}
+            <div className="text-center pt-4">
+                <p className="text-xs text-gray-600">
+                    Transactions are verified on the Solana Devnet.
+                    <a href="https://solscan.io?cluster=devnet" target="_blank" rel="noreferrer" className="text-gray-500 hover:text-cyan-500 ml-1 transition-colors">Solscan</a> is used for details.
+                </p>
             </div>
         </div>
     );
