@@ -1,6 +1,29 @@
 # ✅ UNIK - Proyecto Completado
 
-## 🎉 Estado Final
+## 🎉 Estado Actual (Fase 2)
+
+**Fecha:** 2026-02-16
+**Versión:** 0.2.0 (Beta)
+**Estado:** ✅ UI POLISHED & CORE STABLE
+
+---
+
+## 🚀 Nuevas Funcionalidades (Febrero 2026)
+
+### 1. Gestión de Alias Avanzada
+- ✅ **Registro en Tiempo Real:** Verificación instantánea de disponibilidad mientras escribes.
+- ✅ **Borrado Seguro:** Implementación manual de instrucciones PDA para bypass de limitaciones de Anchor.
+- ✅ **Reembolso de Rent:** Al borrar un alias, se recuperan los SOL almacenados en la cuenta.
+
+### 2. Historial de Transacciones Premium
+- ✅ **Tarjetas Inteligentes:** Diseño espacioso que evita solapamientos de texto.
+- ✅ **Clasificación Visual:** Iconos y colores distintos para Envíos, Recepciones e Interacciones.
+- ✅ **Explorador Integrado:** Botón directo a Solscan para cada transacción.
+- ✅ **Notas de Pago:** Visualización dedicada para conceptos de pago.
+
+---
+
+## 🎉 Estado Inicial (Fase 1)
 
 **Fecha:** 2025-12-28
 **Versión:** 0.1.0 (MVP)
