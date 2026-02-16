@@ -2,9 +2,14 @@
 
 ## 🎉 Estado Actual (Fase 2)
 
-**Fecha:** 2026-02-16
-**Versión:** 0.2.0 (Beta)
+**Fecha:** 2026-02-16 (Checkpoint: 19:28)
+**Versión:** 0.2.1 (UI Fixes)
 **Estado:** ✅ UI POLISHED & CORE STABLE
+
+### 🗓️ Último Checkpoint (19:28)
+- **Share Profile:** Movido exitosamente a la pestaña "Manage Aliases".
+- **Social Buttons:** Corregidos botones de WhatsApp (Verde) y Telegram (Azul).
+- **Code Quality:** Limpieza de estilos y fix de tipos en traducciones.
 
 ---
 
