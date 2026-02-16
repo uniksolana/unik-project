@@ -2562,7 +2562,21 @@ function ContactsTab({ setSendRecipient, setSendAlias, setSendNote, setResolvedA
                                                 setNoteModal({
                                                     isOpen: true,
                                                     alias: c.alias,
-                                                    currentNote: noteText
+                                                    note: noteText,
+                                                    onSave: async (newNote: string) => {
+                                                        const owner = wallet?.publicKey?.toBase58();
+                                                        if (!owner) return;
+                                                        try {
+                                                            // Use general update method
+                                                            await contactStorage.updateContact(c.alias, { notes: newNote }, owner);
+                                                            window.dispatchEvent(new Event('unik-contacts-updated'));
+                                                            if (refreshContacts) refreshContacts();
+                                                            toast.success("Note updated");
+                                                        } catch (err) {
+                                                            console.error(err);
+                                                            toast.error("Failed to update note");
+                                                        }
+                                                    }
                                                 });
                                             }}
                                             className="p-2 text-gray-400 hover:text-white hover:bg-white/10 rounded-lg transition-colors text-xs font-medium flex items-center gap-1"
