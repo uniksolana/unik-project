@@ -175,8 +175,8 @@ This signature is free and does not authorize any transaction.`;
             const key = await deriveKeyFromSignature(signatureBase64);
             setSessionKey(key);
 
-            // Small delay to prevent wallet from rejecting rapid requests (Fix: increased to 1000ms)
-            await new Promise(resolve => setTimeout(resolve, 1000));
+            // Small delay to prevent wallet from rejecting rapid requests (Fix: increased to 2000ms)
+            await new Promise(resolve => setTimeout(resolve, 2000));
 
             // Generate auth token for API authentication (proves wallet ownership)
             let authToken: AuthToken;
@@ -282,7 +282,9 @@ This signature is free and does not authorize any transaction.`;
                             {signing || checking ? (
                                 <>
                                     <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                                    {checking ? "Checking..." : (isReturningUser ? "Decrypting..." : "Signing Agreement...")}
+                                    {checking ? "Checking..." : (
+                                        getSessionKey() ? "Preparing Auth..." : (isReturningUser ? "Decrypting..." : "Signing Agreement...")
+                                    )}
                                 </>
                             ) : (
                                 <>
