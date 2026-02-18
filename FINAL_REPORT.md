@@ -2,14 +2,18 @@
 
 ## 🎉 Estado Actual (Fase 2)
 
-**Fecha:** 2026-02-18 (Checkpoint: 15:35)
-**Versión:** 0.2.2 (Stability & UX)
-**Estado:** ✅ BUG FIXES & PERFORMANCE
+**Fecha:** 2026-02-18 (Checkpoint: 16:45)
+**Versión:** 0.3.0 (Secure Payments)
+**Estado:** ✅ SECURITY HARDENING COMPLETED
 
-### 🗓️ Último Checkpoint (15:35)
-- **Unificación de Contactos:** La página *Add Contact* ahora usa el almacenamiento centralizado, resolviendo problemas de sincronización con el Dashboard y permitiendo actualizaciones de notas.
-- **Optimización de Pagos:** Implementado *Debounce* (0.8s) en la generación de enlaces de pago seguros para evitar errores `429 Too Many Requests`.
-- **Botones Sociales:** Corregidos selectores y enlaces de WhatsApp/Telegram.
+### 🗓️ Último Checkpoint (16:45)
+- **Seguridad Crítica:** Implementada firma criptográfica vinculada al `Order ID`. Esto impide la manipulación de enlaces mediante la eliminación de parámetros.
+- **Privacidad:** Cantidad, Token y Concepto ahora se ocultan de la URL pública y se recuperan de forma segura desde el backend.
+- **UX de Pagos:** 
+  - Eliminado campo "Payment Note" para simplificar.
+  - Bloqueo automático del botón de pago si se detecta manipulación.
+  - "Creating Secure Link..." estado de carga para evitar compartir enlaces inseguros.
+- **API Performance:** Aumento de Rate Limits (30 req/min) para mejorar la experiencia de escritura.
 ---
 
 ## 🚀 Nuevas Funcionalidades (Febrero 2026)
