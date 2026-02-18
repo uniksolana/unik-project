@@ -2729,6 +2729,7 @@ function HistoryTab({ publicKey, connection, confirmModal, setConfirmModal, cont
     const { t, language } = usePreferences();
     const [history, setHistory] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
+    const [orders, setOrders] = useState<any[]>([]);
     const [notes, setNotes] = useState<Record<string, TransactionNote>>({});
     const [sharedNotes, setSharedNotes] = useState<Record<string, SharedNoteData>>({});
 
@@ -2752,7 +2753,19 @@ function HistoryTab({ publicKey, connection, confirmModal, setConfirmModal, cont
             if (!publicKey) return;
             setLoading(true);
             try {
-                const signatures = await connection.getSignaturesForAddress(publicKey, { limit: 20 });
+                // Fetch On-Chain History & Backend Orders in parallel
+                const [signatures, orderRes] = await Promise.all([
+                    connection.getSignaturesForAddress(publicKey, { limit: 20 }),
+                    fetch('/api/orders/history', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ wallet: publicKey.toBase58() })
+                    }).then(r => r.json()).catch(() => ({ orders: [] }))
+                ]);
+
+                const backendOrders = orderRes.orders || [];
+                setOrders(backendOrders);
+
                 const detailedHistory = await Promise.all(
                     signatures.map(async (sig: any) => {
                         try {
@@ -2762,71 +2775,87 @@ function HistoryTab({ publicKey, connection, confirmModal, setConfirmModal, cont
                             let amount = 0;
                             let symbol = 'SOL';
                             let otherSide = '';
-                            let actionLabel = 'Interaction'; // For "System" replacements
+                            let actionLabel = 'Interaction';
+                            let isSmartRouting = false;
 
                             // 1. Check for UNIK Interactions via Logs
                             const logs = tx?.meta?.logMessages || [];
                             const isRegisterAlias = logs.some((l: string) => l.includes("Instruction: RegisterAlias"));
                             const isSetRoute = logs.some((l: string) => l.includes("Instruction: SetRouteConfig"));
+                            const isExecuteTransfer = logs.some((l: string) => l.includes("Instruction: ExecuteTransfer") || l.includes("Instruction: ExecuteTokenTransfer"));
 
-                            if (isRegisterAlias) {
-                                type = 'System';
-                                actionLabel = 'Alias Registration';
-                            } else if (isSetRoute) {
-                                type = 'System';
-                                actionLabel = 'Routing Configuration';
-                            } else {
-                                // 2. Check for SPL Token Transfers (USDC, etc)
-                                const tokenTransfer = tx?.transaction.message.instructions.find((ins: any) => {
-                                    return (ins.program === 'spl-token' || ins.program === 'spl-token-2022') &&
-                                        (ins.parsed?.type === 'transfer' || ins.parsed?.type === 'transferChecked');
-                                });
+                            isSmartRouting = isExecuteTransfer;
 
-                                if (tokenTransfer) {
-                                    const info = (tokenTransfer as any).parsed.info;
-                                    // We need to check if we are source or destination.
-                                    // SPL transfers use Token Accounts, so we check authority or lookup user's ATA.
-                                    // Simplified heuristic: Check authority (source owner).
-                                    // Better: Parsing inner instructions is hard without heavy logic.
-                                    // Let's assume parsed info has authority/source/destination.
+                            // Check Order Match (Backend Override)
+                            const matchingOrder = backendOrders.find((o: any) => o.tx_signature === sig.signature);
 
-                                    // If authority === publicKey (Sent)
-                                    if (info.authority === publicKey.toBase58() || info.multisigAuthority === publicKey.toBase58()) {
-                                        type = 'Sent';
-                                        otherSide = info.destination; // Receiver Token Account (not very useful visually, but best we have)
-                                        amount = info.tokenAmount?.uiAmount || info.amount / 1e6; // Fallback assumes 6 decimals if uiAmount missing
-                                        symbol = 'Token'; // Hard to know symbol without mint lookup. USDC is common.
-                                        if (info.mint === '4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU') symbol = 'USDC'; // Devnet USDC
-                                    } else {
-                                        // Hard to know if received without checking destination owner.
-                                        // But if we are here in history, it involves us.
-                                        // If we are not authority, we likely received it OR it's a random interaction.
-                                        // Let's stick to System SOL transfers for clarity unless we can be sure.
-                                        // If destination is OUR ASSOCIATED TOKEN ACCOUNT, it's received.
-                                        // We don't know our ATA address easily here.
-                                        // Fallback to "Token Interaction".
-                                        type = 'Token';
-                                        actionLabel = 'Token Transfer';
-                                    }
+                            if (matchingOrder) {
+                                // Backend knows accurate direction and aliases
+                                if (matchingOrder.payer_wallet === publicKey.toBase58()) {
+                                    type = 'Sent';
+                                    // Use alias if available (Sent to @alias)
+                                    otherSide = matchingOrder.alias ? `ALIAS:${matchingOrder.alias}` : matchingOrder.merchant_wallet;
+                                } else {
+                                    type = 'Received';
+                                    otherSide = matchingOrder.payer_wallet || 'Unknown Sender';
                                 }
+                                amount = parseFloat(matchingOrder.amount || '0');
+                                symbol = matchingOrder.token || 'SOL';
+                                actionLabel = matchingOrder.concept || (isSmartRouting ? 'Smart Transfer' : 'Payment');
+                            }
 
-                                // 3. Check for SOL Transfers (System Program) - Overwrites Token logic if found (usually one or other)
-                                const transferInstruction = tx?.transaction.message.instructions.find(
-                                    (ins: any) => ins.program === 'system' && ins.parsed?.type === 'transfer'
-                                );
+                            if (!matchingOrder) {
+                                if (isRegisterAlias) {
+                                    type = 'System';
+                                    actionLabel = 'Alias Registration';
+                                } else if (isSetRoute) {
+                                    type = 'System';
+                                    actionLabel = 'Routing Configuration';
+                                } else {
+                                    // Fallback to Parsing Instructions (similar to before)
+                                    const tokenTransfer = tx?.transaction.message.instructions.find((ins: any) => {
+                                        return (ins.program === 'spl-token' || ins.program === 'spl-token-2022') &&
+                                            (ins.parsed?.type === 'transfer' || ins.parsed?.type === 'transferChecked');
+                                    });
 
-                                if (transferInstruction && !tokenTransfer) {
-                                    const info = (transferInstruction as any).parsed.info;
-                                    if (info.destination === publicKey.toBase58()) {
-                                        type = 'Received';
-                                        otherSide = info.source;
-                                        amount = info.lamports / 1e9;
-                                        symbol = 'SOL';
-                                    } else if (info.source === publicKey.toBase58()) {
+                                    if (tokenTransfer) {
+                                        const info = (tokenTransfer as any).parsed.info;
+                                        if (info.authority === publicKey.toBase58() || info.multisigAuthority === publicKey.toBase58()) {
+                                            type = 'Sent';
+                                            otherSide = info.destination;
+                                            amount = info.tokenAmount?.uiAmount || info.amount / 1e6;
+                                            symbol = 'Token';
+                                            if (info.mint === '4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU') symbol = 'USDC';
+                                        } else {
+                                            type = 'Token';
+                                            actionLabel = 'Token Transfer';
+                                        }
+                                    }
+
+                                    const transferInstruction = tx?.transaction.message.instructions.find(
+                                        (ins: any) => ins.program === 'system' && ins.parsed?.type === 'transfer'
+                                    );
+
+                                    if (transferInstruction && !tokenTransfer) {
+                                        const info = (transferInstruction as any).parsed.info;
+                                        if (info.destination === publicKey.toBase58()) {
+                                            type = 'Received';
+                                            otherSide = info.source;
+                                            amount = info.lamports / 1e9;
+                                            symbol = 'SOL';
+                                        } else if (info.source === publicKey.toBase58()) {
+                                            type = 'Sent';
+                                            otherSide = info.destination;
+                                            amount = info.lamports / 1e9;
+                                            symbol = 'SOL';
+                                        }
+                                    }
+
+                                    // If Smart Routing was detected but no explicit transfer matched (e.g. inner instruction), force Sent
+                                    if (isSmartRouting && type === 'Interaction') {
                                         type = 'Sent';
-                                        otherSide = info.destination;
-                                        amount = info.lamports / 1e9;
-                                        symbol = 'SOL';
+                                        actionLabel = 'Smart Routing'; // Label implies split
+                                        // Amount might be 0 if we assume top-level transfer instructions only, but better than 'Interaction'
                                     }
                                 }
                             }
@@ -2839,6 +2868,7 @@ function HistoryTab({ publicKey, connection, confirmModal, setConfirmModal, cont
                                 symbol,
                                 otherSide,
                                 actionLabel,
+                                isSmartRouting,
                                 success: !tx?.meta?.err
                             };
                         } catch (e) {
@@ -2850,6 +2880,7 @@ function HistoryTab({ publicKey, connection, confirmModal, setConfirmModal, cont
                                 symbol: '',
                                 otherSide: '',
                                 actionLabel: 'Unknown',
+                                isSmartRouting: false,
                                 success: true
                             };
                         }
@@ -2938,8 +2969,20 @@ function HistoryTab({ publicKey, connection, confirmModal, setConfirmModal, cont
                             const cleanAlias = rawAlias ? (rawAlias.startsWith('@') ? rawAlias : `@${rawAlias}`) : null;
 
                             typeLabel = "Sent Payment";
-                            primaryText = cleanAlias ? `To ${cleanAlias}` : `To ${tx.otherSide.slice(0, 4)}...${tx.otherSide.slice(-4)}`;
-                            secondaryText = "Transfer";
+
+                            // Check for ALIAS: prefix set in fetchHistory
+                            if (tx.otherSide && tx.otherSide.startsWith('ALIAS:')) {
+                                const clean = tx.otherSide.replace('ALIAS:', '@');
+                                primaryText = `To ${clean}`;
+                            } else {
+                                const rawAlias = getContactAlias(tx.otherSide) || savedNote?.recipient;
+                                const cleanAlias = rawAlias ? (rawAlias.startsWith('@') ? rawAlias : `@${rawAlias}`) : null;
+                                primaryText = cleanAlias ? `To ${cleanAlias}` : `To ${tx.otherSide.slice(0, 4)}...${tx.otherSide.slice(-4)}`;
+                            }
+
+                            // Prioritize Concept -> Smart Split -> Transfer
+                            const isConcept = tx.actionLabel && !['Interaction', 'Payment', 'Smart Transfer', 'Smart Routing', 'Transaction'].includes(tx.actionLabel);
+                            secondaryText = isConcept ? tx.actionLabel : (tx.isSmartRouting ? "Smart Split" : "Transfer");
                             amountColor = "text-red-400";
                             amountPrefix = "-";
                             Icon = (
@@ -2953,7 +2996,9 @@ function HistoryTab({ publicKey, connection, confirmModal, setConfirmModal, cont
 
                             typeLabel = "Received Payment";
                             primaryText = cleanAlias ? `From ${cleanAlias}` : `From ${tx.otherSide.slice(0, 4)}...${tx.otherSide.slice(-4)}`;
-                            secondaryText = "Transfer";
+                            // Use Concept if available
+                            const isConcept = tx.actionLabel && !['Interaction', 'Payment', 'Smart Transfer'].includes(tx.actionLabel);
+                            secondaryText = isConcept ? tx.actionLabel : "Transfer";
                             amountColor = "text-green-400";
                             amountPrefix = "+";
                             Icon = (
@@ -2988,7 +3033,14 @@ function HistoryTab({ publicKey, connection, confirmModal, setConfirmModal, cont
                                             {Icon}
                                         </div>
                                         <div className="min-w-0 flex-1">
-                                            <h4 className="font-bold text-gray-200 text-base truncate pr-2">{typeLabel}</h4>
+                                            <h4 className="font-bold text-gray-200 text-base truncate pr-2 flex items-center gap-2">
+                                                {typeLabel}
+                                                {tx.isSmartRouting && (
+                                                    <span className="text-[9px] bg-cyan-500/20 text-cyan-400 px-1.5 py-0.5 rounded border border-cyan-500/30 uppercase tracking-wide font-bold">
+                                                        SPLIT ACTIVE
+                                                    </span>
+                                                )}
+                                            </h4>
                                             <p className="text-sm text-cyan-400 font-medium truncate">{primaryText}</p>
                                         </div>
                                     </div>
