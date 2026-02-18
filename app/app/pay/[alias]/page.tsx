@@ -319,7 +319,32 @@ function PaymentContent() {
             setLastSignature(txSignature);
 
             // Backend verification: verify on-chain TX matches expected order
-            const orderId = searchParams.get('order_id');
+            // If this is a simple payment (no pre-existing order), create one now to track history
+            let orderId = searchParams.get('order_id');
+
+            if (!orderId && aliasOwner && txSignature) {
+                try {
+                    const createRes = await fetch('/api/orders/create', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            alias: String(alias),
+                            amount: amount,
+                            token: selectedToken.symbol,
+                            merchant_wallet: aliasOwner.toBase58(),
+                            concept: concept || 'Quick Payment',
+                            payer_wallet: publicKey?.toBase58()
+                        }),
+                    });
+                    const createData = await createRes.json();
+                    if (createData.order_id) {
+                        orderId = createData.order_id;
+                    }
+                } catch (e) {
+                    console.warn("Background order creation failed, payment tracking skipped:", e);
+                }
+            }
+
             if (orderId && txSignature) {
                 try {
                     const verifyRes = await fetch('/api/orders/verify', {
@@ -548,13 +573,28 @@ function PaymentContent() {
                                 )}
                             </div>
 
-                            {concept && (
+                            {/* Concept: Read-only if locked, Editable if simple */}
+                            {(isLocked && concept) ? (
                                 <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-xl p-4 flex items-start gap-3">
                                     <div className="mt-0.5 text-yellow-500">ℹ️</div>
                                     <div>
                                         <label className="block text-[10px] uppercase tracking-wider text-yellow-500/80 mb-1 font-bold">Request Concept</label>
                                         <p className="text-white italic text-sm">"{concept}"</p>
                                     </div>
+                                </div>
+                            ) : !isLocked && (
+                                <div className="mt-4">
+                                    <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">
+                                        Payment Concept (Optional)
+                                    </label>
+                                    <input
+                                        type="text"
+                                        value={concept || ''}
+                                        onChange={(e) => setConcept(e.target.value)}
+                                        placeholder="e.g. Donation, Gift, Service..."
+                                        className="w-full px-4 py-3 bg-black/30 border border-white/10 rounded-xl text-white placeholder-gray-600 focus:outline-none focus:border-cyan-500/50 focus:bg-black/40 transition-all font-medium"
+                                        maxLength={60}
+                                    />
                                 </div>
                             )}
 
