@@ -3033,15 +3033,15 @@ function HistoryTab({ publicKey, connection, confirmModal, setConfirmModal, cont
                                             {Icon}
                                         </div>
                                         <div className="min-w-0 flex-1">
-                                            <h4 className="font-bold text-gray-200 text-base truncate pr-2 flex items-center gap-2">
-                                                {typeLabel}
+                                            <h4 className="font-bold text-gray-200 text-base truncate pr-2">{typeLabel}</h4>
+                                            <div className="flex items-center gap-2">
+                                                <p className="text-sm text-cyan-400 font-medium truncate">{primaryText}</p>
                                                 {tx.isSmartRouting && (
-                                                    <span className="text-[9px] bg-cyan-500/20 text-cyan-400 px-1.5 py-0.5 rounded border border-cyan-500/30 uppercase tracking-wide font-bold">
+                                                    <span className="flex-shrink-0 text-[8px] bg-cyan-500/20 text-cyan-400 px-1.5 py-0.5 rounded border border-cyan-500/30 uppercase tracking-wide font-bold">
                                                         SPLIT ACTIVE
                                                     </span>
                                                 )}
-                                            </h4>
-                                            <p className="text-sm text-cyan-400 font-medium truncate">{primaryText}</p>
+                                            </div>
                                         </div>
                                     </div>
 
