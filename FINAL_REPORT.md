@@ -2,15 +2,14 @@
 
 ## 🎉 Estado Actual (Fase 2)
 
-**Fecha:** 2026-02-16 (Checkpoint: 19:28)
-**Versión:** 0.2.1 (UI Fixes)
-**Estado:** ✅ UI POLISHED & CORE STABLE
+**Fecha:** 2026-02-18 (Checkpoint: 15:35)
+**Versión:** 0.2.2 (Stability & UX)
+**Estado:** ✅ BUG FIXES & PERFORMANCE
 
-### 🗓️ Último Checkpoint (19:28)
-- **Share Profile:** Movido exitosamente a la pestaña "Manage Aliases".
-- **Social Buttons:** Corregidos botones de WhatsApp (Verde) y Telegram (Azul).
-- **Code Quality:** Limpieza de estilos y fix de tipos en traducciones.
-
+### 🗓️ Último Checkpoint (15:35)
+- **Unificación de Contactos:** La página *Add Contact* ahora usa el almacenamiento centralizado, resolviendo problemas de sincronización con el Dashboard y permitiendo actualizaciones de notas.
+- **Optimización de Pagos:** Implementado *Debounce* (0.8s) en la generación de enlaces de pago seguros para evitar errores `429 Too Many Requests`.
+- **Botones Sociales:** Corregidos selectores y enlaces de WhatsApp/Telegram.
 ---
 
 ## 🚀 Nuevas Funcionalidades (Febrero 2026)
