@@ -19,8 +19,8 @@ export async function POST(request: NextRequest) {
         const failOverIp = '0.0.0.0';
         const ip = request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || failOverIp;
 
-        // Limit: 5 requests per 1 minute (60s) for signing
-        const { success } = await checkRateLimit(ip.split(',')[0].trim(), 5, 60);
+        // Limit: 30 requests per 1 minute (60s) for signing to allow typing/updates
+        const { success } = await checkRateLimit(ip.split(',')[0].trim(), 30, 60);
 
         if (!success) {
             return NextResponse.json({ error: 'Rate limit exceeded' }, { status: 429 });

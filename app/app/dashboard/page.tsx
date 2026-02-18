@@ -1044,13 +1044,26 @@ function ReceiveTab({ avatarUrl, registeredAlias, linkAmount, setLinkAmount, lin
 
     // Auto-sign payment URL and create order when parameters change
     const [signedPaymentUrl, setSignedPaymentUrl] = useState('');
+    const [isGeneratingLink, setIsGeneratingLink] = useState(false);
+
     useEffect(() => {
         const baseUrl = getPaymentUrl();
-        setSignedPaymentUrl(baseUrl); // Show unsigned immediately
+        const isSimpleLink = !linkAmount && !linkConcept && requestToken.symbol === 'SOL';
 
-        // Debounce API calls (800ms) to prevent 429 Too Many Requests
+        // 0. Base case: Bare/Simple link (No params) -> Immediate display
+        if (isSimpleLink) {
+            setSignedPaymentUrl(baseUrl);
+            setIsGeneratingLink(false);
+            return;
+        }
+
+        // 1. Secure Link Required -> Hide unsafe link immediately
+        setSignedPaymentUrl('');
+        setIsGeneratingLink(true);
+
+        // Debounce API calls (1000ms) to prevent rate limits and ensure user finished typing
         const timer = setTimeout(() => {
-            if (linkAmount && shareValue && publicKey) {
+            if (shareValue && publicKey) {
                 const signAndCreateOrder = async () => {
                     try {
                         // 1. Create a backend order for verification first
@@ -1089,14 +1102,18 @@ function ReceiveTab({ avatarUrl, registeredAlias, linkAmount, setLinkAmount, lin
 
                         if (sig) {
                             setSignedPaymentUrl(getPaymentUrl(sig, orderId || undefined));
+                            setIsGeneratingLink(false);
+                        } else {
+                            setIsGeneratingLink(false); // Failed to sign
                         }
                     } catch (err) {
                         console.error("Error signing payment:", err);
+                        setIsGeneratingLink(false);
                     }
                 };
                 signAndCreateOrder();
             }
-        }, 800);
+        }, 1000);
 
         return () => clearTimeout(timer);
     }, [linkAmount, linkConcept, requestToken.symbol, shareValue]);
@@ -1181,28 +1198,37 @@ function ReceiveTab({ avatarUrl, registeredAlias, linkAmount, setLinkAmount, lin
                 {/* QR Code Display */}
                 <div className="flex justify-center mb-6">
                     <div className="p-4 bg-white rounded-xl shadow-lg">
-                        <QRCode
-                            value={signedPaymentUrl}
-                            size={180}
-                            style={{ height: "auto", maxWidth: "100%", width: "100%" }}
-                            viewBox={`0 0 256 256`}
-                        />
+                        {isGeneratingLink || !signedPaymentUrl ? (
+                            <div className="flex flex-col items-center justify-center w-[180px] h-[180px] animate-pulse">
+                                <div className="w-10 h-10 border-4 border-cyan-500/30 border-t-cyan-500 rounded-full animate-spin mb-3"></div>
+                                <p className="text-gray-400 text-xs font-bold uppercase tracking-wide">Creating Secure Link...</p>
+                            </div>
+                        ) : (
+                            <QRCode
+                                value={signedPaymentUrl}
+                                size={180}
+                                style={{ height: "auto", maxWidth: "100%", width: "100%" }}
+                                viewBox={`0 0 256 256`}
+                            />
+                        )}
                     </div>
                 </div>
 
                 <div className="mb-4">
-                    <code className="block p-4 bg-black text-cyan-400 font-mono text-sm break-all border border-gray-700">
-                        {signedPaymentUrl.replace(/^https?:\/\//, '')}
+                    <code className={`block p-4 bg-black font-mono text-sm break-all border border-gray-700 transition-colors ${isGeneratingLink || !signedPaymentUrl ? 'text-gray-500 animate-pulse' : 'text-cyan-400'}`}>
+                        {isGeneratingLink || !signedPaymentUrl ? "Creating Secure Link..." : signedPaymentUrl.replace(/^https?:\/\//, '')}
                     </code>
                 </div>
 
                 <div className="grid grid-cols-2 gap-3">
                     <button
+                        disabled={isGeneratingLink || !signedPaymentUrl}
                         onClick={() => {
+                            if (!signedPaymentUrl) return;
                             navigator.clipboard.writeText(signedPaymentUrl);
                             toast.success(t('link_copied'));
                         }}
-                        className="flex items-center justify-center gap-2 px-4 py-3 bg-gray-700 hover:bg-gray-600 font-semibold transition-colors rounded-xl border border-white/5"
+                        className={`flex items-center justify-center gap-2 px-4 py-3 font-semibold transition-colors rounded-xl border border-white/5 ${isGeneratingLink || !signedPaymentUrl ? 'bg-gray-800 text-gray-500 cursor-not-allowed' : 'bg-gray-700 hover:bg-gray-600'}`}
                     >
                         <svg className="w-5 h-5 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
@@ -1211,8 +1237,9 @@ function ReceiveTab({ avatarUrl, registeredAlias, linkAmount, setLinkAmount, lin
                     </button>
 
                     <button
+                        disabled={isGeneratingLink || !signedPaymentUrl}
                         onClick={() => setIsPayShareOpen(!isPayShareOpen)}
-                        className={`flex items-center justify-center gap-2 px-4 py-3 font-semibold transition-all rounded-xl border ${isPayShareOpen ? 'bg-cyan-600 border-cyan-400' : 'bg-gray-700 hover:bg-gray-600 border-white/5'}`}
+                        className={`flex items-center justify-center gap-2 px-4 py-3 font-semibold transition-all rounded-xl border ${isGeneratingLink || !signedPaymentUrl ? 'bg-gray-800 text-gray-500 border-white/5 cursor-not-allowed' : (isPayShareOpen ? 'bg-cyan-600 border-cyan-400' : 'bg-gray-700 hover:bg-gray-600 border-white/5')}`}
                     >
                         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
