@@ -1053,15 +1053,7 @@ function ReceiveTab({ avatarUrl, registeredAlias, linkAmount, setLinkAmount, lin
             if (linkAmount && shareValue && publicKey) {
                 const signAndCreateOrder = async () => {
                     try {
-                        // 1. Sign the URL
-                        const { signPaymentParams } = await import('../../utils/paymentSecurity');
-                        const sig = await signPaymentParams(
-                            String(shareValue),
-                            linkAmount,
-                            requestToken.symbol
-                        );
-
-                        // 2. Create a backend order for verification
+                        // 1. Create a backend order for verification first
                         let orderId: string | null = null;
                         try {
                             const orderRes = await fetch('/api/orders/create', {
@@ -1083,8 +1075,17 @@ function ReceiveTab({ avatarUrl, registeredAlias, linkAmount, setLinkAmount, lin
                                 }
                             }
                         } catch (e) {
-                            console.warn('[Dashboard] Order creation failed, link will work without verification:', e);
+                            console.warn('[Dashboard] Order creation failed:', e);
                         }
+
+                        // 2. Sign the URL (including orderId to bind it cryptographically)
+                        const { signPaymentParams } = await import('../../utils/paymentSecurity');
+                        const sig = await signPaymentParams(
+                            String(shareValue),
+                            linkAmount,
+                            requestToken.symbol,
+                            orderId || undefined
+                        );
 
                         if (sig) {
                             setSignedPaymentUrl(getPaymentUrl(sig, orderId || undefined));

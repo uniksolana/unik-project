@@ -9,12 +9,13 @@
 /**
  * Request an HMAC signature for payment parameters from the server.
  */
-export async function signPaymentParams(alias: string, amount: string, token: string): Promise<string | null> {
+// Request an HMAC signature for payment parameters from the server.
+export async function signPaymentParams(alias: string, amount: string, token: string, orderId?: string): Promise<string | null> {
     try {
         const res = await fetch('/api/payment/sign', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ alias, amount, token }),
+            body: JSON.stringify({ alias, amount, token, orderId }),
         });
         if (!res.ok) return null;
         const data = await res.json();
@@ -25,15 +26,13 @@ export async function signPaymentParams(alias: string, amount: string, token: st
     }
 }
 
-/**
- * Verify an HMAC signature for payment parameters against the server.
- * Returns: 'valid' | 'invalid' | 'unsigned'
- */
+// Verify an HMAC signature for payment parameters against the server.
 export async function verifyPaymentSignature(
     alias: string,
     amount: string,
     token: string,
-    sig: string | null
+    sig: string | null,
+    orderId?: string | null
 ): Promise<'valid' | 'invalid' | 'unsigned'> {
     if (!sig) return 'unsigned';
 
@@ -41,7 +40,7 @@ export async function verifyPaymentSignature(
         const res = await fetch('/api/payment/verify', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ alias, amount, token, sig }),
+            body: JSON.stringify({ alias, amount, token, sig, orderId }),
         });
         if (!res.ok) return 'unsigned';
         const data = await res.json();

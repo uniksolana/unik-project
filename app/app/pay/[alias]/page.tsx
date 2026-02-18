@@ -130,7 +130,8 @@ function PaymentContent() {
                 String(alias).toLowerCase().trim(),
                 queryAmount,
                 queryToken.toUpperCase(),
-                sig
+                sig,
+                searchParams.get('order_id')
             );
             setLinkVerification(result);
         };
