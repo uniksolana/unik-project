@@ -1026,7 +1026,12 @@ function ReceiveTab({ avatarUrl, registeredAlias, linkAmount, setLinkAmount, lin
         let url = `${origin}/pay/${shareValue}`;
         const params = new URLSearchParams();
         if (linkAmount) params.append('amount', linkAmount);
-        if (linkConcept) params.append('concept', encodeURIComponent(linkConcept));
+
+        // Hide concept from URL if order_id is present (it will be fetched from backend)
+        if (linkConcept && !orderId) {
+            params.append('concept', encodeURIComponent(linkConcept));
+        }
+
         if (requestToken.symbol !== 'SOL') params.append('token', requestToken.symbol);
         if (sig) params.append('sig', sig);
         if (orderId) params.append('order_id', orderId);

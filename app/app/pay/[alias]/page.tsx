@@ -71,18 +71,32 @@ function PaymentContent() {
         if (queryAmount && !isNaN(parseFloat(queryAmount))) {
             setAmount(queryAmount);
             setIsLocked(true);
-            // If amount is specified, we MUST lock the token to prevent value mismatch (e.g. 10 USDC vs 10 SOL)
-            // Default to SOL if not specified
             setTokenLocked(true);
         }
+
         const queryConcept = searchParams.get('concept');
         if (queryConcept) {
             setConcept(decodeURIComponent(queryConcept));
         }
+
+        const orderId = searchParams.get('order_id');
+        if (orderId) {
+            // Fetch concept from backend if order_id is present (Secure/Hidden concept)
+            fetch('/api/orders/status', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ order_id: orderId })
+            })
+                .then(res => res.json())
+                .then(data => {
+                    if (data.concept) setConcept(data.concept);
+                })
+                .catch(e => console.error("Failed to fetch order concept:", e));
+        }
+
         const queryToken = searchParams.get('token');
         if (queryToken && TOKEN_OPTIONS_MAP[queryToken.toUpperCase()]) {
             setSelectedToken(TOKEN_OPTIONS_MAP[queryToken.toUpperCase()]);
-            // setTokenLocked(true); // Already covered above if amount exists, but good for token-only links
             setTokenLocked(true);
         }
     }, [searchParams]);
