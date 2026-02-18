@@ -11,6 +11,7 @@ import { WalletMultiButton } from '@solana/wallet-adapter-react-ui';
 import { Buffer } from 'buffer';
 import Image from 'next/image';
 import Link from 'next/link';
+import { contactStorage } from '../../../utils/contacts';
 
 export default function AddContactPage() {
     const params = useParams();
@@ -55,7 +56,7 @@ export default function AddContactPage() {
         fetchAliasData();
     }, [alias, connection, wallet]);
 
-    const handleAddContact = () => {
+    const handleAddContact = async () => {
         if (!publicKey) {
             toast.error("Please connect your wallet first!");
             return;
@@ -64,27 +65,20 @@ export default function AddContactPage() {
         if (!aliasData) return;
 
         try {
-            const existing = JSON.parse(localStorage.getItem('unik_contacts') || '[]');
-
-            if (existing.some((c: any) => c.alias === aliasData.alias)) {
-                toast.error("Contact already exists!");
-                return;
-            }
-
-            const newContact = {
+            // Use unified storage (Cloud/Local v2) to ensure Dashboard visibility
+            // This also handles updates automatically (upsert)
+            await contactStorage.saveContact({
                 alias: aliasData.alias,
-                address: aliasData.address,
-                note: note.trim() || '',
-                addedAt: Date.now()
-            };
+                aliasOwner: aliasData.address, // Match Contact interface
+                savedAt: Date.now(),
+                notes: note.trim() // Match Contact interface (plural 'notes')
+            }, publicKey.toBase58());
 
-            const updated = [...existing, newContact];
-            localStorage.setItem('unik_contacts', JSON.stringify(updated));
-            window.dispatchEvent(new Event('storage'));
-
-            toast.success(`Added @${aliasData.alias}!`);
+            toast.success(`Saved @${aliasData.alias} to contacts!`);
+            // Force a small delay or event dispatch if needed, but router push usually triggers re-mount/fetch in Dashboard
             router.push('/dashboard?tab=contacts');
         } catch (e) {
+            console.error("Save contact error:", e);
             toast.error("Failed to add contact.");
         }
     };
