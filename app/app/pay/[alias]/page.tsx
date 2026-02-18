@@ -81,7 +81,7 @@ function PaymentContent() {
 
         const orderId = searchParams.get('order_id');
         if (orderId) {
-            // Fetch concept from backend if order_id is present (Secure/Hidden concept)
+            // Fetch secure details (concept, amount, token) from backend
             fetch('/api/orders/status', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -90,8 +90,19 @@ function PaymentContent() {
                 .then(res => res.json())
                 .then(data => {
                     if (data.concept) setConcept(data.concept);
+                    if (data.expected_amount) {
+                        setAmount(String(data.expected_amount));
+                        setIsLocked(true);
+                    }
+                    if (data.expected_token) {
+                        const token = TOKEN_OPTIONS_MAP[data.expected_token.toUpperCase()];
+                        if (token) {
+                            setSelectedToken(token);
+                            setTokenLocked(true);
+                        }
+                    }
                 })
-                .catch(e => console.error("Failed to fetch order concept:", e));
+                .catch(e => console.error("Failed to fetch order details:", e));
         }
 
         const queryToken = searchParams.get('token');
@@ -104,8 +115,9 @@ function PaymentContent() {
     // Verify HMAC signature of payment link
     useEffect(() => {
         const sig = searchParams.get('sig');
-        const queryAmount = searchParams.get('amount');
-        const queryToken = searchParams.get('token') || 'SOL';
+        // Use URL param OR fetched state (for clean URLs)
+        const queryAmount = searchParams.get('amount') || amount;
+        const queryToken = searchParams.get('token') || selectedToken.symbol || 'SOL';
 
         if (!sig || !queryAmount || !alias) {
             setLinkVerification(sig ? 'checking' : 'unsigned');
@@ -123,7 +135,7 @@ function PaymentContent() {
             setLinkVerification(result);
         };
         verify();
-    }, [alias, searchParams]);
+    }, [alias, searchParams, amount, selectedToken]);
 
     // ... (keep useEffect for balance/alias check same)
 
