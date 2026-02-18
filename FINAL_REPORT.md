@@ -14,6 +14,10 @@
   - Bloqueo automático del botón de pago si se detecta manipulación.
   - "Creating Secure Link..." estado de carga para evitar compartir enlaces inseguros.
 - **API Performance:** Aumento de Rate Limits (30 req/min) para mejorar la experiencia de escritura.
+
+### 🗓️ Último Checkpoint (17:03)
+- **Concepto en Pagos Simples:** Integración de campo opcional "Payment Concept" en enlaces sin monto fijo.
+- **Auto-Tracking:** Estos pagos simples ahora generan automáticamente una orden en backend para constar en el historial del usuario.
 ---
 
 ## 🚀 Nuevas Funcionalidades (Febrero 2026)
