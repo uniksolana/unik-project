@@ -401,26 +401,29 @@ function PaymentContent() {
                             `Pay ${(alias as string).slice(0, 4)}...${(alias as string).slice(-4)}`
                             : `Pay @${alias}`}
                     </h1>
-                    <div className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full border ${aliasOwner || routeAccount ? 'bg-green-500/10 border-green-500/20' : 'bg-red-500/10 border-red-500/20'}`}>
-                        <span className={`w-1.5 h-1.5 rounded-full ${aliasOwner || routeAccount ? 'bg-green-400 animate-pulse' : 'bg-red-400'}`}></span>
-                        <p className={`text-xs font-bold tracking-wide uppercase ${aliasOwner || routeAccount ? 'text-green-400' : 'text-red-400'}`}>
-                            {isDirectAddress ? 'Valid Address' : (aliasOwner || routeAccount ? 'Valid Alias' : 'Alias Not Found')}
-                        </p>
-                    </div>
+                    <div className="flex justify-center gap-2 mt-3 flex-wrap">
+                        {/* Status Badge */}
+                        <div className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full border ${aliasOwner || routeAccount ? 'bg-green-500/10 border-green-500/20' : 'bg-red-500/10 border-red-500/20'}`}>
+                            <span className={`w-1.5 h-1.5 rounded-full ${aliasOwner || routeAccount ? 'bg-green-400 animate-pulse' : 'bg-red-400'}`}></span>
+                            <p className={`text-xs font-bold tracking-wide uppercase ${aliasOwner || routeAccount ? 'text-green-400' : 'text-red-400'}`}>
+                                {isDirectAddress ? 'Valid Address' : (aliasOwner || routeAccount ? 'Valid Alias' : 'Alias Not Found')}
+                            </p>
+                        </div>
 
-                    {/* Link Verification Badge */}
-                    {linkVerification === 'valid' && (
-                        <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-green-500/10 border border-green-500/20 mt-2">
-                            <svg className="w-3.5 h-3.5 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" /></svg>
-                            <span className="text-xs font-bold text-green-400">Verified Link</span>
-                        </div>
-                    )}
-                    {linkVerification === 'invalid' && (
-                        <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-red-500/10 border border-red-500/20 mt-2 animate-pulse">
-                            <svg className="w-3.5 h-3.5 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" /></svg>
-                            <span className="text-xs font-bold text-red-400">⚠️ Link Manipulated</span>
-                        </div>
-                    )}
+                        {/* Link Verification Badge */}
+                        {linkVerification === 'valid' && (
+                            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-green-500/10 border border-green-500/20">
+                                <svg className="w-3.5 h-3.5 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" /></svg>
+                                <span className="text-xs font-bold text-green-400">Verified Link</span>
+                            </div>
+                        )}
+                        {linkVerification === 'invalid' && (
+                            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-red-500/10 border border-red-500/20 animate-pulse">
+                                <svg className="w-3.5 h-3.5 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" /></svg>
+                                <span className="text-xs font-bold text-red-400">Link Manipulated</span>
+                            </div>
+                        )}
+                    </div>
                 </div>
 
                 <div className="p-8 pt-2">
@@ -554,19 +557,7 @@ function PaymentContent() {
                                 </div>
                             )}
 
-                            <div>
-                                <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">
-                                    Payment Note (Optional)
-                                </label>
-                                <input
-                                    type="text"
-                                    placeholder="Add a note to the receiver..."
-                                    value={senderNote}
-                                    onChange={(e) => setSenderNote(e.target.value)}
-                                    className="w-full px-5 py-4 bg-black/20 border border-white/10 rounded-xl text-white outline-none focus:border-purple-500/50 focus:bg-black/30 transition-all placeholder:text-gray-600"
-                                    style={{ fontSize: '16px' }} // Prevent zoom on mobile
-                                />
-                            </div>
+
 
                             {/* Summary Box */}
                             <div className="bg-white/5 rounded-xl p-5 text-sm border border-white/5">
@@ -596,7 +587,7 @@ function PaymentContent() {
 
                             <button
                                 onClick={handlePayment}
-                                disabled={loading || !amount}
+                                disabled={loading || !amount || linkVerification === 'invalid'}
                                 className="w-full py-5 bg-gradient-to-r from-cyan-600 to-purple-600 hover:from-cyan-500 hover:to-purple-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold text-lg rounded-2xl shadow-xl shadow-purple-900/30 transition-all transform hover:scale-[1.02] active:scale-[0.98]"
                             >
                                 {loading ? (
