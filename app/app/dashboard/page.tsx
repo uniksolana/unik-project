@@ -2878,6 +2878,14 @@ function HistoryTab({ publicKey, connection, confirmModal, setConfirmModal, cont
                                 type = 'System';
                                 actionLabel = 'Routing Configuration';
                             } else {
+                                // Attempt to parse Memo (Concept)
+                                const memoIx = tx?.transaction.message.instructions.find((ins: any) =>
+                                    ins.programId.toString() === 'MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcQb'
+                                );
+                                if (memoIx && (memoIx as any).parsed) {
+                                    actionLabel = (memoIx as any).parsed;
+                                }
+
                                 // Fallback to Parsing Instructions (similar to before)
                                 const tokenTransfer = tx?.transaction.message.instructions.find((ins: any) => {
                                     return (ins.program === 'spl-token' || ins.program === 'spl-token-2022') &&
@@ -2964,7 +2972,7 @@ function HistoryTab({ publicKey, connection, confirmModal, setConfirmModal, cont
                                             else if (mint === 'HzwqbKZw8HxMN6bF2yFZNrht3c2iXXzpKcFu7uBEDKtr') symbol = 'EURC';
                                             else symbol = 'Token';
 
-                                            actionLabel = 'Smart Transfer';
+                                            actionLabel = (actionLabel !== 'Interaction') ? actionLabel : 'Smart Transfer';
                                         }
                                     }
 
@@ -2974,7 +2982,7 @@ function HistoryTab({ publicKey, connection, confirmModal, setConfirmModal, cont
                                             type = 'Sent';
                                             amount = sentLamports / 1e9;
                                             symbol = 'SOL';
-                                            actionLabel = 'Smart Transfer';
+                                            actionLabel = (actionLabel !== 'Interaction') ? actionLabel : 'Smart Transfer';
                                         } else if (receivedLamports > 0) {
                                             type = 'Received';
                                             amount = receivedLamports / 1e9;
@@ -3013,6 +3021,49 @@ function HistoryTab({ publicKey, connection, confirmModal, setConfirmModal, cont
                     }
                 })
             );
+
+            // Batch fetch On-Chain Aliases for unknown senders
+            const unknownSenders = new Set<string>();
+            detailedHistory.forEach((tx: any) => {
+                if (tx.otherSide &&
+                    !tx.otherSide.startsWith('ALIAS:') &&
+                    !getContactAlias(tx.otherSide)) {
+                    try {
+                        new PublicKey(tx.otherSide); // Validate address format
+                        unknownSenders.add(tx.otherSide);
+                    } catch (e) { }
+                }
+            });
+
+            if (unknownSenders.size > 0) {
+                try {
+                    const provider = new AnchorProvider(connection, { publicKey: null, signTransaction: () => Promise.reject(), signAllTransactions: () => Promise.reject() } as any, {});
+                    const program = new Program(IDL as any, provider);
+
+                    const senders = Array.from(unknownSenders);
+                    const pdas = senders.map(addr => PublicKey.findProgramAddressSync([Buffer.from("alias"), new PublicKey(addr).toBuffer()], PROGRAM_ID)[0]);
+
+                    // Fetch accounts
+                    const accounts = await (program.account as any).aliasAccount.fetchMultiple(pdas) as any[];
+
+                    const aliasMap: Record<string, string> = {};
+                    accounts.forEach((acc, idx) => {
+                        if (acc) {
+                            aliasMap[senders[idx]] = acc.alias;
+                        }
+                    });
+
+                    // Enrich history items
+                    detailedHistory.forEach((tx: any) => {
+                        if (tx.otherSide && aliasMap[tx.otherSide]) {
+                            (tx as any).senderAlias = aliasMap[tx.otherSide];
+                        }
+                    });
+                } catch (err) {
+                    console.error("Failed to fetch on-chain aliases:", err);
+                }
+            }
+
             setHistory(detailedHistory);
 
             // Load shared notes
@@ -3144,7 +3195,7 @@ function HistoryTab({ publicKey, connection, confirmModal, setConfirmModal, cont
                         </div>
                     );
                 } else if (tx.type === 'Received') {
-                    const rawAlias = getContactAlias(tx.otherSide) || sharedNote?.senderAlias;
+                    const rawAlias = getContactAlias(tx.otherSide) || sharedNote?.senderAlias || tx.senderAlias;
                     const cleanAlias = rawAlias ? (rawAlias.startsWith('@') ? rawAlias : `@${rawAlias}`) : null;
                     typeLabel = "Received Payment";
                     primaryText = cleanAlias ? `${cleanAlias}` : `${tx.otherSide}`;
