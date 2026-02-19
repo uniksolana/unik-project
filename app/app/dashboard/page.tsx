@@ -2887,21 +2887,17 @@ function HistoryTab({ publicKey, connection, confirmModal, setConfirmModal, cont
                         let isSmartRouting = false;
 
                         // 1. Check for UNIK Interactions via Logs
+                        // 1. Analyze Logs for Context
                         const logs = tx?.meta?.logMessages || [];
                         const isRegisterAlias = logs.some((l: string) => l.includes("Instruction: RegisterAlias"));
                         const isSetRoute = logs.some((l: string) => l.includes("Instruction: SetRouteConfig"));
-                        const isExecuteTransfer = logs.some((l: string) => l.includes("Instruction: ExecuteTransfer") || l.includes("Instruction: ExecuteTokenTransfer"));
 
-                        isSmartRouting = isExecuteTransfer;
-
-                        // Check Order Match (Backend Override)
+                        // Check Order Match (Backend Override - Highest Priority for Meta)
                         const matchingOrder = backendOrders.find((o: any) => o.tx_signature === sig.signature);
 
                         if (matchingOrder) {
-                            // Backend knows accurate direction and aliases
                             if (matchingOrder.payer_wallet === publicKey.toBase58()) {
                                 type = 'Sent';
-                                // Use alias if available (Sent to @alias)
                                 otherSide = matchingOrder.alias ? `ALIAS:${matchingOrder.alias}` : matchingOrder.merchant_wallet;
                             } else {
                                 type = 'Received';
@@ -2909,128 +2905,70 @@ function HistoryTab({ publicKey, connection, confirmModal, setConfirmModal, cont
                             }
                             amount = parseFloat(matchingOrder.amount || '0');
                             symbol = matchingOrder.token || 'SOL';
-                            actionLabel = matchingOrder.concept || (isSmartRouting ? 'Smart Transfer' : 'Payment');
-                        }
+                            actionLabel = matchingOrder.concept || 'Payment';
+                        } else {
+                            // On-Chain Parsing Fallback
 
-                        if (!matchingOrder) {
-                            if (isRegisterAlias) {
-                                type = 'System';
-                                actionLabel = 'Alias Registration';
-                            } else if (isSetRoute) {
-                                type = 'System';
-                                actionLabel = 'Routing Configuration';
-                            } else {
-                                // Attempt to parse Memo (Concept)
-                                const memoIx = tx?.transaction.message.instructions.find((ins: any) =>
-                                    ins.programId.toString() === 'MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcQb'
-                                );
-                                if (memoIx && (memoIx as any).parsed) {
-                                    actionLabel = (memoIx as any).parsed;
-                                }
+                            // Context Labels
+                            if (isRegisterAlias) actionLabel = 'Alias Registration';
+                            else if (isSetRoute) actionLabel = 'Routing Configuration';
 
-                                // Fallback to Parsing Instructions (similar to before)
-                                const tokenTransfer = tx?.transaction.message.instructions.find((ins: any) => {
-                                    return (ins.program === 'spl-token' || ins.program === 'spl-token-2022') &&
-                                        (ins.parsed?.type === 'transfer' || ins.parsed?.type === 'transferChecked');
-                                });
+                            // GLOBAL BALANCE ANALYSIS (Primary Source of Truth for Fund Movement)
+                            const accountIndex = tx?.transaction.message.accountKeys.findIndex((k: any) =>
+                                (k.pubkey ? k.pubkey.toString() : k.toString()) === publicKey.toBase58()
+                            );
 
-                                if (tokenTransfer) {
-                                    const info = (tokenTransfer as any).parsed.info;
-                                    if (info.authority === publicKey.toBase58() || info.multisigAuthority === publicKey.toBase58()) {
-                                        type = 'Sent';
-                                        otherSide = info.destination;
-                                        amount = info.tokenAmount?.uiAmount || info.amount / 1e6;
-                                        symbol = 'Token';
-                                        if (info.mint === '4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU') symbol = 'USDC';
-                                    } else {
-                                        type = 'Token';
-                                        actionLabel = 'Token Transfer';
-                                    }
-                                }
+                            if (accountIndex !== -1) {
+                                // A. Token Changes (Prioritize SPL)
+                                let relevantMint = null;
+                                let tokenDiff = 0;
 
-                                const transferInstruction = tx?.transaction.message.instructions.find(
-                                    (ins: any) => ins.program === 'system' && ins.parsed?.type === 'transfer'
-                                );
-
-                                if (transferInstruction && !tokenTransfer) {
-                                    const info = (transferInstruction as any).parsed.info;
-                                    if (info.destination === publicKey.toBase58()) {
-                                        type = 'Received';
-                                        otherSide = info.source;
-                                        amount = info.lamports / 1e9;
-                                        symbol = 'SOL';
-                                    } else if (info.source === publicKey.toBase58()) {
-                                        type = 'Sent';
-                                        otherSide = info.destination;
-                                        amount = info.lamports / 1e9;
-                                        symbol = 'SOL';
-                                    }
-                                }
-
-                                // If Smart Routing was detected but no explicit transfer matched (e.g. inner instruction)
-                                if (isSmartRouting && type === 'Interaction') {
-                                    let sentLamports = 0;
-                                    let receivedLamports = 0;
-                                    let lastSender = '';
-
-                                    // 1. Analyze Inner Instructions for SOL (System Program)
-                                    if (tx.meta?.innerInstructions) {
-                                        tx.meta.innerInstructions.forEach((inner: any) => {
-                                            inner.instructions.forEach((inst: any) => {
-                                                if (inst.program === 'system' && inst.parsed?.type === 'transfer') {
-                                                    const info = inst.parsed.info;
-                                                    if (info.source === publicKey.toBase58()) sentLamports += info.lamports;
-                                                    if (info.destination === publicKey.toBase58()) {
-                                                        receivedLamports += info.lamports;
-                                                        lastSender = info.source;
-                                                    }
-                                                }
-                                            });
-                                        });
-                                    }
-
-                                    // 2. Analyze Token Balance Changes (Reliable for SPL Transfers)
-                                    if (tx.meta?.preTokenBalances && tx.meta?.postTokenBalances) {
-                                        const pre = tx.meta.preTokenBalances.find((b: any) => b.owner === publicKey.toBase58());
-                                        const post = tx.meta.postTokenBalances.find((b: any) => b.owner === publicKey.toBase58());
-
-                                        // Determine net change
-                                        const preAmount = pre?.uiTokenAmount?.uiAmount || 0;
-                                        const postAmount = post?.uiTokenAmount?.uiAmount || 0;
-                                        const diff = postAmount - preAmount;
-
-                                        if (Math.abs(diff) > 0) {
-                                            amount = Math.abs(diff);
-                                            type = diff < 0 ? 'Sent' : 'Received';
-
-                                            // Identify Sender for Received Token Transfers
-                                            if (type === 'Received') {
-                                                otherSide = tx.transaction.message.accountKeys[0].pubkey.toString();
+                                if (tx?.meta?.postTokenBalances) {
+                                    // Identify if any token balance changed for the user
+                                    for (const p of tx.meta.postTokenBalances) {
+                                        if (p.owner === publicKey.toBase58()) {
+                                            const pre = tx.meta.preTokenBalances?.find((b: any) => b.mint === p.mint && b.owner === publicKey.toBase58());
+                                            const diff = (p.uiTokenAmount?.uiAmount || 0) - (pre?.uiTokenAmount?.uiAmount || 0);
+                                            // Capture the first significant change
+                                            if (Math.abs(diff) > 0) {
+                                                relevantMint = p.mint;
+                                                tokenDiff = diff;
+                                                break;
                                             }
-
-                                            // Detect Symbol
-                                            const mint = pre?.mint || post?.mint;
-                                            if (mint === '4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU') symbol = 'USDC';
-                                            else if (mint === 'HzwqbKZw8HxMN6bF2yFZNrht3c2iXXzpKcFu7uBEDKtr') symbol = 'EURC';
-                                            else symbol = 'Token';
-
-                                            actionLabel = (actionLabel !== 'Interaction') ? actionLabel : 'Smart Transfer';
                                         }
                                     }
+                                }
 
-                                    // 3. Fallback to SOL values if no token change detected
-                                    if (amount === 0) {
-                                        if (sentLamports > 0) {
-                                            type = 'Sent';
-                                            amount = sentLamports / 1e9;
-                                            symbol = 'SOL';
-                                            actionLabel = (actionLabel !== 'Interaction') ? actionLabel : 'Smart Transfer';
-                                        } else if (receivedLamports > 0) {
-                                            type = 'Received';
-                                            amount = receivedLamports / 1e9;
-                                            symbol = 'SOL';
-                                            otherSide = lastSender || tx.transaction.message.accountKeys[0].pubkey.toString();
-                                            actionLabel = 'Smart Transfer';
+                                if (Math.abs(tokenDiff) > 0) {
+                                    amount = Math.abs(tokenDiff);
+                                    type = tokenDiff > 0 ? 'Received' : 'Sent';
+
+                                    // Symbol Lookup
+                                    const knownToken = TOKEN_OPTIONS.find(t => t.mint?.toBase58() === relevantMint);
+                                    symbol = knownToken ? knownToken.symbol : 'Token';
+
+                                    actionLabel = actionLabel === 'Interaction' ? 'Token Transfer' : actionLabel;
+
+                                    // Sender Identification (for Received)
+                                    if (type === 'Received') {
+                                        const payerKey = tx.transaction.message.accountKeys[0];
+                                        otherSide = payerKey.pubkey ? payerKey.pubkey.toString() : payerKey.toString();
+                                    }
+                                    // For Sent, destination is complex to resolve via balances alone, keep default or use instruction fallback if needed.
+                                }
+                                // B. SOL Changes (only if no token change)
+                                else {
+                                    const preSol = (tx?.meta?.preBalances?.[accountIndex] || 0) / 1e9;
+                                    const postSol = (tx?.meta?.postBalances?.[accountIndex] || 0) / 1e9;
+                                    const solDiff = postSol - preSol;
+
+                                    if (Math.abs(solDiff) > 0.001) { // Ignore Rent/Dust
+                                        amount = Math.abs(solDiff);
+                                        symbol = 'SOL';
+                                        type = solDiff > 0 ? 'Received' : 'Sent';
+                                        if (type === 'Received') {
+                                            const payerKey = tx.transaction.message.accountKeys[0];
+                                            otherSide = payerKey.pubkey ? payerKey.pubkey.toString() : payerKey.toString();
                                         }
                                     }
                                 }
