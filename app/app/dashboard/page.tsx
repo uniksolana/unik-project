@@ -1398,26 +1398,63 @@ function SendTab({ sendRecipient, setSendRecipient, sendAlias, setSendAlias, sen
     const handleQrResult = (decodedText: string) => {
         if (!decodedText) return;
         try {
-            if (decodedText.includes('/pay/')) {
+            // Robust URL parsing: Add protocol if missing to ensure new URL() works
+            let urlText = decodedText;
+            if (!urlText.startsWith('http://') && !urlText.startsWith('https://')) {
+                // If it looks like a UNIK link or contains /pay/ path
+                if (urlText.includes('unik.app') || urlText.includes('/pay/')) {
+                    urlText = 'https://' + urlText;
+                }
+            }
+
+            if (urlText.includes('/pay/')) {
                 try {
-                    const url = new URL(decodedText);
+                    const url = new URL(urlText);
                     const pathParts = url.pathname.split('/');
                     const aliasIndex = pathParts.indexOf('pay') + 1;
-                    if (aliasIndex < pathParts.length) {
-                        setSendRecipient(`@${pathParts[aliasIndex]}`);
-                        setSendAlias(pathParts[aliasIndex]);
+
+                    if (aliasIndex < pathParts.length && pathParts[aliasIndex]) {
+                        const extractedAlias = pathParts[aliasIndex];
+                        setSendRecipient(`@${extractedAlias}`);
+                        setSendAlias(extractedAlias);
+
+                        // Parse Params
                         const amount = url.searchParams.get('amount');
                         if (amount) setSendAmount(amount);
-                        const concept = url.searchParams.get('concept');
-                        if (concept) setSendNote(concept);
+
+                        // Map 'concept' to paymentConcept (Memo field), not sendNote (Contact Note)
+                        const concept = url.searchParams.get('concept') || url.searchParams.get('message') || url.searchParams.get('memo');
+                        if (concept) setPaymentConcept(concept);
+
+                        // Handle Token Logic
+                        const tokenSymbol = url.searchParams.get('token');
+                        if (tokenSymbol) {
+                            // Find matching token object from options
+                            const foundToken = TOKEN_OPTIONS.find(t => t.symbol.toUpperCase() === tokenSymbol.toUpperCase());
+                            if (foundToken) {
+                                setSendToken(foundToken);
+                            }
+                        }
                     }
-                } catch (e) { setSendRecipient(decodedText); }
-            } else { setSendRecipient(decodedText); setSendAlias(''); }
+                } catch (e) {
+                    // Fallback: If URL parsing fails, simpler handle
+                    console.error("QR URL Parse Failed", e);
+                    setSendRecipient(decodedText);
+                }
+            } else {
+                // Plain address/text
+                setSendRecipient(decodedText);
+                setSendAlias('');
+            }
 
             if (scannerRef.current) {
-                scannerRef.current.stop().then(() => { scannerRef.current?.clear(); scannerRef.current = null; setScanning(false); }).catch(console.error);
+                scannerRef.current.stop().then(() => {
+                    scannerRef.current?.clear();
+                    scannerRef.current = null;
+                    setScanning(false);
+                }).catch(console.error);
             } else { setScanning(false); }
-        } catch (e) { console.error("QR Parse Error", e); }
+        } catch (e) { console.error("QR General Parse Error", e); }
     };
 
     // Detect if running in Solflare mobile WebView
