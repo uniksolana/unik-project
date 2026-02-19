@@ -12,7 +12,7 @@ import { PROGRAM_ID, IDL } from '../../../utils/anchor';
 import { Program, AnchorProvider, BN } from '@coral-xyz/anchor';
 import { Buffer } from 'buffer';
 import Image from 'next/image';
-import { TOKEN_PROGRAM_ID, ASSOCIATED_TOKEN_PROGRAM_ID, getAssociatedTokenAddress } from '@solana/spl-token';
+import { TOKEN_PROGRAM_ID, ASSOCIATED_TOKEN_PROGRAM_ID, getAssociatedTokenAddress, createAssociatedTokenAccountInstruction, createTransferInstruction } from '@solana/spl-token';
 import MobileWalletPrompt from '../../components/MobileWalletPrompt';
 
 const TOKEN_OPTIONS_MAP: any = {
@@ -266,11 +266,27 @@ function PaymentContent() {
                     // SPL Token Routing
                     const userATA = await getAssociatedTokenAddress(selectedToken.mint, publicKey);
                     const remainingAccounts = [];
+                    const preInstructions = [];
+
                     for (const split of routeAccount.splits) {
                         const destATA = await getAssociatedTokenAddress(selectedToken.mint, split.recipient);
                         remainingAccounts.push({ pubkey: destATA, isSigner: false, isWritable: true });
+
+                        // Check if ATA exists, create if not
+                        const info = await connection.getAccountInfo(destATA);
+                        if (!info) {
+                            preInstructions.push(
+                                createAssociatedTokenAccountInstruction(
+                                    publicKey, // payer
+                                    destATA, // ata
+                                    split.recipient, // owner
+                                    selectedToken.mint // mint
+                                )
+                            );
+                        }
                     }
-                    const tx = await program.methods
+
+                    const ix = await program.methods
                         .executeTokenTransfer(normalizedAlias, amountBN)
                         .accounts({
                             routeAccount: routePDA,
@@ -281,8 +297,15 @@ function PaymentContent() {
                             systemProgram: SystemProgram.programId
                         })
                         .remainingAccounts(remainingAccounts)
-                        .rpc();
-                    txSignature = tx;
+                        .instruction();
+
+                    const transaction = new Transaction();
+                    if (preInstructions.length > 0) transaction.add(...preInstructions);
+                    transaction.add(ix);
+
+                    const signature = await wallet.sendTransaction(transaction, connection);
+                    await connection.confirmTransaction(signature, 'confirmed');
+                    txSignature = signature;
                 }
             }
             // Scenario B: No Route Config -> Direct Transfer to Owner
@@ -302,12 +325,21 @@ function PaymentContent() {
                     // Direct SPL Transfer
                     const sourceATA = await getAssociatedTokenAddress(selectedToken.mint, publicKey);
                     const destATA = await getAssociatedTokenAddress(selectedToken.mint, aliasOwner);
-                    const { createTransferInstruction } = await import('@solana/spl-token');
 
-                    // Assuming Account Exists for MVP
-                    const transaction = new Transaction().add(
-                        createTransferInstruction(sourceATA, destATA, publicKey, amountBN.toNumber())
+                    const transaction = new Transaction();
+
+                    // Check ATA existence
+                    const info = await connection.getAccountInfo(destATA);
+                    if (!info) {
+                        transaction.add(
+                            createAssociatedTokenAccountInstruction(publicKey, destATA, aliasOwner, selectedToken.mint)
+                        );
+                    }
+
+                    transaction.add(
+                        createTransferInstruction(sourceATA, destATA, publicKey, BigInt(amountBN.toString()))
                     );
+
                     const signature = await wallet.sendTransaction(transaction, connection);
                     await connection.confirmTransaction(signature, 'confirmed');
                     txSignature = signature;
