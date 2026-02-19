@@ -329,13 +329,10 @@ function PaymentContent() {
 
                     const transaction = new Transaction().add(ComputeBudgetProgram.setComputeUnitPrice({ microLamports: 5000 }));
 
-                    // Check ATA existence
-                    const info = await connection.getAccountInfo(destATA);
-                    if (!info) {
-                        transaction.add(
-                            createAssociatedTokenAccountIdempotentInstruction(publicKey, destATA, aliasOwner, selectedToken.mint)
-                        );
-                    }
+                    // Always try to create (Idempotent: if exists, does nothing) to ensure transfer succeeds
+                    transaction.add(
+                        createAssociatedTokenAccountIdempotentInstruction(publicKey, destATA, aliasOwner, selectedToken.mint)
+                    );
 
                     transaction.add(
                         createTransferInstruction(sourceATA, destATA, publicKey, BigInt(amountBN.toString()))
