@@ -1397,12 +1397,21 @@ function SendTab({ sendRecipient, setSendRecipient, sendAlias, setSendAlias, sen
 
     const handleQrResult = (decodedText: string) => {
         if (!decodedText) return;
+
+        // Stop scanner immediately to prevent multiple reads
+        if (scannerRef.current) {
+            scannerRef.current.stop().then(() => {
+                scannerRef.current?.clear();
+                scannerRef.current = null;
+                setScanning(false);
+            }).catch(console.error);
+        } else { setScanning(false); }
+
         try {
-            // Robust URL parsing: Add protocol if missing to ensure new URL() works
+            // Robust URL parsing: Add protocol if missing
             let urlText = decodedText;
             if (!urlText.startsWith('http://') && !urlText.startsWith('https://')) {
-                // If it looks like a UNIK link or contains /pay/ path
-                if (urlText.includes('unik.app') || urlText.includes('/pay/')) {
+                if (urlText.includes('unik.app') || urlText.includes('unikpay.xyz') || urlText.includes('/pay/')) {
                     urlText = 'https://' + urlText;
                 }
             }
@@ -1418,42 +1427,62 @@ function SendTab({ sendRecipient, setSendRecipient, sendAlias, setSendAlias, sen
                         setSendRecipient(`@${extractedAlias}`);
                         setSendAlias(extractedAlias);
 
-                        // Parse Params
+                        // Check for Secure Order ID
+                        const orderId = url.searchParams.get('order_id');
+                        if (orderId) {
+                            const toastId = toast.loading(t('loading') || 'Fetching order...');
+                            fetch('/api/orders/status', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ order_id: orderId })
+                            })
+                                .then(res => res.json())
+                                .then(data => {
+                                    toast.dismiss(toastId);
+                                    if (data.error) {
+                                        toast.error('Order not found');
+                                        return;
+                                    }
+
+                                    // Populate Fields from Order
+                                    if (data.expected_amount) setSendAmount(String(data.expected_amount));
+                                    if (data.concept) setPaymentConcept(data.concept);
+                                    if (data.expected_token) {
+                                        const foundToken = TOKEN_OPTIONS.find(t => t.symbol.toUpperCase() === data.expected_token.toUpperCase());
+                                        if (foundToken) setSendToken(foundToken);
+                                    }
+                                    toast.success('Order details loaded');
+                                })
+                                .catch(err => {
+                                    toast.dismiss(toastId);
+                                    console.error('Failed to load order:', err);
+                                    toast.error('Failed to load order');
+                                });
+                            // Return early to skip param parsing (Order is authoritative)
+                            return;
+                        }
+
+                        // Fallback: Parse URL Params (Non-Order Links)
                         const amount = url.searchParams.get('amount');
                         if (amount) setSendAmount(amount);
 
-                        // Map 'concept' to paymentConcept (Memo field), not sendNote (Contact Note)
                         const concept = url.searchParams.get('concept') || url.searchParams.get('message') || url.searchParams.get('memo');
                         if (concept) setPaymentConcept(concept);
 
-                        // Handle Token Logic
                         const tokenSymbol = url.searchParams.get('token');
                         if (tokenSymbol) {
-                            // Find matching token object from options
                             const foundToken = TOKEN_OPTIONS.find(t => t.symbol.toUpperCase() === tokenSymbol.toUpperCase());
-                            if (foundToken) {
-                                setSendToken(foundToken);
-                            }
+                            if (foundToken) setSendToken(foundToken);
                         }
                     }
                 } catch (e) {
-                    // Fallback: If URL parsing fails, simpler handle
                     console.error("QR URL Parse Failed", e);
                     setSendRecipient(decodedText);
                 }
             } else {
-                // Plain address/text
                 setSendRecipient(decodedText);
                 setSendAlias('');
             }
-
-            if (scannerRef.current) {
-                scannerRef.current.stop().then(() => {
-                    scannerRef.current?.clear();
-                    scannerRef.current = null;
-                    setScanning(false);
-                }).catch(console.error);
-            } else { setScanning(false); }
         } catch (e) { console.error("QR General Parse Error", e); }
     };
 
