@@ -82,10 +82,16 @@ function PaymentContent() {
                 const destATA = await getAssociatedTokenAddress(selectedToken.mint, aliasOwner);
                 const info = await connection.getAccountInfo(destATA);
                 setRecipientNeedsATA(!info);
-                console.log("ATA Check:", destATA.toBase58(), "Exists:", !!info);
+                console.log("ATA Check Result:", {
+                    address: destATA.toBase58(),
+                    exists: !!info,
+                    lamports: info?.lamports,
+                    owner: info?.owner.toBase58()
+                });
             } catch (e) {
-                console.error("ATA Check Failed:", e);
-                setRecipientNeedsATA(false);
+                console.error("ATA Check Failed (RPC Error?):", e);
+                // Conservative approach: If check fails, assume we NEED activation to be safe
+                setRecipientNeedsATA(true);
             } finally {
                 setIsCheckingATA(false);
             }
@@ -758,6 +764,19 @@ function PaymentContent() {
                                     `Swipe to Pay ${amount ? amount : '0'} ${selectedToken.symbol}`
                                 )}
                             </button>
+
+                            <div className="text-center mt-4 space-y-1">
+                                <button
+                                    onClick={() => setRecipientNeedsATA(!recipientNeedsATA)}
+                                    className="text-[10px] text-gray-500 hover:text-white underline decoration-dotted transition-colors"
+                                >
+                                    {recipientNeedsATA ? "[Debug] Switch to Pay Mode" : "[Debug] Force Activate Mode"}
+                                </button>
+                                <p className="text-[10px] text-gray-600 font-mono select-all">
+                                    Owner: {aliasOwner ? aliasOwner.toBase58().slice(0, 8) + '...' : 'Searching...'} |
+                                    Status: {isCheckingATA ? 'Checking...' : (recipientNeedsATA ? 'NEEDS ACTIVATION' : 'READY')}
+                                </p>
+                            </div>
 
                             {balance !== null && balance < parseFloat(amount || '0') && (
                                 <p className="text-red-400 text-xs text-center font-medium bg-red-500/10 py-2 rounded-lg border border-red-500/20">
