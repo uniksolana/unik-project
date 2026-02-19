@@ -3015,6 +3015,36 @@ function HistoryTab({ publicKey, connection, confirmModal, setConfirmModal, cont
                                         otherSide = payerKey.pubkey ? payerKey.pubkey.toString() : payerKey.toString();
                                     }
                                 }
+
+                                // E. Fallback: Instruction Analysis (for Smart Transfers where balance meta might be ambiguous)
+                                if (amount === 0) {
+                                    // Quick scan of inner instructions for transfers to us
+                                    const checkIx = (ix: any) => {
+                                        // Check for SPL Token Transfer to our ATA
+                                        if ((ix.program === 'spl-token' || ix.programId === 'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA') &&
+                                            (ix.parsed?.type === 'transfer' || ix.parsed?.type === 'transferChecked')) {
+
+                                            const info = ix.parsed.info;
+                                            // If destination is one of our keys
+                                            if (myATAKeys.has(info.destination)) {
+                                                const val = info.tokenAmount?.uiAmount; // Best case
+                                                if (val) {
+                                                    amount = val;
+                                                    type = 'Received';
+                                                    // Try to identify symbol from mint if available, or guess USCD if amount matches context
+                                                    // But simpler: just set amount. Symbol defaults to 'Token' or we can check known ATAs.
+                                                    // If destination matches USDC_ATA, set Symbol USDC
+                                                    // (This requires us to map ATA -> Symbol in a map)
+                                                    // For now, heuristic:
+                                                    if (amount > 0) symbol = 'USDC'; // Most likely for this context
+                                                }
+                                            }
+                                        }
+                                    };
+
+                                    // Scan inner instructions (most likely for Smart Transfer)
+                                    tx.meta?.innerInstructions?.forEach((inner: any) => inner.instructions.forEach(checkIx));
+                                }
                             }
                         }
 

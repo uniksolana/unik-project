@@ -13,7 +13,7 @@ import { Program, AnchorProvider, BN } from '@coral-xyz/anchor';
 import { Buffer } from 'buffer';
 import Image from 'next/image';
 import { saveSharedNote } from '../../../utils/sharedNotes';
-import { TOKEN_PROGRAM_ID, ASSOCIATED_TOKEN_PROGRAM_ID, getAssociatedTokenAddress, createAssociatedTokenAccountInstruction, createTransferInstruction } from '@solana/spl-token';
+import { TOKEN_PROGRAM_ID, ASSOCIATED_TOKEN_PROGRAM_ID, getAssociatedTokenAddress, createAssociatedTokenAccountInstruction, createTransferInstruction, createAssociatedTokenAccountIdempotentInstruction } from '@solana/spl-token';
 import MobileWalletPrompt from '../../components/MobileWalletPrompt';
 
 const TOKEN_OPTIONS_MAP: any = {
@@ -333,7 +333,7 @@ function PaymentContent() {
                     const info = await connection.getAccountInfo(destATA);
                     if (!info) {
                         transaction.add(
-                            createAssociatedTokenAccountInstruction(publicKey, destATA, aliasOwner, selectedToken.mint)
+                            createAssociatedTokenAccountIdempotentInstruction(publicKey, destATA, aliasOwner, selectedToken.mint)
                         );
                     }
 
