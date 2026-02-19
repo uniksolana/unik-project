@@ -18,7 +18,7 @@ import MobileWalletPrompt from '../../components/MobileWalletPrompt';
 const TOKEN_OPTIONS_MAP: any = {
     'SOL': { label: 'SOL', symbol: 'SOL', mint: null, decimals: 9 },
     'USDC': { label: 'USDC (Devnet)', symbol: 'USDC', mint: new PublicKey('4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU'), decimals: 6 },
-    'EURC': { label: 'EURC (Devnet)', symbol: 'EURC', mint: new PublicKey('HzwqbKZw8JxJGHz3tYkXyVvV4yT9WDvF9d1t1zX5T2W'), decimals: 6 }
+    'EURC': { label: 'EURC (Devnet)', symbol: 'EURC', mint: new PublicKey('HzwqbKZw8HxMN6bF2yFZNrht3c2iXXzpKcFu7uBEDKtr'), decimals: 6 }
 };
 
 function PaymentContent() {

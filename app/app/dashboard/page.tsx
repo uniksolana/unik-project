@@ -27,7 +27,7 @@ import { SettingsModal } from './SettingsModal';
 const TOKEN_OPTIONS = [
     { label: 'SOL', symbol: 'SOL', mint: null, decimals: 9, icon: '/sol.png' },
     { label: 'USDC (Devnet)', symbol: 'USDC', mint: new PublicKey('4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU'), decimals: 6, icon: '/usdc.png' },
-    { label: 'EURC (Devnet)', symbol: 'EURC', mint: new PublicKey('HzwqbKZw8JxJGHz3tYkXyVvV4yT9WDvF9d1t1zX5T2W'), decimals: 6, icon: '/eurc.png' } // Placeholder EURC Devnet Mint
+    { label: 'EURC (Devnet)', symbol: 'EURC', mint: new PublicKey('HzwqbKZw8HxMN6bF2yFZNrht3c2iXXzpKcFu7uBEDKtr'), decimals: 6, icon: '/eurc.png' } // Placeholder EURC Devnet Mint
 ];
 
 type TabType = 'receive' | 'send' | 'splits' | 'alias' | 'contacts' | 'history';
