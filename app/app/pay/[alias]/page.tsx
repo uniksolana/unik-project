@@ -323,9 +323,23 @@ function PaymentContent() {
                     await connection.confirmTransaction(signature, 'confirmed');
                     txSignature = signature;
                 } else {
-                    // Direct SPL Transfer
-                    const sourceATA = await getAssociatedTokenAddress(selectedToken.mint, publicKey);
-                    const destATA = await getAssociatedTokenAddress(selectedToken.mint, aliasOwner);
+                    // Validate Owner is EOA (Wallet) not PDA
+                    if (!PublicKey.isOnCurve(aliasOwner.toBytes())) {
+                        console.error("CRITICAL ERROR: Alias resolves to a PDA (Off-Curve). Expected User Wallet.");
+                        throw new Error("Invalid Alias Owner: Address is a Program Account, not a Wallet. Cannot send.");
+                    }
+
+                    // Direct SPL Transfer: Address Derivation + Logging
+                    let sourceATA, destATA;
+                    try {
+                        sourceATA = await getAssociatedTokenAddress(selectedToken.mint, publicKey);
+                        destATA = await getAssociatedTokenAddress(selectedToken.mint, aliasOwner);
+                        console.log("Derived Source ATA:", sourceATA.toBase58());
+                        console.log("Derived Dest ATA:", destATA.toBase58());
+                    } catch (err) {
+                        console.error("Failed to derive ATAs:", err);
+                        throw new Error("Could not verify token accounts. Check console.");
+                    }
 
                     // Check for Rent Solvency if potentially creating account
                     const currentSol = await connection.getBalance(publicKey);
