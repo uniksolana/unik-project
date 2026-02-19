@@ -18,7 +18,7 @@ import { supabase } from '../../utils/supabaseClient';
 import { noteStorage, TransactionNote } from '../../utils/notes';
 import { saveAvatar, getAvatar, removeAvatar } from '../../utils/avatar';
 import { saveSharedNote, getSharedNotes, SharedNoteData } from '../../utils/sharedNotes';
-import { TOKEN_PROGRAM_ID, ASSOCIATED_TOKEN_PROGRAM_ID, getAssociatedTokenAddress } from '@solana/spl-token';
+import { TOKEN_PROGRAM_ID, ASSOCIATED_TOKEN_PROGRAM_ID, getAssociatedTokenAddress, createAssociatedTokenAccountInstruction } from '@solana/spl-token';
 import bs58 from 'bs58';
 import { deriveKeyFromSignature, encryptBlob, decryptBlob } from '../../utils/crypto';
 import { getSessionKey, setSessionKey } from '../../utils/sessionState';
@@ -1284,6 +1284,10 @@ function ReceiveTab({ avatarUrl, registeredAlias, linkAmount, setLinkAmount, lin
 
 function SendTab({ sendRecipient, setSendRecipient, sendAlias, setSendAlias, sendAmount, setSendAmount, sendNote, setSendNote, paymentConcept, setPaymentConcept, loading, setLoading, publicKey, wallet, connection, solPrice, balance, sendToken, setSendToken, myAliases, contacts, resolvedAddress, setResolvedAddress }: any) {
     const { t, convertPrice } = usePreferences();
+    // Recipient Status State (Moved local to SendTab)
+    const [recipientNeedsSetup, setRecipientNeedsSetup] = useState<boolean>(false);
+    const [isCheckingSetup, setIsCheckingSetup] = useState<boolean>(false);
+
     // QR Scanner State
     const [scanning, setScanning] = useState(false);
     const scannerRef = useRef<Html5Qrcode | null>(null);
@@ -1568,6 +1572,80 @@ function SendTab({ sendRecipient, setSendRecipient, sendAlias, setSendAlias, sen
             };
         }
     }, [scanning]);
+
+    // ATA Status Check (Separate Flow)
+    useEffect(() => {
+        const checkATA = async () => {
+            setRecipientNeedsSetup(false);
+            if (!sendToken.mint || sendToken.symbol === 'SOL') return;
+            if (!resolvedAddress && !sendRecipient) return;
+
+            // Use resolvedAddress if available (it refers to Owner PK), otherwise try sendRecipient if it looks like a key
+            let targetOwnerStr = resolvedAddress;
+            if (!targetOwnerStr) {
+                try {
+                    new PublicKey(sendRecipient);
+                    targetOwnerStr = sendRecipient;
+                } catch (e) { return; }
+            }
+
+            setIsCheckingSetup(true);
+            try {
+                const destOwner = new PublicKey(targetOwnerStr!);
+                const destATA = await getAssociatedTokenAddress(sendToken.mint, destOwner);
+                const info = await connection.getAccountInfo(destATA);
+                // If info is null, account does not exist -> Needs Activation
+                setRecipientNeedsSetup(!info);
+                console.log("[Dashboard] ATA Check:", destATA.toBase58(), "Exists:", !!info);
+            } catch (e) {
+                console.error("[Dashboard] ATA Check Failed:", e);
+                setRecipientNeedsSetup(true); // Conservative fallback
+            } finally {
+                setIsCheckingSetup(false);
+            }
+        };
+        const timer = setTimeout(checkATA, 500);
+        return () => clearTimeout(timer);
+    }, [resolvedAddress, sendRecipient, sendToken, connection]);
+
+    const handleActivation = async () => {
+        if (!sendToken.mint || !publicKey) return;
+        let targetOwnerStr = resolvedAddress || sendRecipient;
+        try { new PublicKey(targetOwnerStr); } catch (e) { return; }
+
+        setLoading(true);
+        try {
+            const destOwner = new PublicKey(targetOwnerStr);
+            const destATA = await getAssociatedTokenAddress(sendToken.mint, destOwner);
+
+            const transaction = new Transaction();
+            transaction.add(ComputeBudgetProgram.setComputeUnitPrice({ microLamports: 5000 }));
+            transaction.add(ComputeBudgetProgram.setComputeUnitLimit({ units: 50000 }));
+            transaction.add(
+                createAssociatedTokenAccountInstruction(
+                    publicKey,
+                    destATA,
+                    destOwner,
+                    sendToken.mint
+                )
+            );
+
+            const signature = await wallet.sendTransaction(transaction, connection);
+            await connection.confirmTransaction(signature, 'confirmed');
+
+            showTransactionToast({ signature, message: `Activated ${sendToken.symbol} Account`, type: 'success' });
+
+            // Re-check immediately
+            const info = await connection.getAccountInfo(destATA);
+            setRecipientNeedsSetup(!info);
+
+        } catch (e: any) {
+            console.error("Activation failed:", e);
+            toast.error("Activation failed: " + e.message);
+        } finally {
+            setLoading(false);
+        }
+    };
 
     const handleSend = async () => {
         if (!sendRecipient || !sendAmount || !publicKey || !wallet) return;
@@ -1980,12 +2058,38 @@ function SendTab({ sendRecipient, setSendRecipient, sendAlias, setSendAlias, sen
                 </div>
 
                 <button
-                    onClick={handleSend}
-                    disabled={loading || !sendRecipient || !sendAmount || parseFloat(sendAmount) <= 0 || activeBalance === null || parseFloat(sendAmount) > activeBalance}
-                    className="w-full py-5 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 rounded-xl font-bold text-lg shadow-lg disabled:opacity-50 disabled:cursor-not-allowed transition-all transform active:scale-95"
+                    onClick={recipientNeedsSetup ? handleActivation : handleSend}
+                    disabled={loading || !sendRecipient || (!recipientNeedsSetup && (!sendAmount || parseFloat(sendAmount) <= 0 || activeBalance === null || parseFloat(sendAmount) > activeBalance)) || isCheckingSetup}
+                    className={`w-full py-5 rounded-xl font-bold text-lg shadow-lg disabled:opacity-50 disabled:cursor-not-allowed transition-all transform active:scale-95
+                        ${recipientNeedsSetup
+                            ? 'bg-gradient-to-r from-orange-500 to-pink-600 hover:from-orange-400 hover:to-pink-500 text-white shadow-orange-900/30'
+                            : 'bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white'
+                        }`}
                 >
-                    {loading ? t('sending') : `${t('send')} ${sendToken.symbol}`}
+                    {loading ? (
+                        <span className="flex items-center justify-center gap-2">
+                            <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                            Processing...
+                        </span>
+                    ) : isCheckingSetup ? (
+                        "Checking Recipient..."
+                    ) : recipientNeedsSetup ? (
+                        `Activate ${sendToken.symbol} Account (~0.002 SOL)`
+                    ) : (
+                        `${t('send')} ${sendToken.symbol}`
+                    )}
                 </button>
+
+                {sendToken.symbol !== 'SOL' && (
+                    <div className="text-center mt-2">
+                        <button
+                            onClick={() => setRecipientNeedsSetup(!recipientNeedsSetup)}
+                            className="text-[10px] text-gray-600 hover:text-gray-400 underline decoration-dotted"
+                        >
+                            [Debug] {recipientNeedsSetup ? "Force Pay Mode" : "Force Activate Mode"} (ATA: {recipientNeedsSetup ? 'Missing' : 'OK'})
+                        </button>
+                    </div>
+                )}
             </div>
         </div >
     );
