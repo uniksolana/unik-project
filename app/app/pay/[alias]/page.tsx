@@ -66,6 +66,32 @@ function PaymentContent() {
     const [aliasOwner, setAliasOwner] = useState<PublicKey | null>(null);
     const [recipientAddress, setRecipientAddress] = useState<PublicKey | null>(null);
     const [lastSignature, setLastSignature] = useState<string | null>(null);
+    const [recipientNeedsATA, setRecipientNeedsATA] = useState(false);
+    const [isCheckingATA, setIsCheckingATA] = useState(false);
+
+    // Check Recipient ATA Status
+    useEffect(() => {
+        const checkATA = async () => {
+            if (!aliasOwner || !selectedToken.mint || selectedToken.symbol === 'SOL') {
+                setRecipientNeedsATA(false);
+                return;
+            }
+
+            setIsCheckingATA(true);
+            try {
+                const destATA = await getAssociatedTokenAddress(selectedToken.mint, aliasOwner);
+                const info = await connection.getAccountInfo(destATA);
+                setRecipientNeedsATA(!info);
+                console.log("ATA Check:", destATA.toBase58(), "Exists:", !!info);
+            } catch (e) {
+                console.error("ATA Check Failed:", e);
+                setRecipientNeedsATA(false);
+            } finally {
+                setIsCheckingATA(false);
+            }
+        };
+        checkATA();
+    }, [aliasOwner, selectedToken, connection]);
 
     useEffect(() => {
         const queryAmount = searchParams.get('amount');
@@ -228,6 +254,39 @@ function PaymentContent() {
         }
     };
 
+    const handleActivation = async () => {
+        if (!aliasOwner || !selectedToken.mint || !publicKey) return;
+        setLoading(true);
+        try {
+            const destATA = await getAssociatedTokenAddress(selectedToken.mint, aliasOwner);
+            const transaction = new Transaction().add(
+                ComputeBudgetProgram.setComputeUnitPrice({ microLamports: 5000 }),
+                ComputeBudgetProgram.setComputeUnitLimit({ units: 50000 }),
+                createAssociatedTokenAccountInstruction(
+                    publicKey,
+                    destATA,
+                    aliasOwner,
+                    selectedToken.mint
+                )
+            );
+
+            const sig = await wallet.sendTransaction(transaction, connection);
+            await connection.confirmTransaction(sig, 'confirmed');
+
+            toast.success("Account Activated Successfully!");
+
+            // Re-check ATA status immediately
+            const info = await connection.getAccountInfo(destATA);
+            setRecipientNeedsATA(!info);
+
+        } catch (e: any) {
+            console.error("Activation failed:", e);
+            toast.error("Activation failed: " + e.message);
+        } finally {
+            setLoading(false);
+        }
+    };
+
     const handlePayment = async () => {
         if (!amount || !publicKey) return;
         setLoading(true);
@@ -329,59 +388,17 @@ function PaymentContent() {
                         throw new Error("Invalid Alias Owner: Address is a Program Account, not a Wallet. Cannot send.");
                     }
 
-                    // Direct SPL Transfer: Address Derivation + Logging
-                    let sourceATA, destATA;
-                    try {
-                        sourceATA = await getAssociatedTokenAddress(selectedToken.mint, publicKey);
-                        destATA = await getAssociatedTokenAddress(selectedToken.mint, aliasOwner);
-                        console.log("Derived Source ATA:", sourceATA.toBase58());
-                        console.log("Derived Dest ATA:", destATA.toBase58());
-                    } catch (err) {
-                        console.error("Failed to derive ATAs:", err);
-                        throw new Error("Could not verify token accounts. Check console.");
+                    // Direct SPL Transfer: Pure Transfer
+                    const sourceATA = await getAssociatedTokenAddress(selectedToken.mint, publicKey);
+                    const destATA = await getAssociatedTokenAddress(selectedToken.mint, aliasOwner);
+
+                    // Safety Check: Recipient must be activated
+                    if (recipientNeedsATA) {
+                        throw new Error(`Recipient needs ${selectedToken.symbol} account activation first.`);
                     }
 
-                    // Check for Rent Solvency if potentially creating account
-                    const currentSol = await connection.getBalance(publicKey);
-                    if (currentSol < 2500000) { // ~0.0025 SOL safety threshold
-                        const info = await connection.getAccountInfo(destATA);
-                        if (!info) {
-                            throw new Error("Insufficient SOL to activate recipient's wallet. You need ~0.0025 SOL.");
-                        }
-                    }
-
-                    // Diagnostic Logs
-                    console.log("--- TRANSACTION DIAGNOSTICS ---");
-                    console.log("Alias Owner (Recipient Wallet):", aliasOwner?.toBase58());
-                    console.log("Token Mint:", selectedToken.mint.toBase58());
-                    console.log("Destination ATA (Derived):", destATA.toBase58());
-                    console.log("Source ATA:", sourceATA.toBase58());
-                    console.log("Payer (You):", publicKey.toBase58());
-                    console.log("-------------------------------");
-
-                    // FORCE USER CONFIRMATION (Debug)
-                    if (!window.confirm(`CONFIRM DESTINATION:\n${destATA.toBase58()}\n\nIs this address correct?`)) {
-                        throw new Error("Transaction cancelled by user.");
-                    }
-
-                    // Construct transaction explicitly
                     const transaction = new Transaction();
-
-                    // 1. Compute Budget (Price + Limit)
                     transaction.add(ComputeBudgetProgram.setComputeUnitPrice({ microLamports: 5000 }));
-                    transaction.add(ComputeBudgetProgram.setComputeUnitLimit({ units: 100000 }));
-
-                    // 2. Create ATA (Legacy: Fallback for Devnet issues with Idempotent)
-                    transaction.add(
-                        createAssociatedTokenAccountInstruction(
-                            publicKey,
-                            destATA,
-                            aliasOwner,
-                            selectedToken.mint
-                        )
-                    );
-
-                    // 3. Transfer
                     transaction.add(
                         createTransferInstruction(
                             sourceATA,
@@ -720,16 +737,26 @@ function PaymentContent() {
                             </div>
 
                             <button
-                                onClick={handlePayment}
-                                disabled={loading || !amount || linkVerification === 'invalid'}
-                                className="w-full py-5 bg-gradient-to-r from-cyan-600 to-purple-600 hover:from-cyan-500 hover:to-purple-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold text-lg rounded-2xl shadow-xl shadow-purple-900/30 transition-all transform hover:scale-[1.02] active:scale-[0.98]"
+                                onClick={recipientNeedsATA ? handleActivation : handlePayment}
+                                disabled={loading || (!amount && !recipientNeedsATA) || linkVerification === 'invalid' || isCheckingATA}
+                                className={`w-full py-5 font-bold text-lg rounded-2xl shadow-xl transition-all transform hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed
+                                    ${recipientNeedsATA
+                                        ? 'bg-gradient-to-r from-orange-500 to-pink-600 hover:from-orange-400 hover:to-pink-500 text-white shadow-orange-900/30'
+                                        : 'bg-gradient-to-r from-cyan-600 to-purple-600 hover:from-cyan-500 hover:to-purple-500 text-white shadow-purple-900/30'
+                                    }`}
                             >
                                 {loading ? (
                                     <span className="flex items-center justify-center gap-2">
                                         <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
                                         Processing...
                                     </span>
-                                ) : `Swipe to Pay ${amount ? amount : '0'} ${selectedToken.symbol}`}
+                                ) : isCheckingATA ? (
+                                    "Checking Account..."
+                                ) : recipientNeedsATA ? (
+                                    `Activate ${selectedToken.symbol} Account (~0.002 SOL)`
+                                ) : (
+                                    `Swipe to Pay ${amount ? amount : '0'} ${selectedToken.symbol}`
+                                )}
                             </button>
 
                             {balance !== null && balance < parseFloat(amount || '0') && (
