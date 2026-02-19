@@ -336,6 +336,14 @@ function PaymentContent() {
                         }
                     }
 
+                    // Diagnostic Logs
+                    console.log("--- TRANSACTION DIAGNOSTICS ---");
+                    console.log("Alias Owner (Recipient Wallet):", aliasOwner?.toBase58());
+                    console.log("Token Mint:", selectedToken.mint.toBase58());
+                    console.log("Destination ATA (Derived):", destATA.toBase58());
+                    console.log("Source ATA:", sourceATA.toBase58());
+                    console.log("Payer (You):", publicKey.toBase58());
+                    console.log("-------------------------------");
                     // Construct transaction explicitly
                     const transaction = new Transaction();
 
