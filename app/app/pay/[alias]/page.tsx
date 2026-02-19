@@ -7,7 +7,7 @@ import toast from 'react-hot-toast';
 import { showTransactionToast, showSimpleToast } from '../../components/CustomToast';
 import { useParams, useSearchParams } from 'next/navigation';
 import { Suspense } from 'react';
-import { PublicKey, SystemProgram, Transaction } from '@solana/web3.js';
+import { PublicKey, SystemProgram, Transaction, ComputeBudgetProgram } from '@solana/web3.js';
 import { PROGRAM_ID, IDL } from '../../../utils/anchor';
 import { Program, AnchorProvider, BN } from '@coral-xyz/anchor';
 import { Buffer } from 'buffer';
@@ -301,7 +301,7 @@ function PaymentContent() {
                         .remainingAccounts(remainingAccounts)
                         .instruction();
 
-                    const transaction = new Transaction();
+                    const transaction = new Transaction().add(ComputeBudgetProgram.setComputeUnitPrice({ microLamports: 5000 }));
                     if (preInstructions.length > 0) transaction.add(...preInstructions);
                     transaction.add(ix);
 
@@ -328,7 +328,7 @@ function PaymentContent() {
                     const sourceATA = await getAssociatedTokenAddress(selectedToken.mint, publicKey);
                     const destATA = await getAssociatedTokenAddress(selectedToken.mint, aliasOwner);
 
-                    const transaction = new Transaction();
+                    const transaction = new Transaction().add(ComputeBudgetProgram.setComputeUnitPrice({ microLamports: 5000 }));
 
                     // Check ATA existence
                     const info = await connection.getAccountInfo(destATA);

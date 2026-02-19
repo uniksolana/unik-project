@@ -3109,6 +3109,13 @@ function HistoryTab({ publicKey, connection, confirmModal, setConfirmModal, cont
             const sigList = filteredHistory.map((tx: any) => tx.signature);
             const loadedSharedNotes = await getSharedNotes(sigList);
             setSharedNotes(loadedSharedNotes);
+
+            // Debug Toast: Confirm history fetch results
+            if (detailedHistory.length > 0) {
+                showSimpleToast(`Debug: ${detailedHistory.length} TXs scanned. ${filteredHistory.length} visible.`, 'success');
+            } else {
+                showSimpleToast('Debug: 0 TXs found.', 'info');
+            }
         } catch (e) {
             console.error("Failed to fetch history", e);
         } finally {
