@@ -27,7 +27,6 @@ import { SettingsModal } from './SettingsModal';
 const TOKEN_OPTIONS = [
     { label: 'SOL', symbol: 'SOL', mint: null, decimals: 9, icon: '/sol.png' },
     { label: 'USDC (Circle Devnet)', symbol: 'USDC', mint: new PublicKey('4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU'), decimals: 6, icon: '/usdc.png' },
-    { label: 'USDC (Faucet Devnet)', symbol: 'USDC-F', mint: new PublicKey('Gh9ZwEmdLJ8DscKNTkTqPbNwLNNBjuSzaG9Vp2KGtKJr'), decimals: 6, icon: '/usdc.png' },
     { label: 'EURC (Devnet)', symbol: 'EURC', mint: new PublicKey('HzwqbKZw8HxMN6bF2yFZNrht3c2iXXzpKcFu7uBEDKtr'), decimals: 6, icon: '/eurc.png' } // Placeholder EURC Devnet Mint
 ];
 
@@ -2987,15 +2986,10 @@ function HistoryTab({ publicKey, connection, confirmModal, setConfirmModal, cont
                                 const significantSolChange = Math.abs(solDiff) > 0.01; // Threshold to distinguish Trade from Gas/Rent
 
                                 // C. Classification: Payment vs Swap
-                                // If multiple assets changed significantly, it's likely a Trade/Swap (Not a simple P2P Payment)
-                                const isSwap = (significantTokenChangeCount > 1) || (significantTokenChangeCount > 0 && significantSolChange);
+                                // Modified to prioritize showing all movements
+                                // const isSwap = ... (Removed)
 
-                                if (isSwap) {
-                                    // Mark as Swap for debug visibility
-                                    type = 'Interaction';
-                                    actionLabel = 'DeFi Swap (Debug)';
-                                }
-                                else if (Math.abs(tokenDiff) > 0) { // Pure Token Transfer
+                                if (Math.abs(tokenDiff) > 0) { // Pure Token Transfer
                                     amount = Math.abs(tokenDiff);
                                     type = tokenDiff > 0 ? 'Received' : 'Sent';
 
@@ -3097,11 +3091,8 @@ function HistoryTab({ publicKey, connection, confirmModal, setConfirmModal, cont
                 }
             }
 
-            // Filter out Hidden transactions (Swaps/DeFi) and purely empty interactions unless they are System Actions
-            const filteredHistory = detailedHistory.filter((tx: any) =>
-                tx.type !== 'Hidden' &&
-                (tx.amount > 0 || ['Alias Registration', 'Routing Configuration', 'DeFi Swap (Debug)'].includes(tx.actionLabel))
-            );
+            // Filter: Show everything for now to debug
+            const filteredHistory = detailedHistory;
 
             setHistory(filteredHistory);
 
