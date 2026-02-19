@@ -18,6 +18,11 @@
 ### 🗓️ Último Checkpoint (17:03)
 - **Concepto en Pagos Simples:** Integración de campo opcional "Payment Concept" en enlaces sin monto fijo.
 - **Auto-Tracking:** Estos pagos simples ahora generan automáticamente una orden en backend para constar en el historial del usuario.
+
+### 🗓️ Último Checkpoint (17:27)
+- **Historial Unificado:** Fusión de datos on-chain con registros de backend para mostrar conceptos y alias en tiempo real.
+- **Smart Splits UI:** Identificación visual de pagos con reparto automático mediante badges dedicados.
+- **UI Polish:** Corrección de solapamiento de badges en tarjetas de transacción.
 ---
 
 ## 🚀 Nuevas Funcionalidades (Febrero 2026)
