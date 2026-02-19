@@ -2730,6 +2730,7 @@ function HistoryTab({ publicKey, connection, confirmModal, setConfirmModal, cont
     const [history, setHistory] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [orders, setOrders] = useState<any[]>([]);
+    const [filterDate, setFilterDate] = useState('');
     const [notes, setNotes] = useState<Record<string, TransactionNote>>({});
     const [sharedNotes, setSharedNotes] = useState<Record<string, SharedNoteData>>({});
 
@@ -2854,8 +2855,23 @@ function HistoryTab({ publicKey, connection, confirmModal, setConfirmModal, cont
                                     // If Smart Routing was detected but no explicit transfer matched (e.g. inner instruction), force Sent
                                     if (isSmartRouting && type === 'Interaction') {
                                         type = 'Sent';
-                                        actionLabel = 'Smart Routing'; // Label implies split
-                                        // Amount might be 0 if we assume top-level transfer instructions only, but better than 'Interaction'
+                                        actionLabel = 'Smart Routing';
+
+                                        // Calculate amount from inner instructions (System CPIs)
+                                        let totalLamports = 0;
+                                        if (tx.meta?.innerInstructions) {
+                                            tx.meta.innerInstructions.forEach((inner: any) => {
+                                                inner.instructions.forEach((inst: any) => {
+                                                    if (inst.program === 'system' && inst.parsed?.type === 'transfer') {
+                                                        const info = inst.parsed.info;
+                                                        if (info.source === publicKey.toBase58()) {
+                                                            totalLamports += info.lamports;
+                                                        }
+                                                    }
+                                                });
+                                            });
+                                        }
+                                        if (totalLamports > 0) amount = totalLamports / 1e9;
                                     }
                                 }
                             }
@@ -2937,172 +2953,184 @@ function HistoryTab({ publicKey, connection, confirmModal, setConfirmModal, cont
                 <div className="text-xs text-gray-500 bg-gray-800 px-3 py-1 rounded-full border border-gray-700">
                     Devnet
                 </div>
-            </div>
 
-            <div className="space-y-4">
-                {history.length === 0 ? (
-                    <div className="text-center py-16 bg-gray-800/30 rounded-3xl border border-dashed border-gray-700">
-                        <div className="w-16 h-16 bg-gray-800 rounded-full flex items-center justify-center mx-auto mb-4 text-gray-600">
-                            <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                {/* Filter */}
+                <div className="flex justify-end">
+                    <input
+                        type="month"
+                        value={filterDate}
+                        onChange={(e) => setFilterDate(e.target.value)}
+                        className="bg-gray-800 border border-gray-700 text-gray-300 text-sm rounded-lg p-2 focus:border-cyan-500 outline-none"
+                        placeholder="Filter by date"
+                    />
+                </div>
+
+                <div className="space-y-4">
+                    {history.length === 0 ? (
+                        <div className="text-center py-16 bg-gray-800/30 rounded-3xl border border-dashed border-gray-700">
+                            <div className="w-16 h-16 bg-gray-800 rounded-full flex items-center justify-center mx-auto mb-4 text-gray-600">
+                                <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                            </div>
+                            <p className="text-gray-400 font-medium">{t('no_history')}</p>
                         </div>
-                        <p className="text-gray-400 font-medium">{t('no_history')}</p>
-                    </div>
-                ) : (
-                    history.map((tx: any, i: number) => {
-                        const savedNote = notes[tx.signature];
-                        const sharedNote = sharedNotes[tx.signature];
-                        const noteContent = savedNote?.note || sharedNote?.note;
+                    ) : (
+                        history.filter(tx => {
+                            if (!filterDate) return true;
+                            const txDate = new Date(tx.time * 1000);
+                            const [year, month] = filterDate.split('-');
+                            return txDate.getFullYear() === parseInt(year) && (txDate.getMonth() + 1) === parseInt(month);
+                        }).map((tx: any, i: number) => {
+                            const savedNote = notes[tx.signature];
+                            const sharedNote = sharedNotes[tx.signature];
+                            const noteContent = savedNote?.note || sharedNote?.note;
 
-                        // Resolve Display Name & Metadata
-                        let typeLabel = tx.type;
-                        let primaryText = "";
-                        let secondaryText = tx.actionLabel;
+                            // Resolve Display Name & Metadata
+                            let typeLabel = tx.type;
+                            let primaryText = "";
 
-                        // Icon Configuration
-                        let Icon = <div className="w-12 h-12 rounded-2xl bg-gray-800 flex items-center justify-center text-gray-400"><svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg></div>;
-                        let amountColor = "text-gray-200";
-                        let amountPrefix = "";
+                            // Icon Configuration
+                            let Icon = <div className="w-10 h-10 rounded-xl bg-gray-800 flex items-center justify-center text-gray-400"><svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg></div>;
+                            let amountColor = "text-gray-200";
+                            let amountPrefix = "";
 
-                        if (tx.type === 'Sent') {
-                            const rawAlias = getContactAlias(tx.otherSide) || savedNote?.recipient;
-                            // Fix @@ issue: check if rawAlias already starts with @
-                            const cleanAlias = rawAlias ? (rawAlias.startsWith('@') ? rawAlias : `@${rawAlias}`) : null;
-
-                            typeLabel = "Sent Payment";
-
-                            // Check for ALIAS: prefix set in fetchHistory
-                            if (tx.otherSide && tx.otherSide.startsWith('ALIAS:')) {
-                                const clean = tx.otherSide.replace('ALIAS:', '@');
-                                primaryText = `To ${clean}`;
-                            } else {
+                            if (tx.type === 'Sent') {
                                 const rawAlias = getContactAlias(tx.otherSide) || savedNote?.recipient;
                                 const cleanAlias = rawAlias ? (rawAlias.startsWith('@') ? rawAlias : `@${rawAlias}`) : null;
-                                primaryText = cleanAlias ? `To ${cleanAlias}` : `To ${tx.otherSide.slice(0, 4)}...${tx.otherSide.slice(-4)}`;
+                                typeLabel = "Sent Payment";
+
+                                // Check for ALIAS: prefix set in fetchHistory
+                                if (tx.otherSide && tx.otherSide.startsWith('ALIAS:')) {
+                                    const clean = tx.otherSide.replace('ALIAS:', '@');
+                                    primaryText = `${clean}`;
+                                } else {
+                                    const rawAlias = getContactAlias(tx.otherSide) || savedNote?.recipient;
+                                    const cleanAlias = rawAlias ? (rawAlias.startsWith('@') ? rawAlias : `@${rawAlias}`) : null;
+                                    primaryText = cleanAlias ? `${cleanAlias}` : `${tx.otherSide}`;
+                                }
+                                amountColor = "text-red-400";
+                                amountPrefix = "-";
+                                Icon = (
+                                    <div className="w-10 h-10 rounded-xl bg-red-500/10 flex items-center justify-center text-red-500 border border-red-500/20">
+                                        <svg className="w-5 h-5 transform -rotate-45" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 12h14M12 5l7 7-7 7" /></svg>
+                                    </div>
+                                );
+                            } else if (tx.type === 'Received') {
+                                const rawAlias = getContactAlias(tx.otherSide) || sharedNote?.senderAlias;
+                                const cleanAlias = rawAlias ? (rawAlias.startsWith('@') ? rawAlias : `@${rawAlias}`) : null;
+                                typeLabel = "Received Payment";
+                                primaryText = cleanAlias ? `${cleanAlias}` : `${tx.otherSide}`;
+                                amountColor = "text-green-400";
+                                amountPrefix = "+";
+                                Icon = (
+                                    <div className="w-10 h-10 rounded-xl bg-green-500/10 flex items-center justify-center text-green-500 border border-green-500/20">
+                                        <svg className="w-5 h-5 transform rotate-45" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 12H5M12 5l-7 7 7 7" /></svg>
+                                    </div>
+                                );
+                            } else if (tx.type === 'System' || tx.type === 'Interaction') {
+                                if (tx.actionLabel === 'Unknown' || tx.actionLabel === 'Interaction') {
+                                    typeLabel = "Contract Interaction";
+                                    primaryText = "Unik Program";
+                                } else {
+                                    typeLabel = tx.actionLabel;
+                                    primaryText = "System";
+                                }
+                                Icon = (
+                                    <div className="w-10 h-10 rounded-xl bg-purple-500/10 flex items-center justify-center text-purple-400 border border-purple-500/20">
+                                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+                                    </div>
+                                );
                             }
 
-                            // Prioritize Concept -> Smart Split -> Transfer
+                            // Check for Concept
                             const isConcept = tx.actionLabel && !['Interaction', 'Payment', 'Smart Transfer', 'Smart Routing', 'Transaction'].includes(tx.actionLabel);
-                            secondaryText = isConcept ? tx.actionLabel : (tx.isSmartRouting ? "Smart Split" : "Transfer");
-                            amountColor = "text-red-400";
-                            amountPrefix = "-";
-                            Icon = (
-                                <div className="w-12 h-12 rounded-2xl bg-red-500/10 flex items-center justify-center text-red-500 border border-red-500/20 shadow-[0_0_15px_rgba(239,68,68,0.1)]">
-                                    <svg className="w-6 h-6 transform -rotate-45" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 12h14M12 5l7 7-7 7" /></svg>
-                                </div>
-                            );
-                        } else if (tx.type === 'Received') {
-                            const rawAlias = getContactAlias(tx.otherSide) || sharedNote?.senderAlias;
-                            const cleanAlias = rawAlias ? (rawAlias.startsWith('@') ? rawAlias : `@${rawAlias}`) : null;
+                            const displayConcept = isConcept ? tx.actionLabel : null;
+                            const displayNote = noteContent || displayConcept;
 
-                            typeLabel = "Received Payment";
-                            primaryText = cleanAlias ? `From ${cleanAlias}` : `From ${tx.otherSide.slice(0, 4)}...${tx.otherSide.slice(-4)}`;
-                            // Use Concept if available
-                            const isConcept = tx.actionLabel && !['Interaction', 'Payment', 'Smart Transfer'].includes(tx.actionLabel);
-                            secondaryText = isConcept ? tx.actionLabel : "Transfer";
-                            amountColor = "text-green-400";
-                            amountPrefix = "+";
-                            Icon = (
-                                <div className="w-12 h-12 rounded-2xl bg-green-500/10 flex items-center justify-center text-green-500 border border-green-500/20 shadow-[0_0_15px_rgba(34,197,94,0.1)]">
-                                    <svg className="w-6 h-6 transform rotate-45" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 12H5M12 5l-7 7 7 7" /></svg>
-                                </div>
-                            );
-                        } else if (tx.type === 'System' || tx.type === 'Interaction') {
-                            // Detect Alias Registration roughly by parsing logs if possible, or context
-                            if (tx.actionLabel === 'Unknown' || tx.actionLabel === 'Interaction') {
-                                typeLabel = "Contract Interaction";
-                                primaryText = "Unik Program";
-                            } else {
-                                typeLabel = tx.actionLabel; // e.g., Register Alias
-                                primaryText = "System";
-                            }
-                            secondaryText = "On-chain";
-                            Icon = (
-                                <div className="w-12 h-12 rounded-2xl bg-purple-500/10 flex items-center justify-center text-purple-400 border border-purple-500/20">
-                                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
-                                </div>
-                            );
-                        }
-
-                        return (
-                            <div key={i} className="flex flex-col bg-[#13131f] border border-gray-800 hover:border-gray-600 rounded-3xl p-5 transition-all group">
-                                {/* Top Row: Icon + Main Info + Amount */}
-                                <div className="flex items-center justify-between gap-4 mb-4">
-                                    {/* Left Side: Icon + Text (Allows shrinking/truncating) */}
-                                    <div className="flex items-center gap-4 flex-1 min-w-0">
-                                        <div className="flex-shrink-0">
+                            return (
+                                <div key={i} className="flex flex-col bg-[#13131f] border border-gray-800 hover:border-gray-600 rounded-3xl p-5 transition-all group">
+                                    {/* Header: Icon + Type + Date + Status */}
+                                    <div className="flex items-start justify-between mb-4">
+                                        <div className="flex items-center gap-3">
                                             {Icon}
+                                            <div>
+                                                <h4 className="font-bold text-gray-200 text-base">{typeLabel}</h4>
+                                                <p className="text-xs text-gray-500 font-medium">{formatTime(tx.time)}</p>
+                                            </div>
                                         </div>
-                                        <div className="min-w-0 flex-1">
-                                            <h4 className="font-bold text-gray-200 text-base truncate pr-2">{typeLabel}</h4>
-                                            <div className="flex items-center gap-2">
-                                                <p className="text-sm text-cyan-400 font-medium truncate">{primaryText}</p>
-                                                {tx.isSmartRouting && (
-                                                    <span className="flex-shrink-0 text-[8px] bg-cyan-500/20 text-cyan-400 px-1.5 py-0.5 rounded border border-cyan-500/30 uppercase tracking-wide font-bold">
-                                                        SPLIT ACTIVE
+
+                                        <div className="text-right">
+                                            <div className={`font-bold text-lg ${amountColor} font-mono tracking-tight whitespace-nowrap`}>
+                                                {tx.amount > 0 ? (
+                                                    <span className="flex items-center justify-end gap-1">
+                                                        {amountPrefix}{tx.amount.toFixed(4)}
+                                                        <span className="text-xs opacity-70 ml-0.5">{tx.symbol}</span>
                                                     </span>
-                                                )}
+                                                ) : '0 SOL'}
+                                            </div>
+                                            <div className="inline-block mt-1">
+                                                <span className={`text-[10px] uppercase tracking-widest font-bold px-2 py-0.5 rounded border ${tx.success ? 'bg-green-500/10 text-green-500 border-green-500/20' : 'bg-red-500/10 text-red-500 border-red-500/20'}`}>
+                                                    {tx.success ? 'Confirmed' : 'Failed'}
+                                                </span>
                                             </div>
                                         </div>
                                     </div>
 
-                                    {/* Right Side: Amount + Status (Fixed width behavior) */}
-                                    <div className="text-right flex-shrink-0 flex flex-col items-end">
-                                        <div className={`font-bold text-lg ${amountColor} font-mono tracking-tight whitespace-nowrap`}>
-                                            {tx.amount > 0 ? (
-                                                <span className="flex items-center gap-1">
-                                                    {amountPrefix}{tx.amount.toFixed(4)}
-                                                    <span className="text-xs opacity-70 ml-0.5">{tx.symbol}</span>
-                                                </span>
-                                            ) : ''}
+                                    {/* Body: Details with Wrap */}
+                                    <div className="bg-black/20 rounded-xl p-4 border border-white/5 space-y-3">
+                                        <div>
+                                            <p className="text-[10px] text-gray-500 uppercase font-bold mb-1">
+                                                {tx.type === 'Sent' ? 'To' : (tx.type === 'Received' ? 'From' : 'Interact With')}
+                                            </p>
+                                            <p className="text-cyan-400 text-sm font-medium break-all leading-relaxed">
+                                                {primaryText}
+                                            </p>
                                         </div>
-                                        <div className="text-[10px] text-gray-500 uppercase tracking-widest font-bold mt-1 bg-gray-800/50 px-2 py-0.5 rounded border border-gray-700/50">
-                                            {tx.success ? 'Confirmed' : 'Failed'}
-                                        </div>
+
+                                        {(displayNote || tx.isSmartRouting) && (
+                                            <div className="pt-3 border-t border-white/5 flex flex-wrap gap-2 items-center">
+                                                {displayNote && (
+                                                    <div className="flex items-center gap-2 text-sm text-gray-300">
+                                                        <span className="text-gray-500 text-xs uppercase font-bold">Concept:</span>
+                                                        <span className="italic">"{displayNote}"</span>
+                                                    </div>
+                                                )}
+
+                                                {tx.isSmartRouting && (
+                                                    <span className="ml-auto text-[9px] bg-cyan-500/20 text-cyan-400 px-2 py-1 rounded border border-cyan-500/30 uppercase tracking-wide font-bold shadow-[0_0_10px_rgba(34,211,238,0.1)]">
+                                                        SPLIT ACTIVE
+                                                    </span>
+                                                )}
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    {/* Footer: Explorer */}
+                                    <div className="flex justify-end mt-3">
+                                        <a
+                                            href={`https://solscan.io/tx/${tx.signature}?cluster=devnet`}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="text-xs text-gray-500 hover:text-white flex items-center gap-1 transition-colors"
+                                        >
+                                            <span>View Explorer</span>
+                                            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>
+                                        </a>
                                     </div>
                                 </div>
+                            );
+                        })
+                    )}
+                </div>
 
-                                {/* Note Section (if exists) */}
-                                {noteContent && (
-                                    <div className="mb-4 relative group-hover:opacity-100 transition-opacity">
-                                        <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-cyan-500 to-purple-500 rounded-full"></div>
-                                        <div className="bg-gray-800/40 p-3 pl-4 rounded-r-xl rounded-l-md border border-white/5">
-                                            <p className="text-sm text-gray-300 italic truncate">"{noteContent}"</p>
-                                        </div>
-                                    </div>
-                                )}
-
-                                {/* Bottom Row: Date + Buttons */}
-                                <div className="flex items-center justify-between pt-3 border-t border-gray-800">
-                                    <div className="flex items-center gap-2 text-xs text-gray-500 font-medium whitespace-nowrap">
-                                        <svg className="w-3.5 h-3.5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                                        {formatTime(tx.time)}
-                                    </div>
-
-                                    <a
-                                        href={`https://solscan.io/tx/${tx.signature}?cluster=devnet`}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-800 hover:bg-gray-700 text-gray-400 hover:text-white rounded-lg transition-colors text-xs font-bold border border-gray-700 hover:border-gray-500 shadow-sm"
-                                    >
-                                        <span>Explorer</span>
-                                        <svg className="w-3 h-3 opacity-70" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>
-                                    </a>
-                                </div>
-                            </div>
-                        );
-                    })
-                )}
+                {/* Explorer Hint */}
+                <div className="text-center pt-4">
+                    <p className="text-xs text-gray-600">
+                        Transactions are verified on the Solana Devnet.
+                        <a href="https://solscan.io?cluster=devnet" target="_blank" rel="noreferrer" className="text-gray-500 hover:text-cyan-500 ml-1 transition-colors">Solscan</a> is used for details.
+                    </p>
+                </div>
             </div>
-
-            {/* Explorer Hint */}
-            <div className="text-center pt-4">
-                <p className="text-xs text-gray-600">
-                    Transactions are verified on the Solana Devnet.
-                    <a href="https://solscan.io?cluster=devnet" target="_blank" rel="noreferrer" className="text-gray-500 hover:text-cyan-500 ml-1 transition-colors">Solscan</a> is used for details.
-                </p>
-            </div>
-        </div>
-    );
+            );
 }
 
 
