@@ -2918,26 +2918,62 @@ function HistoryTab({ publicKey, connection, confirmModal, setConfirmModal, cont
                                         }
                                     }
 
-                                    // If Smart Routing was detected but no explicit transfer matched (e.g. inner instruction), force Sent
+                                    // If Smart Routing was detected but no explicit transfer matched (e.g. inner instruction)
                                     if (isSmartRouting && type === 'Interaction') {
-                                        type = 'Sent';
-                                        actionLabel = 'Smart Routing';
+                                        let sentLamports = 0;
+                                        let receivedLamports = 0;
 
-                                        // Calculate amount from inner instructions (System CPIs)
-                                        let totalLamports = 0;
+                                        // 1. Analyze Inner Instructions for SOL (System Program)
                                         if (tx.meta?.innerInstructions) {
                                             tx.meta.innerInstructions.forEach((inner: any) => {
                                                 inner.instructions.forEach((inst: any) => {
                                                     if (inst.program === 'system' && inst.parsed?.type === 'transfer') {
                                                         const info = inst.parsed.info;
-                                                        if (info.source === publicKey.toBase58()) {
-                                                            totalLamports += info.lamports;
-                                                        }
+                                                        if (info.source === publicKey.toBase58()) sentLamports += info.lamports;
+                                                        if (info.destination === publicKey.toBase58()) receivedLamports += info.lamports;
                                                     }
                                                 });
                                             });
                                         }
-                                        if (totalLamports > 0) amount = totalLamports / 1e9;
+
+                                        // 2. Analyze Token Balance Changes (Reliable for SPL Transfers)
+                                        if (tx.meta?.preTokenBalances && tx.meta?.postTokenBalances) {
+                                            const pre = tx.meta.preTokenBalances.find((b: any) => b.owner === publicKey.toBase58());
+                                            const post = tx.meta.postTokenBalances.find((b: any) => b.owner === publicKey.toBase58());
+
+                                            // Determine net change
+                                            const preAmount = pre?.uiTokenAmount?.uiAmount || 0;
+                                            const postAmount = post?.uiTokenAmount?.uiAmount || 0;
+                                            const diff = postAmount - preAmount;
+
+                                            if (Math.abs(diff) > 0) {
+                                                amount = Math.abs(diff);
+                                                type = diff < 0 ? 'Sent' : 'Received';
+
+                                                // Detect Symbol
+                                                const mint = pre?.mint || post?.mint;
+                                                if (mint === '4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU') symbol = 'USDC';
+                                                else if (mint === 'HzwqbKZw8HxMN6bF2yFZNrht3c2iXXzpKcFu7uBEDKtr') symbol = 'EURC';
+                                                else symbol = 'Token';
+
+                                                actionLabel = 'Smart Transfer';
+                                            }
+                                        }
+
+                                        // 3. Fallback to SOL values if no token change detected
+                                        if (amount === 0) {
+                                            if (sentLamports > 0) {
+                                                type = 'Sent';
+                                                amount = sentLamports / 1e9;
+                                                symbol = 'SOL';
+                                                actionLabel = 'Smart Transfer';
+                                            } else if (receivedLamports > 0) {
+                                                type = 'Received';
+                                                amount = receivedLamports / 1e9;
+                                                symbol = 'SOL';
+                                                actionLabel = 'Smart Transfer';
+                                            }
+                                        }
                                     }
                                 }
                             }
