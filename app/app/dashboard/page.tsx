@@ -2953,8 +2953,9 @@ function HistoryTab({ publicKey, connection, confirmModal, setConfirmModal, cont
                                 const isSwap = (significantTokenChangeCount > 1) || (significantTokenChangeCount > 0 && significantSolChange);
 
                                 if (isSwap) {
-                                    // Hide Swaps/DeFi interactions to keep history clean for "Unik Payments"
-                                    type = 'Hidden';
+                                    // Mark as Swap for debug visibility
+                                    type = 'Interaction';
+                                    actionLabel = 'DeFi Swap (Debug)';
                                 }
                                 else if (Math.abs(tokenDiff) > 0) { // Pure Token Transfer
                                     amount = Math.abs(tokenDiff);
@@ -3061,7 +3062,7 @@ function HistoryTab({ publicKey, connection, confirmModal, setConfirmModal, cont
             // Filter out Hidden transactions (Swaps/DeFi) and purely empty interactions unless they are System Actions
             const filteredHistory = detailedHistory.filter((tx: any) =>
                 tx.type !== 'Hidden' &&
-                (tx.amount > 0 || ['Alias Registration', 'Routing Configuration'].includes(tx.actionLabel))
+                (tx.amount > 0 || ['Alias Registration', 'Routing Configuration', 'DeFi Swap (Debug)'].includes(tx.actionLabel))
             );
 
             setHistory(filteredHistory);
