@@ -12,6 +12,7 @@ import { PROGRAM_ID, IDL } from '../../../utils/anchor';
 import { Program, AnchorProvider, BN } from '@coral-xyz/anchor';
 import { Buffer } from 'buffer';
 import Image from 'next/image';
+import { saveSharedNote } from '../../../utils/sharedNotes';
 import { TOKEN_PROGRAM_ID, ASSOCIATED_TOKEN_PROGRAM_ID, getAssociatedTokenAddress, createAssociatedTokenAccountInstruction, createTransferInstruction } from '@solana/spl-token';
 import MobileWalletPrompt from '../../components/MobileWalletPrompt';
 
@@ -349,6 +350,16 @@ function PaymentContent() {
             }
 
             setLastSignature(txSignature);
+
+            if (concept && txSignature && publicKey && aliasOwner) {
+                // Save Private Note using Transaction Verification (No backend auth required for sender)
+                saveSharedNote(
+                    txSignature,
+                    concept,
+                    publicKey.toBase58(),
+                    aliasOwner.toBase58()
+                ).catch((e: any) => console.warn("Note save failed", e));
+            }
 
             // Backend verification: verify on-chain TX matches expected order
             // If this is a simple payment (no pre-existing order), create one now to track history

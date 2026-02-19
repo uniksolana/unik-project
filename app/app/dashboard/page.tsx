@@ -3041,17 +3041,21 @@ function HistoryTab({ publicKey, connection, confirmModal, setConfirmModal, cont
                     const program = new Program(IDL as any, provider);
 
                     const senders = Array.from(unknownSenders);
-                    const pdas = senders.map(addr => PublicKey.findProgramAddressSync([Buffer.from("alias"), new PublicKey(addr).toBuffer()], PROGRAM_ID)[0]);
-
-                    // Fetch accounts
-                    const accounts = await (program.account as any).aliasAccount.fetchMultiple(pdas) as any[];
-
                     const aliasMap: Record<string, string> = {};
-                    accounts.forEach((acc, idx) => {
-                        if (acc) {
-                            aliasMap[senders[idx]] = acc.alias;
-                        }
-                    });
+
+                    // Use memcmp to find AliasAccount where owner == senderAddr
+                    // AliasAccount layout: discriminator (8) + owner (32) + ...
+                    // So owner is at offset 8.
+                    await Promise.all(senders.map(async (senderAddr) => {
+                        try {
+                            const accounts = await (program.account as any).aliasAccount.all([
+                                { memcmp: { offset: 8, bytes: senderAddr } }
+                            ]);
+                            if (accounts.length > 0) {
+                                aliasMap[senderAddr] = accounts[0].account.alias;
+                            }
+                        } catch (err) { }
+                    }));
 
                     // Enrich history items
                     detailedHistory.forEach((tx: any) => {

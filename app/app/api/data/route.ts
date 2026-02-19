@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSupabase } from '../../../utils/supabaseServer';
 import { verifyWalletSignature } from '../../../utils/verifyAuth';
+import { Connection, PublicKey } from '@solana/web3.js';
 
 /**
  * Server-side proxy for all user_encrypted_data and transaction_notes operations.
@@ -89,9 +90,43 @@ export async function POST(request: NextRequest) {
                     return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
                 }
 
-                // Verify the sender is the one saving the note
-                if (!auth_wallet || auth_wallet !== sender_wallet || !verifyWalletSignature(auth_wallet, auth_signature, auth_message)) {
-                    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+                // Verify the sender: Either via Wallet Auth signature OR by verifying the on-chain transaction signature itself
+                let authorized = false;
+
+                // 1. Check Wallet Auth (Standard)
+                if (auth_wallet && auth_wallet === sender_wallet && verifyWalletSignature(auth_wallet, auth_signature, auth_message)) {
+                    authorized = true;
+                }
+                // 2. Check On-Chain Transaction (For anonymous payers)
+                else {
+                    try {
+                        const connection = new Connection(process.env.NEXT_PUBLIC_RPC_URL || 'https://api.devnet.solana.com');
+                        // Wait briefly to ensure propagation? No, API calls usually happen after confirmation.
+                        const tx = await connection.getParsedTransaction(signature, {
+                            maxSupportedTransactionVersion: 0,
+                            commitment: 'confirmed'
+                        });
+
+                        if (tx) {
+                            // Check if sender_wallet was a signer in this transaction
+                            const accountKeys = tx.transaction.message.accountKeys;
+                            // parsed transaction accountKeys structure might differ?
+                            // getParsedTransaction -> ParsedMessageAccount[] or AccountKey[]?
+                            // Usually returns object with pubkey: PublicKey/String, signer: boolean
+                            const signer = accountKeys.find((k: any) => {
+                                const keyStr = k.pubkey ? k.pubkey.toString() : (k.toBase58 ? k.toBase58() : String(k));
+                                return keyStr === sender_wallet && k.signer;
+                            });
+
+                            if (signer) authorized = true;
+                        }
+                    } catch (e) {
+                        console.error("On-Chain verification failed:", e);
+                    }
+                }
+
+                if (!authorized) {
+                    return NextResponse.json({ error: 'Unauthorized: Sender must sign or be transaction signer' }, { status: 401 });
                 }
 
                 const { error } = await supabase
