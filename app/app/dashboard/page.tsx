@@ -2922,6 +2922,7 @@ function HistoryTab({ publicKey, connection, confirmModal, setConfirmModal, cont
                                 // A. Token Changes (Prioritize SPL)
                                 let relevantMint = null;
                                 let tokenDiff = 0;
+                                let significantTokenChangeCount = 0;
 
                                 if (tx?.meta?.postTokenBalances) {
                                     // Identify if any token balance changed for the user
@@ -2929,17 +2930,33 @@ function HistoryTab({ publicKey, connection, confirmModal, setConfirmModal, cont
                                         if (p.owner === publicKey.toBase58()) {
                                             const pre = tx.meta.preTokenBalances?.find((b: any) => b.mint === p.mint && b.owner === publicKey.toBase58());
                                             const diff = (p.uiTokenAmount?.uiAmount || 0) - (pre?.uiTokenAmount?.uiAmount || 0);
-                                            // Capture the first significant change
-                                            if (Math.abs(diff) > 0) {
-                                                relevantMint = p.mint;
-                                                tokenDiff = diff;
-                                                break;
+                                            // Capture significance
+                                            if (Math.abs(diff) > 0.000001) {
+                                                if (significantTokenChangeCount === 0) {
+                                                    relevantMint = p.mint;
+                                                    tokenDiff = diff;
+                                                }
+                                                significantTokenChangeCount++;
                                             }
                                         }
                                     }
                                 }
 
-                                if (Math.abs(tokenDiff) > 0) {
+                                // B. SOL Changes
+                                const preSol = (tx?.meta?.preBalances?.[accountIndex] || 0) / 1e9;
+                                const postSol = (tx?.meta?.postBalances?.[accountIndex] || 0) / 1e9;
+                                const solDiff = postSol - preSol;
+                                const significantSolChange = Math.abs(solDiff) > 0.01; // Threshold to distinguish Trade from Gas/Rent
+
+                                // C. Classification: Payment vs Swap
+                                // If multiple assets changed significantly, it's likely a Trade/Swap (Not a simple P2P Payment)
+                                const isSwap = (significantTokenChangeCount > 1) || (significantTokenChangeCount > 0 && significantSolChange);
+
+                                if (isSwap) {
+                                    // Hide Swaps/DeFi interactions to keep history clean for "Unik Payments"
+                                    type = 'Hidden';
+                                }
+                                else if (Math.abs(tokenDiff) > 0) { // Pure Token Transfer
                                     amount = Math.abs(tokenDiff);
                                     type = tokenDiff > 0 ? 'Received' : 'Sent';
 
@@ -2954,22 +2971,15 @@ function HistoryTab({ publicKey, connection, confirmModal, setConfirmModal, cont
                                         const payerKey = tx.transaction.message.accountKeys[0];
                                         otherSide = payerKey.pubkey ? payerKey.pubkey.toString() : payerKey.toString();
                                     }
-                                    // For Sent, destination is complex to resolve via balances alone, keep default or use instruction fallback if needed.
                                 }
-                                // B. SOL Changes (only if no token change)
-                                else {
-                                    const preSol = (tx?.meta?.preBalances?.[accountIndex] || 0) / 1e9;
-                                    const postSol = (tx?.meta?.postBalances?.[accountIndex] || 0) / 1e9;
-                                    const solDiff = postSol - preSol;
-
-                                    if (Math.abs(solDiff) > 0.001) { // Ignore Rent/Dust
-                                        amount = Math.abs(solDiff);
-                                        symbol = 'SOL';
-                                        type = solDiff > 0 ? 'Received' : 'Sent';
-                                        if (type === 'Received') {
-                                            const payerKey = tx.transaction.message.accountKeys[0];
-                                            otherSide = payerKey.pubkey ? payerKey.pubkey.toString() : payerKey.toString();
-                                        }
+                                // D. Pure SOL Transfer
+                                else if (Math.abs(solDiff) > 0.001) {
+                                    amount = Math.abs(solDiff);
+                                    symbol = 'SOL';
+                                    type = solDiff > 0 ? 'Received' : 'Sent';
+                                    if (type === 'Received') {
+                                        const payerKey = tx.transaction.message.accountKeys[0];
+                                        otherSide = payerKey.pubkey ? payerKey.pubkey.toString() : payerKey.toString();
                                     }
                                 }
                             }
@@ -3048,10 +3058,16 @@ function HistoryTab({ publicKey, connection, confirmModal, setConfirmModal, cont
                 }
             }
 
-            setHistory(detailedHistory);
+            // Filter out Hidden transactions (Swaps/DeFi) and purely empty interactions unless they are System Actions
+            const filteredHistory = detailedHistory.filter((tx: any) =>
+                tx.type !== 'Hidden' &&
+                (tx.amount > 0 || ['Alias Registration', 'Routing Configuration'].includes(tx.actionLabel))
+            );
 
-            // Load shared notes
-            const sigList = detailedHistory.map(tx => tx.signature);
+            setHistory(filteredHistory);
+
+            // Load shared notes for visible transactions only
+            const sigList = filteredHistory.map((tx: any) => tx.signature);
             const loadedSharedNotes = await getSharedNotes(sigList);
             setSharedNotes(loadedSharedNotes);
         } catch (e) {
