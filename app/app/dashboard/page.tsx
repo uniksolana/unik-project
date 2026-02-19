@@ -2819,15 +2819,57 @@ function HistoryTab({ publicKey, connection, confirmModal, setConfirmModal, cont
         if (!publicKey) return;
         setLoading(true);
         try {
+            // 1. Fetch Token Accounts (for incoming SPL detection)
+            // We need to check ATAs because incoming SPL transfers might not reference the main wallet directly
+            let targetAddresses = [publicKey];
+            try {
+                const tokenAccounts = await connection.getParsedTokenAccountsByOwner(publicKey, {
+                    programId: TOKEN_PROGRAM_ID
+                });
+
+                // Prioritize known mints (USDC/EURC)
+                const importantMints = TOKEN_OPTIONS.filter(t => t.mint).map(t => t.mint?.toBase58());
+
+                const sortedAtas = tokenAccounts.value.sort((a: any, b: any) => {
+                    const mintA = (a.account.data as any).parsed?.info?.mint;
+                    const mintB = (b.account.data as any).parsed?.info?.mint;
+                    const importantA = importantMints.includes(mintA);
+                    const importantB = importantMints.includes(mintB);
+                    if (importantA && !importantB) return -1;
+                    if (!importantA && importantB) return 1;
+                    return 0;
+                });
+
+                // Check top 5 active ATAs
+                sortedAtas.slice(0, 5).forEach((t: any) => targetAddresses.push(t.pubkey));
+            } catch (e) {
+                console.warn("Failed to fetch token accounts for history", e);
+            }
+
             // Fetch On-Chain History & Backend Orders in parallel
-            const [signatures, orderRes] = await Promise.all([
-                connection.getSignaturesForAddress(publicKey, { limit: 20 }),
+            const [multiSignatures, orderRes] = await Promise.all([
+                Promise.all(targetAddresses.map(addr =>
+                    connection.getSignaturesForAddress(addr, { limit: 20 })
+                        .catch((e: any) => { console.warn("Sig fetch error", addr.toString()); return []; })
+                )),
                 fetch('/api/orders/history', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ wallet: publicKey.toBase58() })
                 }).then(r => r.json()).catch(() => ({ orders: [] }))
             ]);
+
+            // Combine and Deduplicate
+            const uniqueSigs = new Map<string, any>();
+            multiSignatures.flat().forEach(sig => {
+                if (sig && sig.signature && !uniqueSigs.has(sig.signature)) {
+                    uniqueSigs.set(sig.signature, sig);
+                }
+            });
+
+            const signatures = Array.from(uniqueSigs.values())
+                .sort((a: any, b: any) => (b.blockTime || 0) - (a.blockTime || 0))
+                .slice(0, 20);
 
             const backendOrders = orderRes.orders || [];
             setOrders(backendOrders);
