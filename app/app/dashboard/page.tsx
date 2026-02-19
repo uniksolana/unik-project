@@ -2857,6 +2857,14 @@ function HistoryTab({ publicKey, connection, confirmModal, setConfirmModal, cont
 
                 // Check top 5 active ATAs
                 sortedAtas.slice(0, 5).forEach((t: any) => targetAddresses.push(t.pubkey));
+
+                // CRITICAL FIX: Also scan the explicitly derived ATAs (USDC/EURC) 
+                // This ensures we catch transfers to new accounts that might not yet appear in 'tokenAccounts' list
+                myATAKeys.forEach(key => {
+                    if (!targetAddresses.includes(key as any)) { // Cast to avoid TS issues if types differ
+                        targetAddresses.push(key as any);
+                    }
+                });
             } catch (e) {
                 console.warn("Failed to fetch token accounts for history", e);
             }
