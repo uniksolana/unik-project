@@ -2,7 +2,7 @@
 
 import { useWallet } from '@solana/wallet-adapter-react';
 import { WalletMultiButton } from '@solana/wallet-adapter-react-ui';
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import toast from 'react-hot-toast';
 import { showTransactionToast, showSimpleToast } from '../components/CustomToast';
 import { PublicKey, SystemProgram, Transaction, VersionedTransaction, TransactionMessage, ComputeBudgetProgram, TransactionInstruction } from '@solana/web3.js';
@@ -2815,210 +2815,211 @@ function HistoryTab({ publicKey, connection, confirmModal, setConfirmModal, cont
         return () => window.removeEventListener('unik-contacts-updated', listener);
     }, [publicKey]);
 
-    useEffect(() => {
-        const fetchHistory = async () => {
-            if (!publicKey) return;
-            setLoading(true);
-            try {
-                // Fetch On-Chain History & Backend Orders in parallel
-                const [signatures, orderRes] = await Promise.all([
-                    connection.getSignaturesForAddress(publicKey, { limit: 20 }),
-                    fetch('/api/orders/history', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ wallet: publicKey.toBase58() })
-                    }).then(r => r.json()).catch(() => ({ orders: [] }))
-                ]);
+    const fetchHistory = useCallback(async () => {
+        if (!publicKey) return;
+        setLoading(true);
+        try {
+            // Fetch On-Chain History & Backend Orders in parallel
+            const [signatures, orderRes] = await Promise.all([
+                connection.getSignaturesForAddress(publicKey, { limit: 20 }),
+                fetch('/api/orders/history', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ wallet: publicKey.toBase58() })
+                }).then(r => r.json()).catch(() => ({ orders: [] }))
+            ]);
 
-                const backendOrders = orderRes.orders || [];
-                setOrders(backendOrders);
+            const backendOrders = orderRes.orders || [];
+            setOrders(backendOrders);
 
-                const detailedHistory = await Promise.all(
-                    signatures.map(async (sig: any) => {
-                        try {
-                            const tx = await connection.getParsedTransaction(sig.signature, { maxSupportedTransactionVersion: 0 });
+            const detailedHistory = await Promise.all(
+                signatures.map(async (sig: any) => {
+                    try {
+                        const tx = await connection.getParsedTransaction(sig.signature, { maxSupportedTransactionVersion: 0 });
 
-                            let type = 'Interaction'; // Default
-                            let amount = 0;
-                            let symbol = 'SOL';
-                            let otherSide = '';
-                            let actionLabel = 'Interaction';
-                            let isSmartRouting = false;
+                        let type = 'Interaction'; // Default
+                        let amount = 0;
+                        let symbol = 'SOL';
+                        let otherSide = '';
+                        let actionLabel = 'Interaction';
+                        let isSmartRouting = false;
 
-                            // 1. Check for UNIK Interactions via Logs
-                            const logs = tx?.meta?.logMessages || [];
-                            const isRegisterAlias = logs.some((l: string) => l.includes("Instruction: RegisterAlias"));
-                            const isSetRoute = logs.some((l: string) => l.includes("Instruction: SetRouteConfig"));
-                            const isExecuteTransfer = logs.some((l: string) => l.includes("Instruction: ExecuteTransfer") || l.includes("Instruction: ExecuteTokenTransfer"));
+                        // 1. Check for UNIK Interactions via Logs
+                        const logs = tx?.meta?.logMessages || [];
+                        const isRegisterAlias = logs.some((l: string) => l.includes("Instruction: RegisterAlias"));
+                        const isSetRoute = logs.some((l: string) => l.includes("Instruction: SetRouteConfig"));
+                        const isExecuteTransfer = logs.some((l: string) => l.includes("Instruction: ExecuteTransfer") || l.includes("Instruction: ExecuteTokenTransfer"));
 
-                            isSmartRouting = isExecuteTransfer;
+                        isSmartRouting = isExecuteTransfer;
 
-                            // Check Order Match (Backend Override)
-                            const matchingOrder = backendOrders.find((o: any) => o.tx_signature === sig.signature);
+                        // Check Order Match (Backend Override)
+                        const matchingOrder = backendOrders.find((o: any) => o.tx_signature === sig.signature);
 
-                            if (matchingOrder) {
-                                // Backend knows accurate direction and aliases
-                                if (matchingOrder.payer_wallet === publicKey.toBase58()) {
-                                    type = 'Sent';
-                                    // Use alias if available (Sent to @alias)
-                                    otherSide = matchingOrder.alias ? `ALIAS:${matchingOrder.alias}` : matchingOrder.merchant_wallet;
-                                } else {
-                                    type = 'Received';
-                                    otherSide = matchingOrder.payer_wallet || 'Unknown Sender';
-                                }
-                                amount = parseFloat(matchingOrder.amount || '0');
-                                symbol = matchingOrder.token || 'SOL';
-                                actionLabel = matchingOrder.concept || (isSmartRouting ? 'Smart Transfer' : 'Payment');
+                        if (matchingOrder) {
+                            // Backend knows accurate direction and aliases
+                            if (matchingOrder.payer_wallet === publicKey.toBase58()) {
+                                type = 'Sent';
+                                // Use alias if available (Sent to @alias)
+                                otherSide = matchingOrder.alias ? `ALIAS:${matchingOrder.alias}` : matchingOrder.merchant_wallet;
+                            } else {
+                                type = 'Received';
+                                otherSide = matchingOrder.payer_wallet || 'Unknown Sender';
                             }
-
-                            if (!matchingOrder) {
-                                if (isRegisterAlias) {
-                                    type = 'System';
-                                    actionLabel = 'Alias Registration';
-                                } else if (isSetRoute) {
-                                    type = 'System';
-                                    actionLabel = 'Routing Configuration';
-                                } else {
-                                    // Fallback to Parsing Instructions (similar to before)
-                                    const tokenTransfer = tx?.transaction.message.instructions.find((ins: any) => {
-                                        return (ins.program === 'spl-token' || ins.program === 'spl-token-2022') &&
-                                            (ins.parsed?.type === 'transfer' || ins.parsed?.type === 'transferChecked');
-                                    });
-
-                                    if (tokenTransfer) {
-                                        const info = (tokenTransfer as any).parsed.info;
-                                        if (info.authority === publicKey.toBase58() || info.multisigAuthority === publicKey.toBase58()) {
-                                            type = 'Sent';
-                                            otherSide = info.destination;
-                                            amount = info.tokenAmount?.uiAmount || info.amount / 1e6;
-                                            symbol = 'Token';
-                                            if (info.mint === '4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU') symbol = 'USDC';
-                                        } else {
-                                            type = 'Token';
-                                            actionLabel = 'Token Transfer';
-                                        }
-                                    }
-
-                                    const transferInstruction = tx?.transaction.message.instructions.find(
-                                        (ins: any) => ins.program === 'system' && ins.parsed?.type === 'transfer'
-                                    );
-
-                                    if (transferInstruction && !tokenTransfer) {
-                                        const info = (transferInstruction as any).parsed.info;
-                                        if (info.destination === publicKey.toBase58()) {
-                                            type = 'Received';
-                                            otherSide = info.source;
-                                            amount = info.lamports / 1e9;
-                                            symbol = 'SOL';
-                                        } else if (info.source === publicKey.toBase58()) {
-                                            type = 'Sent';
-                                            otherSide = info.destination;
-                                            amount = info.lamports / 1e9;
-                                            symbol = 'SOL';
-                                        }
-                                    }
-
-                                    // If Smart Routing was detected but no explicit transfer matched (e.g. inner instruction)
-                                    if (isSmartRouting && type === 'Interaction') {
-                                        let sentLamports = 0;
-                                        let receivedLamports = 0;
-
-                                        // 1. Analyze Inner Instructions for SOL (System Program)
-                                        if (tx.meta?.innerInstructions) {
-                                            tx.meta.innerInstructions.forEach((inner: any) => {
-                                                inner.instructions.forEach((inst: any) => {
-                                                    if (inst.program === 'system' && inst.parsed?.type === 'transfer') {
-                                                        const info = inst.parsed.info;
-                                                        if (info.source === publicKey.toBase58()) sentLamports += info.lamports;
-                                                        if (info.destination === publicKey.toBase58()) receivedLamports += info.lamports;
-                                                    }
-                                                });
-                                            });
-                                        }
-
-                                        // 2. Analyze Token Balance Changes (Reliable for SPL Transfers)
-                                        if (tx.meta?.preTokenBalances && tx.meta?.postTokenBalances) {
-                                            const pre = tx.meta.preTokenBalances.find((b: any) => b.owner === publicKey.toBase58());
-                                            const post = tx.meta.postTokenBalances.find((b: any) => b.owner === publicKey.toBase58());
-
-                                            // Determine net change
-                                            const preAmount = pre?.uiTokenAmount?.uiAmount || 0;
-                                            const postAmount = post?.uiTokenAmount?.uiAmount || 0;
-                                            const diff = postAmount - preAmount;
-
-                                            if (Math.abs(diff) > 0) {
-                                                amount = Math.abs(diff);
-                                                type = diff < 0 ? 'Sent' : 'Received';
-
-                                                // Detect Symbol
-                                                const mint = pre?.mint || post?.mint;
-                                                if (mint === '4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU') symbol = 'USDC';
-                                                else if (mint === 'HzwqbKZw8HxMN6bF2yFZNrht3c2iXXzpKcFu7uBEDKtr') symbol = 'EURC';
-                                                else symbol = 'Token';
-
-                                                actionLabel = 'Smart Transfer';
-                                            }
-                                        }
-
-                                        // 3. Fallback to SOL values if no token change detected
-                                        if (amount === 0) {
-                                            if (sentLamports > 0) {
-                                                type = 'Sent';
-                                                amount = sentLamports / 1e9;
-                                                symbol = 'SOL';
-                                                actionLabel = 'Smart Transfer';
-                                            } else if (receivedLamports > 0) {
-                                                type = 'Received';
-                                                amount = receivedLamports / 1e9;
-                                                symbol = 'SOL';
-                                                actionLabel = 'Smart Transfer';
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-
-                            return {
-                                signature: sig.signature,
-                                time: sig.blockTime,
-                                type,
-                                amount,
-                                symbol,
-                                otherSide,
-                                actionLabel,
-                                isSmartRouting,
-                                success: !tx?.meta?.err
-                            };
-                        } catch (e) {
-                            return {
-                                signature: sig.signature,
-                                time: sig.blockTime,
-                                type: 'Interaction',
-                                amount: 0,
-                                symbol: '',
-                                otherSide: '',
-                                actionLabel: 'Unknown',
-                                isSmartRouting: false,
-                                success: true
-                            };
+                            amount = parseFloat(matchingOrder.amount || '0');
+                            symbol = matchingOrder.token || 'SOL';
+                            actionLabel = matchingOrder.concept || (isSmartRouting ? 'Smart Transfer' : 'Payment');
                         }
-                    })
-                );
-                setHistory(detailedHistory);
 
-                // Load shared notes
-                const sigList = detailedHistory.map(tx => tx.signature);
-                const loadedSharedNotes = await getSharedNotes(sigList);
-                setSharedNotes(loadedSharedNotes);
-            } catch (e) {
-                console.error("Failed to fetch history", e);
-            } finally {
-                setLoading(false);
-            }
-        };
+                        if (!matchingOrder) {
+                            if (isRegisterAlias) {
+                                type = 'System';
+                                actionLabel = 'Alias Registration';
+                            } else if (isSetRoute) {
+                                type = 'System';
+                                actionLabel = 'Routing Configuration';
+                            } else {
+                                // Fallback to Parsing Instructions (similar to before)
+                                const tokenTransfer = tx?.transaction.message.instructions.find((ins: any) => {
+                                    return (ins.program === 'spl-token' || ins.program === 'spl-token-2022') &&
+                                        (ins.parsed?.type === 'transfer' || ins.parsed?.type === 'transferChecked');
+                                });
 
+                                if (tokenTransfer) {
+                                    const info = (tokenTransfer as any).parsed.info;
+                                    if (info.authority === publicKey.toBase58() || info.multisigAuthority === publicKey.toBase58()) {
+                                        type = 'Sent';
+                                        otherSide = info.destination;
+                                        amount = info.tokenAmount?.uiAmount || info.amount / 1e6;
+                                        symbol = 'Token';
+                                        if (info.mint === '4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU') symbol = 'USDC';
+                                    } else {
+                                        type = 'Token';
+                                        actionLabel = 'Token Transfer';
+                                    }
+                                }
+
+                                const transferInstruction = tx?.transaction.message.instructions.find(
+                                    (ins: any) => ins.program === 'system' && ins.parsed?.type === 'transfer'
+                                );
+
+                                if (transferInstruction && !tokenTransfer) {
+                                    const info = (transferInstruction as any).parsed.info;
+                                    if (info.destination === publicKey.toBase58()) {
+                                        type = 'Received';
+                                        otherSide = info.source;
+                                        amount = info.lamports / 1e9;
+                                        symbol = 'SOL';
+                                    } else if (info.source === publicKey.toBase58()) {
+                                        type = 'Sent';
+                                        otherSide = info.destination;
+                                        amount = info.lamports / 1e9;
+                                        symbol = 'SOL';
+                                    }
+                                }
+
+                                // If Smart Routing was detected but no explicit transfer matched (e.g. inner instruction)
+                                if (isSmartRouting && type === 'Interaction') {
+                                    let sentLamports = 0;
+                                    let receivedLamports = 0;
+
+                                    // 1. Analyze Inner Instructions for SOL (System Program)
+                                    if (tx.meta?.innerInstructions) {
+                                        tx.meta.innerInstructions.forEach((inner: any) => {
+                                            inner.instructions.forEach((inst: any) => {
+                                                if (inst.program === 'system' && inst.parsed?.type === 'transfer') {
+                                                    const info = inst.parsed.info;
+                                                    if (info.source === publicKey.toBase58()) sentLamports += info.lamports;
+                                                    if (info.destination === publicKey.toBase58()) receivedLamports += info.lamports;
+                                                }
+                                            });
+                                        });
+                                    }
+
+                                    // 2. Analyze Token Balance Changes (Reliable for SPL Transfers)
+                                    if (tx.meta?.preTokenBalances && tx.meta?.postTokenBalances) {
+                                        const pre = tx.meta.preTokenBalances.find((b: any) => b.owner === publicKey.toBase58());
+                                        const post = tx.meta.postTokenBalances.find((b: any) => b.owner === publicKey.toBase58());
+
+                                        // Determine net change
+                                        const preAmount = pre?.uiTokenAmount?.uiAmount || 0;
+                                        const postAmount = post?.uiTokenAmount?.uiAmount || 0;
+                                        const diff = postAmount - preAmount;
+
+                                        if (Math.abs(diff) > 0) {
+                                            amount = Math.abs(diff);
+                                            type = diff < 0 ? 'Sent' : 'Received';
+
+                                            // Detect Symbol
+                                            const mint = pre?.mint || post?.mint;
+                                            if (mint === '4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU') symbol = 'USDC';
+                                            else if (mint === 'HzwqbKZw8HxMN6bF2yFZNrht3c2iXXzpKcFu7uBEDKtr') symbol = 'EURC';
+                                            else symbol = 'Token';
+
+                                            actionLabel = 'Smart Transfer';
+                                        }
+                                    }
+
+                                    // 3. Fallback to SOL values if no token change detected
+                                    if (amount === 0) {
+                                        if (sentLamports > 0) {
+                                            type = 'Sent';
+                                            amount = sentLamports / 1e9;
+                                            symbol = 'SOL';
+                                            actionLabel = 'Smart Transfer';
+                                        } else if (receivedLamports > 0) {
+                                            type = 'Received';
+                                            amount = receivedLamports / 1e9;
+                                            symbol = 'SOL';
+                                            actionLabel = 'Smart Transfer';
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        return {
+                            signature: sig.signature,
+                            time: sig.blockTime,
+                            type,
+                            amount,
+                            symbol,
+                            otherSide,
+                            actionLabel,
+                            isSmartRouting,
+                            success: !tx?.meta?.err
+                        };
+                    } catch (e) {
+                        return {
+                            signature: sig.signature,
+                            time: sig.blockTime,
+                            type: 'Interaction',
+                            amount: 0,
+                            symbol: '',
+                            otherSide: '',
+                            actionLabel: 'Unknown',
+                            isSmartRouting: false,
+                            success: true
+                        };
+                    }
+                })
+            );
+            setHistory(detailedHistory);
+
+            // Load shared notes
+            const sigList = detailedHistory.map(tx => tx.signature);
+            const loadedSharedNotes = await getSharedNotes(sigList);
+            setSharedNotes(loadedSharedNotes);
+        } catch (e) {
+            console.error("Failed to fetch history", e);
+        } finally {
+            setLoading(false);
+        }
+    }
+        , [publicKey, connection]);
+
+    useEffect(() => {
         fetchHistory();
-    }, [publicKey, connection]);
+    }, [fetchHistory]);
 
     const getContactAlias = (address: string) => {
         if (!contacts || !address) return null;
@@ -3050,21 +3051,36 @@ function HistoryTab({ publicKey, connection, confirmModal, setConfirmModal, cont
 
     return (
         <div className="space-y-6">
-            <div className="flex justify-between items-center">
-                <h3 className="font-bold text-2xl text-white">{t('history_title')}</h3>
-                <div className="text-xs text-gray-500 bg-gray-800 px-3 py-1 rounded-full border border-gray-700">
-                    Devnet
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+                <div className="flex items-center gap-3">
+                    <h3 className="font-bold text-2xl text-white">{t('history_title')}</h3>
+                    <div className="text-[10px] text-gray-500 bg-gray-800 px-2 py-0.5 rounded-full border border-gray-700 uppercase tracking-widest font-bold">
+                        Devnet
+                    </div>
+                    <button
+                        onClick={fetchHistory}
+                        disabled={loading}
+                        className={`p-2 rounded-xl bg-gray-800 border border-gray-700 hover:bg-gray-700 transition-all text-gray-400 hover:text-white ${loading ? 'animate-spin' : ''}`}
+                        title="Refresh History"
+                    >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
+                    </button>
                 </div>
 
                 {/* Filter */}
-                <div className="flex justify-end">
+                <div className="flex items-center gap-2 bg-gray-800/50 p-1.5 rounded-xl border border-gray-700/50">
+                    <span className="text-[10px] text-gray-500 font-bold uppercase tracking-wider pl-2 hidden sm:inline">Filter By Date:</span>
                     <input
                         type="month"
                         value={filterDate}
                         onChange={(e) => setFilterDate(e.target.value)}
-                        className="bg-gray-800 border border-gray-700 text-gray-300 text-sm rounded-lg p-2 focus:border-cyan-500 outline-none"
-                        placeholder="Filter by date"
+                        className="bg-transparent text-gray-300 text-xs font-mono focus:outline-none w-auto cursor-pointer hover:text-white transition-colors"
                     />
+                    {filterDate && (
+                        <button onClick={() => setFilterDate('')} className="text-gray-500 hover:text-red-400 pr-1">
+                            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                        </button>
+                    )}
                 </div>
             </div>
 
