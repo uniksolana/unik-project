@@ -2921,6 +2921,7 @@ function HistoryTab({ publicKey, connection, confirmModal, setConfirmModal, cont
                                 if (isSmartRouting && type === 'Interaction') {
                                     let sentLamports = 0;
                                     let receivedLamports = 0;
+                                    let lastSender = '';
 
                                     // 1. Analyze Inner Instructions for SOL (System Program)
                                     if (tx.meta?.innerInstructions) {
@@ -2929,7 +2930,10 @@ function HistoryTab({ publicKey, connection, confirmModal, setConfirmModal, cont
                                                 if (inst.program === 'system' && inst.parsed?.type === 'transfer') {
                                                     const info = inst.parsed.info;
                                                     if (info.source === publicKey.toBase58()) sentLamports += info.lamports;
-                                                    if (info.destination === publicKey.toBase58()) receivedLamports += info.lamports;
+                                                    if (info.destination === publicKey.toBase58()) {
+                                                        receivedLamports += info.lamports;
+                                                        lastSender = info.source;
+                                                    }
                                                 }
                                             });
                                         });
@@ -2948,6 +2952,11 @@ function HistoryTab({ publicKey, connection, confirmModal, setConfirmModal, cont
                                         if (Math.abs(diff) > 0) {
                                             amount = Math.abs(diff);
                                             type = diff < 0 ? 'Sent' : 'Received';
+
+                                            // Identify Sender for Received Token Transfers
+                                            if (type === 'Received') {
+                                                otherSide = tx.transaction.message.accountKeys[0].pubkey.toString();
+                                            }
 
                                             // Detect Symbol
                                             const mint = pre?.mint || post?.mint;
@@ -2970,6 +2979,7 @@ function HistoryTab({ publicKey, connection, confirmModal, setConfirmModal, cont
                                             type = 'Received';
                                             amount = receivedLamports / 1e9;
                                             symbol = 'SOL';
+                                            otherSide = lastSender || tx.transaction.message.accountKeys[0].pubkey.toString();
                                             actionLabel = 'Smart Transfer';
                                         }
                                     }
