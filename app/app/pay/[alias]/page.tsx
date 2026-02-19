@@ -327,6 +327,15 @@ function PaymentContent() {
                     const sourceATA = await getAssociatedTokenAddress(selectedToken.mint, publicKey);
                     const destATA = await getAssociatedTokenAddress(selectedToken.mint, aliasOwner);
 
+                    // Check for Rent Solvency if potentially creating account
+                    const currentSol = await connection.getBalance(publicKey);
+                    if (currentSol < 2500000) { // ~0.0025 SOL safety threshold
+                        const info = await connection.getAccountInfo(destATA);
+                        if (!info) {
+                            throw new Error("Insufficient SOL to activate recipient's wallet. You need ~0.0025 SOL.");
+                        }
+                    }
+
                     const transaction = new Transaction().add(ComputeBudgetProgram.setComputeUnitPrice({ microLamports: 5000 }));
 
                     // Always try to create (Idempotent: if exists, does nothing) to ensure transfer succeeds
