@@ -358,6 +358,12 @@ function PaymentContent() {
                     console.log("Source ATA:", sourceATA.toBase58());
                     console.log("Payer (You):", publicKey.toBase58());
                     console.log("-------------------------------");
+
+                    // FORCE USER CONFIRMATION (Debug)
+                    if (!window.confirm(`CONFIRM DESTINATION:\n${destATA.toBase58()}\n\nIs this address correct?`)) {
+                        throw new Error("Transaction cancelled by user.");
+                    }
+
                     // Construct transaction explicitly
                     const transaction = new Transaction();
 
@@ -365,9 +371,9 @@ function PaymentContent() {
                     transaction.add(ComputeBudgetProgram.setComputeUnitPrice({ microLamports: 5000 }));
                     transaction.add(ComputeBudgetProgram.setComputeUnitLimit({ units: 100000 }));
 
-                    // 2. Create ATA (Idempotent: Critical for first-time receivers)
+                    // 2. Create ATA (Legacy: Fallback for Devnet issues with Idempotent)
                     transaction.add(
-                        createAssociatedTokenAccountIdempotentInstruction(
+                        createAssociatedTokenAccountInstruction(
                             publicKey,
                             destATA,
                             aliasOwner,
