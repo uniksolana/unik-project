@@ -2822,10 +2822,25 @@ function HistoryTab({ publicKey, connection, confirmModal, setConfirmModal, cont
             // 1. Fetch Token Accounts (for incoming SPL detection)
             // We need to check ATAs because incoming SPL transfers might not reference the main wallet directly
             let targetAddresses = [publicKey];
+            const myATAKeys = new Set<string>();
+
             try {
                 const tokenAccounts = await connection.getParsedTokenAccountsByOwner(publicKey, {
                     programId: TOKEN_PROGRAM_ID
                 });
+
+                // Index known ATAs
+                tokenAccounts.value.forEach((t: any) => myATAKeys.add(t.pubkey.toBase58()));
+
+                // Also proactively derive expected ATAs for known tokens (USDC/EURC) just in case
+                await Promise.all(TOKEN_OPTIONS.filter(t => t.mint).map(async (opt) => {
+                    if (opt.mint) {
+                        try {
+                            const ata = await getAssociatedTokenAddress(opt.mint, publicKey);
+                            myATAKeys.add(ata.toBase58());
+                        } catch (e) { }
+                    }
+                }));
 
                 // Prioritize known mints (USDC/EURC)
                 const importantMints = TOKEN_OPTIONS.filter(t => t.mint).map(t => t.mint?.toBase58());
@@ -2927,9 +2942,23 @@ function HistoryTab({ publicKey, connection, confirmModal, setConfirmModal, cont
                                 if (tx?.meta?.postTokenBalances) {
                                     // Identify if any token balance changed for the user
                                     for (const p of tx.meta.postTokenBalances) {
-                                        if (p.owner === publicKey.toBase58()) {
-                                            const pre = tx.meta.preTokenBalances?.find((b: any) => b.mint === p.mint && b.owner === publicKey.toBase58());
+                                        let isMyAccount = p.owner === publicKey.toBase58();
+
+                                        // Fallback: Check if the Token Account address is in our known set of ATAs
+                                        if (!isMyAccount && typeof p.accountIndex === 'number') {
+                                            const tokenKey = tx.transaction.message.accountKeys[p.accountIndex];
+                                            const tokenAddress = tokenKey.pubkey ? tokenKey.pubkey.toString() : tokenKey.toString();
+                                            if (myATAKeys.has(tokenAddress)) {
+                                                isMyAccount = true;
+                                            }
+                                        }
+
+                                        if (isMyAccount) {
+                                            // Find previous balance for the exact same account index (safest match)
+                                            const pre = tx.meta.preTokenBalances?.find((b: any) => b.accountIndex === p.accountIndex);
+
                                             const diff = (p.uiTokenAmount?.uiAmount || 0) - (pre?.uiTokenAmount?.uiAmount || 0);
+
                                             // Capture significance
                                             if (Math.abs(diff) > 0.000001) {
                                                 if (significantTokenChangeCount === 0) {
