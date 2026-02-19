@@ -26,7 +26,8 @@ import { usePreferences } from '../../context/PreferencesContext';
 import { SettingsModal } from './SettingsModal';
 const TOKEN_OPTIONS = [
     { label: 'SOL', symbol: 'SOL', mint: null, decimals: 9, icon: '/sol.png' },
-    { label: 'USDC (Devnet)', symbol: 'USDC', mint: new PublicKey('4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU'), decimals: 6, icon: '/usdc.png' },
+    { label: 'USDC (Circle Devnet)', symbol: 'USDC', mint: new PublicKey('4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU'), decimals: 6, icon: '/usdc.png' },
+    { label: 'USDC (Faucet Devnet)', symbol: 'USDC-F', mint: new PublicKey('Gh9ZwEmdLJ8DscKNTkTqPbNwLNNBjuSzaG9Vp2KGtKJr'), decimals: 6, icon: '/usdc.png' },
     { label: 'EURC (Devnet)', symbol: 'EURC', mint: new PublicKey('HzwqbKZw8HxMN6bF2yFZNrht3c2iXXzpKcFu7uBEDKtr'), decimals: 6, icon: '/eurc.png' } // Placeholder EURC Devnet Mint
 ];
 

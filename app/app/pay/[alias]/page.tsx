@@ -18,7 +18,8 @@ import MobileWalletPrompt from '../../components/MobileWalletPrompt';
 
 const TOKEN_OPTIONS_MAP: any = {
     'SOL': { label: 'SOL', symbol: 'SOL', mint: null, decimals: 9 },
-    'USDC': { label: 'USDC (Devnet)', symbol: 'USDC', mint: new PublicKey('4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU'), decimals: 6 },
+    'USDC': { label: 'USDC (Circle)', symbol: 'USDC', mint: new PublicKey('4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU'), decimals: 6 },
+    'USDC-FAUCET': { label: 'USDC (Faucet)', symbol: 'USDC-F', mint: new PublicKey('Gh9ZwEmdLJ8DscKNTkTqPbNwLNNBjuSzaG9Vp2KGtKJr'), decimals: 6 },
     'EURC': { label: 'EURC (Devnet)', symbol: 'EURC', mint: new PublicKey('HzwqbKZw8HxMN6bF2yFZNrht3c2iXXzpKcFu7uBEDKtr'), decimals: 6 }
 };
 
