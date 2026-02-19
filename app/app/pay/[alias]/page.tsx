@@ -336,15 +336,31 @@ function PaymentContent() {
                         }
                     }
 
-                    const transaction = new Transaction().add(ComputeBudgetProgram.setComputeUnitPrice({ microLamports: 5000 }));
+                    // Construct transaction explicitly
+                    const transaction = new Transaction();
 
-                    // Always try to create (Idempotent: if exists, does nothing) to ensure transfer succeeds
+                    // 1. Compute Budget (Price + Limit)
+                    transaction.add(ComputeBudgetProgram.setComputeUnitPrice({ microLamports: 5000 }));
+                    transaction.add(ComputeBudgetProgram.setComputeUnitLimit({ units: 100000 }));
+
+                    // 2. Create ATA (Idempotent: Critical for first-time receivers)
                     transaction.add(
-                        createAssociatedTokenAccountIdempotentInstruction(publicKey, destATA, aliasOwner, selectedToken.mint)
+                        createAssociatedTokenAccountIdempotentInstruction(
+                            publicKey,
+                            destATA,
+                            aliasOwner,
+                            selectedToken.mint
+                        )
                     );
 
+                    // 3. Transfer
                     transaction.add(
-                        createTransferInstruction(sourceATA, destATA, publicKey, BigInt(amountBN.toString()))
+                        createTransferInstruction(
+                            sourceATA,
+                            destATA,
+                            publicKey,
+                            BigInt(amountBN.toString())
+                        )
                     );
 
                     const signature = await wallet.sendTransaction(transaction, connection);
