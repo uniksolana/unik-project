@@ -1708,9 +1708,25 @@ function SendTab({ sendRecipient, setSendRecipient, sendAlias, setSendAlias, sen
                             // --- SPL TOKEN ROUTING ---
                             const userATA = await getAssociatedTokenAddress(sendToken.mint, publicKey);
                             const remainingAccounts = [];
+                            const preInstructions = [];
+
                             for (const split of routeAccount.splits) {
                                 const destATA = await getAssociatedTokenAddress(sendToken.mint, split.recipient);
                                 remainingAccounts.push({ pubkey: destATA, isSigner: false, isWritable: true });
+
+                                // Auto-create ATA if missing
+                                const info = await connection.getAccountInfo(destATA);
+                                if (!info) {
+                                    const { createAssociatedTokenAccountIdempotentInstruction } = await import('@solana/spl-token');
+                                    preInstructions.push(
+                                        createAssociatedTokenAccountIdempotentInstruction(
+                                            publicKey,
+                                            destATA,
+                                            split.recipient,
+                                            sendToken.mint
+                                        )
+                                    );
+                                }
                             }
 
                             const ix = await (program.methods as any)
@@ -1730,8 +1746,9 @@ function SendTab({ sendRecipient, setSendRecipient, sendAlias, setSendAlias, sen
                             const messageV0 = new TransactionMessage({
                                 payerKey: publicKey, recentBlockhash: blockhash,
                                 instructions: [
-                                    ComputeBudgetProgram.setComputeUnitLimit({ units: 400_000 }),
+                                    ComputeBudgetProgram.setComputeUnitLimit({ units: 400_000 + (preInstructions.length * 40000) }),
                                     ComputeBudgetProgram.setComputeUnitPrice({ microLamports: 1000 }),
+                                    ...preInstructions,
                                     ix
                                 ]
                             }).compileToV0Message();

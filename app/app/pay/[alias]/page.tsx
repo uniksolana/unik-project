@@ -7,7 +7,7 @@ import toast from 'react-hot-toast';
 import { showTransactionToast, showSimpleToast } from '../../components/CustomToast';
 import { useParams, useSearchParams } from 'next/navigation';
 import { Suspense } from 'react';
-import { PublicKey, SystemProgram, Transaction, ComputeBudgetProgram } from '@solana/web3.js';
+import { PublicKey, SystemProgram, Transaction, ComputeBudgetProgram, VersionedTransaction, TransactionMessage } from '@solana/web3.js';
 import { PROGRAM_ID, IDL } from '../../../utils/anchor';
 import { Program, AnchorProvider, BN } from '@coral-xyz/anchor';
 import { Buffer } from 'buffer';
@@ -341,8 +341,9 @@ function PaymentContent() {
                         // Check if ATA exists, create if not
                         const info = await connection.getAccountInfo(destATA);
                         if (!info) {
+                            const { createAssociatedTokenAccountIdempotentInstruction } = await import('@solana/spl-token');
                             preInstructions.push(
-                                createAssociatedTokenAccountInstruction(
+                                createAssociatedTokenAccountIdempotentInstruction(
                                     publicKey, // payer
                                     destATA, // ata
                                     split.recipient, // owner
@@ -365,10 +366,19 @@ function PaymentContent() {
                         .remainingAccounts(remainingAccounts)
                         .instruction();
 
-                    const transaction = new Transaction().add(ComputeBudgetProgram.setComputeUnitPrice({ microLamports: 5000 }));
-                    if (preInstructions.length > 0) transaction.add(...preInstructions);
-                    transaction.add(ix);
+                    const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash('finalized');
+                    const messageV0 = new TransactionMessage({
+                        payerKey: publicKey,
+                        recentBlockhash: blockhash,
+                        instructions: [
+                            ComputeBudgetProgram.setComputeUnitLimit({ units: 400_000 + (preInstructions.length * 40000) }),
+                            ComputeBudgetProgram.setComputeUnitPrice({ microLamports: 5000 }),
+                            ...preInstructions,
+                            ix
+                        ]
+                    }).compileToV0Message();
 
+                    const transaction = new VersionedTransaction(messageV0);
                     const signature = await wallet.sendTransaction(transaction, connection);
                     await connection.confirmTransaction(signature, 'confirmed');
                     txSignature = signature;
