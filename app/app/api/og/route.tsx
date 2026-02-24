@@ -16,6 +16,15 @@ export async function GET(request: NextRequest) {
         // Si no hay amount, mostramos una genérica de "Pagar a"
         const isRequest = amount && amount !== '0';
 
+        const getBaseUrl = () => {
+            if (process.env.NEXT_PUBLIC_APP_URL) return process.env.NEXT_PUBLIC_APP_URL;
+            if (process.env.VERCEL_PROJECT_PRODUCTION_URL) return `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`;
+            if (process.env.VERCEL_URL) return `https://${process.env.VERCEL_URL}`;
+            const url = new URL(request.url);
+            return `${url.protocol}//${url.host}`;
+        };
+        const logoUrl = `${getBaseUrl()}/logo-icon.png`;
+
         return new ImageResponse(
             (
                 <div
@@ -41,57 +50,57 @@ export async function GET(request: NextRequest) {
                             flexDirection: 'column',
                             alignItems: 'center',
                             justifyContent: 'center',
-                            width: '80%',
-                            height: '75%',
+                            width: '85%',
+                            height: '80%',
                             background: 'rgba(255, 255, 255, 0.05)',
                             border: '1px solid rgba(255, 255, 255, 0.1)',
-                            borderRadius: '32px',
+                            borderRadius: '48px',
                             boxShadow: '0 20px 40px rgba(0, 0, 0, 0.5)',
-                            padding: '40px',
+                            padding: '60px',
                             position: 'relative',
                         }}
                     >
                         {/* Cabecera / Logo */}
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '40px' }}>
-                            <div style={{ display: 'flex', width: '40px', height: '40px', background: 'linear-gradient(to right, #7c3aed, #3b82f6)', borderRadius: '10px' }} />
-                            <span style={{ color: 'white', fontSize: 32, fontWeight: 700, letterSpacing: '-0.02em' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '50px' }}>
+                            <img src={logoUrl} width="64" height="64" style={{ borderRadius: '16px' }} />
+                            <span style={{ color: 'white', fontSize: 48, fontWeight: 700, letterSpacing: '-0.02em' }}>
                                 UNIK<span style={{ color: '#9ca3af', fontWeight: 400 }}>Pay</span>
                             </span>
                         </div>
 
                         {/* Contenido principal */}
-                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px' }}>
                             {isRequest ? (
-                                <span style={{ color: '#38bdf8', fontSize: 28, fontWeight: 500, letterSpacing: '0.05em', textTransform: 'uppercase' }}>
+                                <span style={{ color: '#38bdf8', fontSize: 36, fontWeight: 500, letterSpacing: '0.05em', textTransform: 'uppercase' }}>
                                     Solicitud de Pago
                                 </span>
                             ) : (
-                                <span style={{ color: '#a78bfa', fontSize: 28, fontWeight: 500, letterSpacing: '0.05em', textTransform: 'uppercase' }}>
+                                <span style={{ color: '#a78bfa', fontSize: 36, fontWeight: 500, letterSpacing: '0.05em', textTransform: 'uppercase' }}>
                                     Enviar fondos
                                 </span>
                             )}
 
                             {isRequest && (
-                                <span style={{ color: 'white', fontSize: 80, fontWeight: 800, margin: '20px 0', display: 'flex', alignItems: 'baseline', gap: '16px' }}>
-                                    {amount} <span style={{ fontSize: 40, color: '#9ca3af', fontWeight: 600 }}>{token}</span>
+                                <span style={{ color: 'white', fontSize: 130, fontWeight: 800, margin: '20px 0', display: 'flex', alignItems: 'baseline', gap: '20px' }}>
+                                    {amount} <span style={{ fontSize: 60, color: '#9ca3af', fontWeight: 600 }}>{token}</span>
                                 </span>
                             )}
 
-                            <div style={{ display: 'flex', alignItems: 'center', fontSize: 36, color: '#f3f4f6', marginTop: isRequest ? 0 : 40 }}>
-                                <span style={{ color: '#9ca3af', marginRight: '16px' }}>Para:</span> <span style={{ fontWeight: 600 }}>@{alias}</span>
+                            <div style={{ display: 'flex', alignItems: 'center', fontSize: 50, color: '#f3f4f6', marginTop: isRequest ? 10 : 50 }}>
+                                <span style={{ color: '#9ca3af', marginRight: '20px' }}>Para:</span> <span style={{ fontWeight: 600 }}>@{alias}</span>
                             </div>
 
                             {concept && (
-                                <div style={{ display: 'flex', alignItems: 'center', fontSize: 24, color: '#d1d5db', marginTop: '20px', background: 'rgba(255, 255, 255, 0.1)', padding: '12px 24px', borderRadius: '100px' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', fontSize: 36, color: '#d1d5db', marginTop: '30px', background: 'rgba(255, 255, 255, 0.1)', padding: '16px 36px', borderRadius: '100px' }}>
                                     "{concept}"
                                 </div>
                             )}
                         </div>
 
                         {/* Footer (Solana Badge) */}
-                        <div style={{ position: 'absolute', bottom: '40px', display: 'flex', alignItems: 'center', gap: '8px', opacity: 0.7 }}>
-                            <span style={{ color: '#9ca3af', fontSize: 20 }}>Powered by</span>
-                            <span style={{ color: 'white', fontSize: 20, fontWeight: 600, background: 'linear-gradient(to right, #14F195, #9945FF)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>Solana</span>
+                        <div style={{ position: 'absolute', bottom: '40px', display: 'flex', alignItems: 'center', gap: '12px', opacity: 0.7 }}>
+                            <span style={{ color: '#9ca3af', fontSize: 24 }}>Powered by</span>
+                            <span style={{ color: 'white', fontSize: 24, fontWeight: 600, background: 'linear-gradient(to right, #14F195, #9945FF)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>Solana</span>
                         </div>
                     </div>
                 </div>

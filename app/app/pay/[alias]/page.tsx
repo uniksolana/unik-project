@@ -2,11 +2,14 @@ import { Metadata } from 'next';
 import ClientPage from './ClientPage';
 
 type Props = {
-    params: { alias: string };
-    searchParams: { [key: string]: string | string[] | undefined };
+    params: Promise<{ alias: string }>;
+    searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 };
 
-export async function generateMetadata({ params, searchParams }: Props): Promise<Metadata> {
+export async function generateMetadata(props: Props): Promise<Metadata> {
+    const params = await props.params;
+    const searchParams = await props.searchParams;
+
     const alias = params.alias;
     const amount = typeof searchParams.amount === 'string' ? searchParams.amount : null;
     const token = typeof searchParams.token === 'string' ? searchParams.token : null;
