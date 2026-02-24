@@ -2918,6 +2918,7 @@ function HistoryTab({ publicKey, connection, confirmModal, setConfirmModal, cont
     const [loading, setLoading] = useState(true);
     const [orders, setOrders] = useState<any[]>([]);
     const [filterDate, setFilterDate] = useState('');
+    const [filterType, setFilterType] = useState('All');
     const [notes, setNotes] = useState<Record<string, TransactionNote>>({});
     const [sharedNotes, setSharedNotes] = useState<Record<string, SharedNoteData>>({});
 
@@ -3317,20 +3318,36 @@ function HistoryTab({ publicKey, connection, confirmModal, setConfirmModal, cont
                     </button>
                 </div>
 
-                {/* Filter */}
-                <div className="flex items-center gap-2 bg-gray-800/50 p-1.5 rounded-xl border border-gray-700/50">
-                    <span className="text-[10px] text-gray-500 font-bold uppercase tracking-wider pl-2 hidden sm:inline">Filter By Date:</span>
-                    <input
-                        type="month"
-                        value={filterDate}
-                        onChange={(e) => setFilterDate(e.target.value)}
-                        className="bg-transparent text-gray-300 text-xs font-mono focus:outline-none w-auto cursor-pointer hover:text-white transition-colors"
-                    />
-                    {filterDate && (
-                        <button onClick={() => setFilterDate('')} className="text-gray-500 hover:text-red-400 pr-1">
-                            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
-                        </button>
-                    )}
+                {/* Filters */}
+                <div className="flex flex-wrap items-center gap-2">
+                    <div className="flex items-center gap-2 bg-gray-800/50 p-1.5 rounded-xl border border-gray-700/50">
+                        <span className="text-[10px] text-gray-500 font-bold uppercase tracking-wider pl-2 hidden sm:inline">Type:</span>
+                        <select
+                            value={filterType}
+                            onChange={(e) => setFilterType(e.target.value)}
+                            className="bg-transparent text-gray-300 text-xs font-bold focus:outline-none cursor-pointer hover:text-white transition-colors"
+                        >
+                            <option value="All" className="bg-gray-800">All</option>
+                            <option value="Received" className="bg-gray-800">Received</option>
+                            <option value="Sent" className="bg-gray-800">Sent</option>
+                            <option value="Interaction" className="bg-gray-800">Interactions</option>
+                        </select>
+                    </div>
+
+                    <div className="flex items-center gap-2 bg-gray-800/50 p-1.5 rounded-xl border border-gray-700/50">
+                        <span className="text-[10px] text-gray-500 font-bold uppercase tracking-wider pl-2 hidden sm:inline">Date:</span>
+                        <input
+                            type="month"
+                            value={filterDate}
+                            onChange={(e) => setFilterDate(e.target.value)}
+                            className="bg-transparent text-gray-300 text-xs font-mono focus:outline-none w-auto cursor-pointer hover:text-white transition-colors"
+                        />
+                        {filterDate && (
+                            <button onClick={() => setFilterDate('')} className="text-gray-500 hover:text-red-400 pr-1">
+                                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                            </button>
+                        )}
+                    </div>
                 </div>
             </div>
 
@@ -3344,6 +3361,10 @@ function HistoryTab({ publicKey, connection, confirmModal, setConfirmModal, cont
             )}
 
             {history.length > 0 && history.filter(tx => {
+                if (filterType !== 'All') {
+                    if (filterType === 'Interaction' && (tx.type !== 'Interaction' && tx.type !== 'System')) return false;
+                    if (filterType !== 'Interaction' && tx.type !== filterType) return false;
+                }
                 if (!filterDate) return true;
                 const txDate = new Date(tx.time * 1000);
                 const [year, month] = filterDate.split('-');
