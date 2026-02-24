@@ -2639,7 +2639,7 @@ function ContactsTab({ setSendRecipient, setSendAlias, setSendNote, setResolvedA
                     toast.success(`Contact @${inputLower} added`);
                 } catch (err) {
                     console.error("Lookup failed", err);
-                    showTransactionToast({ signature: '', message: `Alias @${inputLower} not found on-chain`, type: 'error' });
+                    toast.error(`Alias @${inputLower} not found on-chain`);
                     setLoading(false);
                     return;
                 }
@@ -2651,7 +2651,7 @@ function ContactsTab({ setSendRecipient, setSendAlias, setSendNote, setResolvedA
             if (refreshContacts) refreshContacts();
         } catch (e) {
             console.error(e);
-            showTransactionToast({ signature: '', message: 'Failed to add contact', type: 'error' });
+            toast.error('Failed to add contact');
         } finally {
             setLoading(false);
         }
