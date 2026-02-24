@@ -8,7 +8,10 @@ import bs58 from 'bs58';
 
 const AUTH_MESSAGE_PREFIX = 'Unik Pay Auth';
 
-function getExpectedMessage(wallet: string): string {
+function getExpectedMessage(wallet: string, timestamp?: string): string {
+    if (timestamp) {
+        return `${AUTH_MESSAGE_PREFIX}\nWallet: ${wallet}\nTimestamp: ${timestamp}`;
+    }
     return `${AUTH_MESSAGE_PREFIX}\nWallet: ${wallet}`;
 }
 
@@ -26,11 +29,27 @@ export function verifyWalletSignature(
     message: string
 ): boolean {
     try {
+        // L-01: Extract timestamp from message if present to prevent replay attacks
+        const timeMatch = message.match(/Timestamp:\s*(\d+)/);
+        let timestampStr = timeMatch ? timeMatch[1] : undefined;
+
         // Verify the message format is what we expect
-        const expectedMessage = getExpectedMessage(walletAddress);
+        const expectedMessage = getExpectedMessage(walletAddress, timestampStr);
         if (message !== expectedMessage) {
             console.error(`[Auth] Message mismatch.\nExpected: "${expectedMessage}"\nReceived: "${message}"`);
             return false;
+        }
+
+        // L-01: Verify timestamp freshness (5 minutes = 300,000 ms)
+        if (timestampStr) {
+            const timestamp = parseInt(timestampStr, 10);
+            const now = Date.now();
+            if (now - timestamp > 300000 || timestamp > now + 60000) {
+                console.error(`[Auth] Signature expired or invalid timestamp: ${timestamp}`);
+                return false;
+            }
+        } else {
+            console.warn(`[Auth] No timestamp provided in auth message for ${walletAddress}. Vulnerable to replay attacks.`);
         }
 
         // Decode the public key from base58
