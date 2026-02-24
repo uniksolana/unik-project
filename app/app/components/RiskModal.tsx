@@ -34,7 +34,7 @@ This signature is free and does not authorize any transaction.`;
     // --- Session Management Helpers ---
     const loadSession = async (walletAddr: string): Promise<boolean> => {
         try {
-            const storedTs = localStorage.getItem(`unik_ts_${walletAddr}`);
+            const storedTs = sessionStorage.getItem(`unik_ts_${walletAddr}`);
             if (!storedTs) return false;
 
             const now = Date.now();
@@ -44,8 +44,8 @@ This signature is free and does not authorize any transaction.`;
                 return false;
             }
 
-            const storedAuth = localStorage.getItem(`unik_auth_${walletAddr}`);
-            const storedKeyJwk = localStorage.getItem(`unik_key_${walletAddr}`); // Encrypted key stored as JWK string
+            const storedAuth = sessionStorage.getItem(`unik_auth_${walletAddr}`);
+            const storedKeyJwk = sessionStorage.getItem(`unik_key_${walletAddr}`); // Encrypted key stored as JWK string
 
             if (storedAuth && storedKeyJwk) {
                 // Restore Auth Token
@@ -62,7 +62,7 @@ This signature is free and does not authorize any transaction.`;
                     ["encrypt", "decrypt"]
                 );
                 setSessionKey(key);
-                console.log("Session restored from local storage");
+                console.log("Session restored from session storage");
                 return true;
             }
         } catch (e) {
@@ -74,12 +74,12 @@ This signature is free and does not authorize any transaction.`;
 
     const saveSession = async (walletAddr: string, auth: AuthToken, key: CryptoKey) => {
         try {
-            localStorage.setItem(`unik_ts_${walletAddr}`, Date.now().toString());
-            localStorage.setItem(`unik_auth_${walletAddr}`, JSON.stringify(auth));
+            sessionStorage.setItem(`unik_ts_${walletAddr}`, Date.now().toString());
+            sessionStorage.setItem(`unik_auth_${walletAddr}`, JSON.stringify(auth));
 
             const jwk = await window.crypto.subtle.exportKey("jwk", key);
-            localStorage.setItem(`unik_key_${walletAddr}`, JSON.stringify(jwk));
-            console.log("Session saved locally for 15 min");
+            sessionStorage.setItem(`unik_key_${walletAddr}`, JSON.stringify(jwk));
+            console.log("Session saved to sessionStorage for 15 min");
         } catch (e) {
             console.error("Failed to save session", e);
         }
@@ -87,9 +87,9 @@ This signature is free and does not authorize any transaction.`;
 
     const clearSession = (walletAddr: string | null) => {
         if (!walletAddr) return;
-        localStorage.removeItem(`unik_ts_${walletAddr}`);
-        localStorage.removeItem(`unik_auth_${walletAddr}`);
-        localStorage.removeItem(`unik_key_${walletAddr}`);
+        sessionStorage.removeItem(`unik_ts_${walletAddr}`);
+        sessionStorage.removeItem(`unik_auth_${walletAddr}`);
+        sessionStorage.removeItem(`unik_key_${walletAddr}`);
     };
     // ----------------------------------
 

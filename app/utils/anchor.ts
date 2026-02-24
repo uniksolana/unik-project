@@ -67,8 +67,7 @@ export const IDL = {
       "name": "delete_alias",
       "docs": [
         "Delete an alias permanently - refunds rent to owner",
-        "The alias becomes available for registration by anyone",
-        "Version will increment if someone re-registers it"
+        "The alias becomes available for registration by anyone"
       ],
       "discriminator": [
         218,
@@ -94,6 +93,28 @@ export const IDL = {
                   105,
                   97,
                   115
+                ]
+              },
+              {
+                "kind": "arg",
+                "path": "alias"
+              }
+            ]
+          }
+        },
+        {
+          "name": "route_account",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  114,
+                  111,
+                  117,
+                  116,
+                  101
                 ]
               },
               {
@@ -141,6 +162,27 @@ export const IDL = {
                   117,
                   116,
                   101
+                ]
+              },
+              {
+                "kind": "arg",
+                "path": "alias"
+              }
+            ]
+          }
+        },
+        {
+          "name": "alias_account",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  97,
+                  108,
+                  105,
+                  97,
+                  115
                 ]
               },
               {
@@ -220,6 +262,27 @@ export const IDL = {
           }
         },
         {
+          "name": "alias_account",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  97,
+                  108,
+                  105,
+                  97,
+                  115
+                ]
+              },
+              {
+                "kind": "arg",
+                "path": "alias"
+              }
+            ]
+          }
+        },
+        {
           "name": "user",
           "writable": true,
           "signer": true
@@ -241,6 +304,79 @@ export const IDL = {
       ]
     },
     {
+      "name": "init_route_config",
+      "discriminator": [
+        250,
+        209,
+        74,
+        200,
+        216,
+        191,
+        188,
+        248
+      ],
+      "accounts": [
+        {
+          "name": "route_account",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  114,
+                  111,
+                  117,
+                  116,
+                  101
+                ]
+              },
+              {
+                "kind": "arg",
+                "path": "alias"
+              }
+            ]
+          }
+        },
+        {
+          "name": "alias_account",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  97,
+                  108,
+                  105,
+                  97,
+                  115
+                ]
+              },
+              {
+                "kind": "arg",
+                "path": "alias"
+              }
+            ]
+          }
+        },
+        {
+          "name": "user",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "alias",
+          "type": "string"
+        }
+      ]
+    },
+    {
       "name": "reactivate_alias",
       "docs": [
         "Reactivate a previously deactivated alias"
@@ -253,7 +389,7 @@ export const IDL = {
         60,
         6,
         198,
-        251
+        168
       ],
       "accounts": [
         {
@@ -514,6 +650,34 @@ export const IDL = {
       ]
     }
   ],
+  "events": [
+    {
+      "name": "AliasEvent",
+      "discriminator": [
+        112,
+        60,
+        168,
+        227,
+        113,
+        105,
+        198,
+        245
+      ]
+    },
+    {
+      "name": "RouteEvent",
+      "discriminator": [
+        86,
+        61,
+        198,
+        99,
+        167,
+        76,
+        143,
+        42
+      ]
+    }
+  ],
   "errors": [
     {
       "code": 6000,
@@ -594,6 +758,16 @@ export const IDL = {
       "code": 6015,
       "name": "AmountTooSmall",
       "msg": "Amount too small. Minimum is 10000 units to prevent dust transactions."
+    },
+    {
+      "code": 6016,
+      "name": "InvalidPDA",
+      "msg": "The provided alias account address does not match the derived PDA."
+    },
+    {
+      "code": 6017,
+      "name": "AliasInactive",
+      "msg": "This alias is currently inactive and cannot receive payments."
     }
   ],
   "types": [
@@ -634,6 +808,30 @@ export const IDL = {
       }
     },
     {
+      "name": "AliasEvent",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "event_type",
+            "type": "string"
+          },
+          {
+            "name": "alias",
+            "type": "string"
+          },
+          {
+            "name": "owner",
+            "type": "pubkey"
+          },
+          {
+            "name": "timestamp",
+            "type": "i64"
+          }
+        ]
+      }
+    },
+    {
       "name": "RouteAccount",
       "type": {
         "kind": "struct",
@@ -660,6 +858,26 @@ export const IDL = {
       }
     },
     {
+      "name": "RouteEvent",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "alias",
+            "type": "string"
+          },
+          {
+            "name": "splits_count",
+            "type": "u8"
+          },
+          {
+            "name": "timestamp",
+            "type": "i64"
+          }
+        ]
+      }
+    },
+    {
       "name": "Split",
       "type": {
         "kind": "struct",
@@ -677,4 +895,3 @@ export const IDL = {
     }
   ]
 } as const;
-

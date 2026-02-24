@@ -99,6 +99,9 @@ pub mod unik_anchor {
     pub fn execute_transfer<'info>(ctx: Context<'_, '_, '_, 'info, ExecuteTransfer<'info>>, _alias: String, amount: u64) -> Result<()> {
         require!(amount >= 10000, UnikError::AmountTooSmall);
 
+        // CRIT-01: Verify the alias is active before accepting payments
+        require!(ctx.accounts.alias_account.is_active, UnikError::AliasInactive);
+
         let route = &ctx.accounts.route_account;
         let splits = &route.splits;
         let remaining_accounts = ctx.remaining_accounts;
@@ -144,6 +147,9 @@ pub mod unik_anchor {
 
     pub fn execute_token_transfer<'info>(ctx: Context<'_, '_, '_, 'info, ExecuteTokenTransfer<'info>>, _alias: String, amount: u64) -> Result<()> {
         require!(amount >= 10000, UnikError::AmountTooSmall);
+
+        // CRIT-01: Verify the alias is active before accepting payments
+        require!(ctx.accounts.alias_account.is_active, UnikError::AliasInactive);
 
         let route = &ctx.accounts.route_account;
         let splits = &route.splits;
@@ -309,6 +315,15 @@ pub struct DeleteAlias<'info> {
         close = user,  // Refund rent to user
     )]
     pub alias_account: Account<'info, AliasAccount>,
+
+    // CRIT-03: Close the associated route account when deleting an alias
+    #[account(
+        mut,
+        seeds = [b"route", alias.as_bytes()],
+        bump = route_account.bump,
+        close = user,  // Refund route rent to user
+    )]
+    pub route_account: Account<'info, RouteAccount>,
     
     #[account(mut)]
     pub user: Signer<'info>,
@@ -368,8 +383,17 @@ pub struct ExecuteTransfer<'info> {
     #[account(
         seeds = [b"route", alias.as_bytes()],
         bump = route_account.bump,
+        // CRIT-02: Validate route belongs to this alias
+        constraint = route_account.alias_ref == alias_account.key() @ UnikError::InvalidPDA,
     )]
     pub route_account: Account<'info, RouteAccount>,
+
+    // CRIT-01 + CRIT-02: Reference alias account for is_active check and cross-validation
+    #[account(
+        seeds = [b"alias", alias.as_bytes()],
+        bump = alias_account.bump,
+    )]
+    pub alias_account: Account<'info, AliasAccount>,
     
     #[account(mut)]
     pub user: Signer<'info>,
@@ -383,8 +407,17 @@ pub struct ExecuteTokenTransfer<'info> {
     #[account(
         seeds = [b"route", alias.as_bytes()],
         bump = route_account.bump,
+        // CRIT-02: Validate route belongs to this alias
+        constraint = route_account.alias_ref == alias_account.key() @ UnikError::InvalidPDA,
     )]
     pub route_account: Account<'info, RouteAccount>,
+
+    // CRIT-01 + CRIT-02: Reference alias account for is_active check and cross-validation
+    #[account(
+        seeds = [b"alias", alias.as_bytes()],
+        bump = alias_account.bump,
+    )]
+    pub alias_account: Account<'info, AliasAccount>,
     
     #[account(mut)]
     pub user: Signer<'info>,
@@ -464,6 +497,8 @@ pub enum UnikError {
     AmountTooSmall,
     #[msg("The provided alias account address does not match the derived PDA.")]
     InvalidPDA,
+    #[msg("This alias is currently inactive and cannot receive payments.")]
+    AliasInactive,
 }
 
 #[event]

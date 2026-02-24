@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSupabase } from '../../../../utils/supabaseServer';
+import { verifyWalletSignature } from '../../../../utils/verifyAuth';
 
 /**
  * POST /api/orders/status
@@ -8,7 +9,7 @@ import { getServerSupabase } from '../../../../utils/supabaseServer';
  */
 export async function POST(request: NextRequest) {
     try {
-        const { order_id, merchant_wallet } = await request.json();
+        const { order_id, merchant_wallet, auth_wallet, auth_signature, auth_message } = await request.json();
 
         if (!order_id) {
             return NextResponse.json({ error: 'Missing order_id' }, { status: 400 });
@@ -26,10 +27,12 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'Order not found' }, { status: 404 });
         }
 
-        // M-04: Restrict public order status to prevent data leakage
-        // We only allow checking full details if the request includes the correct merchant_wallet.
-        // If not, we only return the public payment status to prevent scraping.
-        const isAuthorizedMerchant = merchant_wallet && order.merchant_alias && merchant_wallet === order.merchant_wallet && merchant_wallet !== undefined;
+        // MED-01: Require cryptographic wallet signature for full details (not just knowing the wallet address)
+        const isAuthorizedMerchant = merchant_wallet
+            && auth_wallet === merchant_wallet
+            && merchant_wallet === order.merchant_wallet
+            && auth_signature && auth_message
+            && verifyWalletSignature(auth_wallet, auth_signature, auth_message);
 
         if (isAuthorizedMerchant) {
             return NextResponse.json({

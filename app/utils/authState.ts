@@ -31,5 +31,5 @@ export const clearAuthToken = () => { currentAuthToken = null; };
  */
 export const AUTH_MESSAGE_PREFIX = 'Unik Pay Auth';
 export function getAuthMessage(wallet: string): string {
-    return `${AUTH_MESSAGE_PREFIX}\nWallet: ${wallet}`;
+    return `${AUTH_MESSAGE_PREFIX}\nWallet: ${wallet}\nTimestamp: ${Date.now()}`;
 }

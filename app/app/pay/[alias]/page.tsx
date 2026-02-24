@@ -314,6 +314,10 @@ function PaymentContent() {
                     [Buffer.from("route"), Buffer.from(normalizedAlias)],
                     PROGRAM_ID
                 );
+                const [aliasPDA] = PublicKey.findProgramAddressSync(
+                    [Buffer.from("alias"), Buffer.from(normalizedAlias)],
+                    PROGRAM_ID
+                );
 
                 if (selectedToken.symbol === 'SOL') {
                     // SOL Routing
@@ -323,7 +327,7 @@ function PaymentContent() {
                     const tx = await program.methods
                         .executeTransfer(normalizedAlias, amountBN)
                         .accounts({
-                            routeAccount: routePDA, user: publicKey, systemProgram: SystemProgram.programId,
+                            routeAccount: routePDA, aliasAccount: aliasPDA, user: publicKey, systemProgram: SystemProgram.programId,
                         })
                         .remainingAccounts(remainingAccounts)
                         .rpc();
@@ -357,6 +361,7 @@ function PaymentContent() {
                         .executeTokenTransfer(normalizedAlias, amountBN)
                         .accounts({
                             routeAccount: routePDA,
+                            aliasAccount: aliasPDA,
                             user: publicKey,
                             mint: selectedToken.mint,
                             userTokenAccount: userATA,
