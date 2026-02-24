@@ -12,10 +12,15 @@ export async function generateMetadata({ params, searchParams }: Props): Promise
     const token = typeof searchParams.token === 'string' ? searchParams.token : null;
     const concept = typeof searchParams.concept === 'string' ? searchParams.concept : null;
 
-    // Build the dynamic image URL
-    const ogUrl = new URL(
-        process.env.NEXT_PUBLIC_APP_URL || 'https://unik.app'
-    );
+    const getBaseUrl = () => {
+        if (process.env.NEXT_PUBLIC_APP_URL) return process.env.NEXT_PUBLIC_APP_URL;
+        if (process.env.VERCEL_PROJECT_PRODUCTION_URL) return `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`;
+        if (process.env.VERCEL_URL) return `https://${process.env.VERCEL_URL}`;
+        return 'http://localhost:3000';
+    };
+
+    const baseUrl = getBaseUrl();
+    const ogUrl = new URL(baseUrl);
     ogUrl.pathname = '/api/og';
     ogUrl.searchParams.set('alias', alias);
 
@@ -33,6 +38,7 @@ export async function generateMetadata({ params, searchParams }: Props): Promise
         : `Envía fondos a @${alias} instantáneamente vía UNIK Pay.`;
 
     return {
+        metadataBase: new URL(baseUrl),
         title,
         description,
         openGraph: {
