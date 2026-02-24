@@ -3041,114 +3041,111 @@ function HistoryTab({ publicKey, connection, confirmModal, setConfirmModal, cont
                             else if (isSetRoute) actionLabel = 'Routing Configuration';
 
                             // GLOBAL BALANCE ANALYSIS (Primary Source of Truth for Fund Movement)
+
+                            // A. Token Changes (Prioritize SPL)
+                            let relevantMint = null;
+                            let tokenDiff = 0;
+                            let significantTokenChangeCount = 0;
+
+                            if (tx?.meta?.postTokenBalances) {
+                                // Identify if any token balance changed for the user
+                                for (const p of tx.meta.postTokenBalances) {
+                                    let isMyAccount = p.owner === publicKey.toBase58();
+
+                                    // Fallback: Check if the Token Account address is in our known set of ATAs
+                                    if (!isMyAccount && typeof p.accountIndex === 'number') {
+                                        const tokenKey = tx.transaction.message.accountKeys[p.accountIndex];
+                                        const tokenAddress = tokenKey.pubkey ? tokenKey.pubkey.toString() : tokenKey.toString();
+                                        if (myATAKeys.has(tokenAddress)) {
+                                            isMyAccount = true;
+                                        }
+                                    }
+
+                                    if (isMyAccount) {
+                                        // Find previous balance for the exact same account index (safest match)
+                                        const pre = tx.meta.preTokenBalances?.find((b: any) => b.accountIndex === p.accountIndex);
+
+                                        const diff = (p.uiTokenAmount?.uiAmount || 0) - (pre?.uiTokenAmount?.uiAmount || 0);
+
+                                        // Capture significance
+                                        if (Math.abs(diff) > 0.000001) {
+                                            if (significantTokenChangeCount === 0) {
+                                                relevantMint = p.mint;
+                                                tokenDiff = diff;
+                                            }
+                                            significantTokenChangeCount++;
+                                        }
+                                    }
+                                }
+                            }
+
+                            // B. SOL Changes
+                            let solDiff = 0;
                             const accountIndex = tx?.transaction.message.accountKeys.findIndex((k: any) =>
                                 (k.pubkey ? k.pubkey.toString() : k.toString()) === publicKey.toBase58()
                             );
 
                             if (accountIndex !== -1) {
-                                // A. Token Changes (Prioritize SPL)
-                                let relevantMint = null;
-                                let tokenDiff = 0;
-                                let significantTokenChangeCount = 0;
-
-                                if (tx?.meta?.postTokenBalances) {
-                                    // Identify if any token balance changed for the user
-                                    for (const p of tx.meta.postTokenBalances) {
-                                        let isMyAccount = p.owner === publicKey.toBase58();
-
-                                        // Fallback: Check if the Token Account address is in our known set of ATAs
-                                        if (!isMyAccount && typeof p.accountIndex === 'number') {
-                                            const tokenKey = tx.transaction.message.accountKeys[p.accountIndex];
-                                            const tokenAddress = tokenKey.pubkey ? tokenKey.pubkey.toString() : tokenKey.toString();
-                                            if (myATAKeys.has(tokenAddress)) {
-                                                isMyAccount = true;
-                                            }
-                                        }
-
-                                        if (isMyAccount) {
-                                            // Find previous balance for the exact same account index (safest match)
-                                            const pre = tx.meta.preTokenBalances?.find((b: any) => b.accountIndex === p.accountIndex);
-
-                                            const diff = (p.uiTokenAmount?.uiAmount || 0) - (pre?.uiTokenAmount?.uiAmount || 0);
-
-                                            // Capture significance
-                                            if (Math.abs(diff) > 0.000001) {
-                                                if (significantTokenChangeCount === 0) {
-                                                    relevantMint = p.mint;
-                                                    tokenDiff = diff;
-                                                }
-                                                significantTokenChangeCount++;
-                                            }
-                                        }
-                                    }
-                                }
-
-                                // B. SOL Changes
                                 const preSol = (tx?.meta?.preBalances?.[accountIndex] || 0) / 1e9;
                                 const postSol = (tx?.meta?.postBalances?.[accountIndex] || 0) / 1e9;
-                                const solDiff = postSol - preSol;
-                                const significantSolChange = Math.abs(solDiff) > 0.01; // Threshold to distinguish Trade from Gas/Rent
+                                solDiff = postSol - preSol;
+                            }
 
-                                // C. Classification: Payment vs Swap
-                                // Modified to prioritize showing all movements
-                                // const isSwap = ... (Removed)
+                            if (Math.abs(tokenDiff) > 0) { // Pure Token Transfer
+                                amount = Math.abs(tokenDiff);
+                                type = tokenDiff > 0 ? 'Received' : 'Sent';
 
-                                if (Math.abs(tokenDiff) > 0) { // Pure Token Transfer
-                                    amount = Math.abs(tokenDiff);
-                                    type = tokenDiff > 0 ? 'Received' : 'Sent';
+                                // Symbol Lookup
+                                const knownToken = TOKEN_OPTIONS.find(t => t.mint?.toBase58() === relevantMint);
+                                symbol = knownToken ? knownToken.symbol : 'Token';
 
-                                    // Symbol Lookup
-                                    const knownToken = TOKEN_OPTIONS.find(t => t.mint?.toBase58() === relevantMint);
-                                    symbol = knownToken ? knownToken.symbol : 'Token';
+                                actionLabel = actionLabel === 'Interaction' ? 'Token Transfer' : actionLabel;
 
-                                    actionLabel = actionLabel === 'Interaction' ? 'Token Transfer' : actionLabel;
-
-                                    // Sender Identification (for Received)
-                                    if (type === 'Received') {
-                                        const payerKey = tx.transaction.message.accountKeys[0];
-                                        otherSide = payerKey.pubkey ? payerKey.pubkey.toString() : payerKey.toString();
-                                    }
+                                // Sender Identification (for Received)
+                                if (type === 'Received') {
+                                    const payerKey = tx.transaction.message.accountKeys[0];
+                                    otherSide = payerKey.pubkey ? payerKey.pubkey.toString() : payerKey.toString();
                                 }
-                                // D. Pure SOL Transfer
-                                else if (Math.abs(solDiff) > 0.001) {
-                                    amount = Math.abs(solDiff);
-                                    symbol = 'SOL';
-                                    type = solDiff > 0 ? 'Received' : 'Sent';
-                                    if (type === 'Received') {
-                                        const payerKey = tx.transaction.message.accountKeys[0];
-                                        otherSide = payerKey.pubkey ? payerKey.pubkey.toString() : payerKey.toString();
-                                    }
+                            }
+                            // D. Pure SOL Transfer
+                            else if (Math.abs(solDiff) > 0.001) {
+                                amount = Math.abs(solDiff);
+                                symbol = 'SOL';
+                                type = solDiff > 0 ? 'Received' : 'Sent';
+                                if (type === 'Received') {
+                                    const payerKey = tx.transaction.message.accountKeys[0];
+                                    otherSide = payerKey.pubkey ? payerKey.pubkey.toString() : payerKey.toString();
                                 }
+                            }
 
-                                // E. Fallback: Instruction Analysis (for Smart Transfers where balance meta might be ambiguous)
-                                if (amount === 0) {
-                                    // Quick scan of inner instructions for transfers to us
-                                    const checkIx = (ix: any) => {
-                                        // Check for SPL Token Transfer to our ATA
-                                        if ((ix.program === 'spl-token' || ix.programId === 'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA') &&
-                                            (ix.parsed?.type === 'transfer' || ix.parsed?.type === 'transferChecked')) {
+                            // E. Fallback: Instruction Analysis (for Smart Transfers where balance meta might be ambiguous)
+                            if (amount === 0) {
+                                // Quick scan of inner instructions for transfers to us
+                                const checkIx = (ix: any) => {
+                                    // Check for SPL Token Transfer to our ATA
+                                    if ((ix.program === 'spl-token' || ix.programId === 'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA') &&
+                                        (ix.parsed?.type === 'transfer' || ix.parsed?.type === 'transferChecked')) {
 
-                                            const info = ix.parsed.info;
-                                            // If destination is one of our keys
-                                            if (myATAKeys.has(info.destination)) {
-                                                const val = info.tokenAmount?.uiAmount; // Best case
-                                                if (val) {
-                                                    amount = val;
-                                                    type = 'Received';
-                                                    // Try to identify symbol from mint if available, or guess USCD if amount matches context
-                                                    // But simpler: just set amount. Symbol defaults to 'Token' or we can check known ATAs.
-                                                    // If destination matches USDC_ATA, set Symbol USDC
-                                                    // (This requires us to map ATA -> Symbol in a map)
-                                                    // For now, heuristic:
-                                                    if (amount > 0) symbol = 'USDC'; // Most likely for this context
-                                                }
+                                        const info = ix.parsed.info;
+                                        // If destination is one of our keys
+                                        if (myATAKeys.has(info.destination)) {
+                                            const val = info.tokenAmount?.uiAmount; // Best case
+                                            if (val) {
+                                                amount = val;
+                                                type = 'Received';
+
+                                                const fallbackSymbol = 'Token'; // Defaults to Token
+                                                symbol = fallbackSymbol;
+
+                                                const payerKey = tx.transaction.message.accountKeys[0];
+                                                otherSide = payerKey.pubkey ? payerKey.pubkey.toString() : payerKey.toString();
                                             }
                                         }
-                                    };
+                                    }
+                                };
 
-                                    // Scan inner instructions (most likely for Smart Transfer)
-                                    tx.meta?.innerInstructions?.forEach((inner: any) => inner.instructions.forEach(checkIx));
-                                }
+                                // Scan inner instructions (most likely for Smart Transfer)
+                                tx.meta?.innerInstructions?.forEach((inner: any) => inner.instructions.forEach(checkIx));
                             }
                         }
 
