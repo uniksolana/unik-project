@@ -1,6 +1,6 @@
 'use client';
 
-import { useWallet } from '@solana/wallet-adapter-react';
+import { useWallet, useConnection } from '@solana/wallet-adapter-react';
 import { WalletMultiButton } from '@solana/wallet-adapter-react-ui';
 import { useState, useEffect, useRef, useCallback } from 'react';
 import toast from 'react-hot-toast';
@@ -8,7 +8,6 @@ import { showTransactionToast, showSimpleToast } from '../components/CustomToast
 import { PublicKey, SystemProgram, Transaction, VersionedTransaction, TransactionMessage, ComputeBudgetProgram, TransactionInstruction } from '@solana/web3.js';
 import { PROGRAM_ID, IDL } from '../../utils/anchor';
 import { Program, AnchorProvider, BN } from '@coral-xyz/anchor';
-import { useConnection } from '@solana/wallet-adapter-react';
 import QRCode from "react-qr-code";
 import { Html5Qrcode } from "html5-qrcode";
 import { Buffer } from 'buffer';
@@ -115,7 +114,7 @@ export default function Dashboard() {
             const message = new TextEncoder().encode("Sign this message to unlock your encrypted data (Notes & Avatar) on UNIK.");
             const signature = await signMessage(message);
             const signatureB58 = bs58.encode(signature);
-            const key = await deriveKeyFromSignature(signatureB58);
+            const key = await deriveKeyFromSignature(signatureB58, publicKey.toBase58());
 
             // Save to global session memory
             setSessionKey(key);
@@ -480,15 +479,33 @@ export default function Dashboard() {
                 percentage: s.percent * 100
             }));
 
-            const instruction = await program.methods
+            const instructions: TransactionInstruction[] = [];
+
+            // L-03: Check if route account exists. If not, we must initialize it in the same tx.
+            const routeAccountInfo = await connection.getAccountInfo(routePDA);
+            if (!routeAccountInfo) {
+                const initInstruction = await program.methods
+                    .initRouteConfig(normalizedAlias)
+                    .accounts({
+                        routeAccount: routePDA,
+                        aliasAccount: aliasPDA,
+                        user: publicKey,
+                        systemProgram: SystemProgram.programId,
+                    })
+                    .instruction();
+                instructions.push(initInstruction);
+            }
+
+            const setInstruction = await program.methods
                 .setRouteConfig(normalizedAlias, idlSplits)
                 .accounts({
                     routeAccount: routePDA,
                     aliasAccount: aliasPDA,
                     user: publicKey,
-                    systemProgram: SystemProgram.programId,
+                    systemProgram: SystemProgram.programId, // Might not strictly need SystemProgram for mut, but safe to leave
                 })
                 .instruction();
+            instructions.push(setInstruction);
 
             const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash('finalized');
 
@@ -498,7 +515,7 @@ export default function Dashboard() {
                 instructions: [
                     ComputeBudgetProgram.setComputeUnitLimit({ units: 50_000 }),
                     ComputeBudgetProgram.setComputeUnitPrice({ microLamports: 1000 }),
-                    instruction
+                    ...instructions
                 ],
             }).compileToV0Message();
 

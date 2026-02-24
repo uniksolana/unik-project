@@ -28,9 +28,7 @@ describe("unik_anchor", () => {
     await program.methods
       .registerAlias(alias, metadataUri)
       .accounts({
-        aliasAccount: aliasPda,
         user: provider.wallet.publicKey,
-        systemProgram: anchor.web3.SystemProgram.programId,
       })
       .rpc();
 
@@ -51,12 +49,16 @@ describe("unik_anchor", () => {
     ];
 
     await program.methods
+      .initRouteConfig(alias)
+      .accounts({
+        user: provider.wallet.publicKey,
+      })
+      .rpc();
+
+    await program.methods
       .setRouteConfig(alias, splits)
       .accounts({
-        routeAccount: routePda,
-        aliasAccount: aliasPda,
         user: provider.wallet.publicKey,
-        systemProgram: anchor.web3.SystemProgram.programId,
       })
       .rpc();
 
@@ -76,13 +78,11 @@ describe("unik_anchor", () => {
       { recipient: recipient2.publicKey, percentage: 5000 }, // 50%
     ];
 
+    // We skip initRouteConfig here because it was already initialized in the previous test
     await program.methods
       .setRouteConfig(alias, splits)
       .accounts({
-        routeAccount: routePda,
-        aliasAccount: aliasPda,
         user: provider.wallet.publicKey,
-        systemProgram: anchor.web3.SystemProgram.programId,
       })
       .rpc();
 
@@ -95,9 +95,7 @@ describe("unik_anchor", () => {
     await program.methods
       .executeTransfer(alias, amount)
       .accounts({
-        routeAccount: routePda,
         user: provider.wallet.publicKey,
-        systemProgram: anchor.web3.SystemProgram.programId,
       })
       .remainingAccounts([
         { pubkey: recipient1.publicKey, isWritable: true, isSigner: false },
@@ -137,10 +135,7 @@ describe("unik_anchor", () => {
     const splits = [{ recipient: r1, percentage: 10001 }]; // 100.01%
     try {
       await program.methods.setRouteConfig(alias, splits).accounts({
-        routeAccount: routePda,
-        aliasAccount: aliasPda,
         user: provider.wallet.publicKey,
-        systemProgram: anchor.web3.SystemProgram.programId,
       }).rpc();
       assert.fail("Should fail > 100%");
     } catch (e: any) {
@@ -154,10 +149,7 @@ describe("unik_anchor", () => {
     const splits = [{ recipient: r1, percentage: 9999 }]; // 99.99%
     try {
       await program.methods.setRouteConfig(alias, splits).accounts({
-        routeAccount: routePda,
-        aliasAccount: aliasPda,
         user: provider.wallet.publicKey,
-        systemProgram: anchor.web3.SystemProgram.programId,
       }).rpc();
       assert.fail("Should fail < 100%");
     } catch (e: any) {
@@ -186,10 +178,7 @@ describe("unik_anchor", () => {
 
     try {
       await program.methods.setRouteConfig(alias, splits).accounts({
-        routeAccount: routePda,
-        aliasAccount: aliasPda,
         user: provider.wallet.publicKey,
-        systemProgram: anchor.web3.SystemProgram.programId,
       }).rpc();
       assert.fail("Should fail with > 5 splits");
     } catch (e: any) {
@@ -210,10 +199,7 @@ describe("unik_anchor", () => {
     ];
     try {
       await program.methods.setRouteConfig(alias, splits).accounts({
-        routeAccount: routePda,
-        aliasAccount: aliasPda,
         user: provider.wallet.publicKey,
-        systemProgram: anchor.web3.SystemProgram.programId,
       }).rpc();
       assert.fail("Should duplicate recipient");
     } catch (e: any) {
@@ -228,10 +214,7 @@ describe("unik_anchor", () => {
     ];
     try {
       await program.methods.setRouteConfig(alias, splits).accounts({
-        routeAccount: routePda,
-        aliasAccount: aliasPda,
         user: provider.wallet.publicKey,
-        systemProgram: anchor.web3.SystemProgram.programId,
       }).rpc();
       assert.fail("Should fail self-reference");
     } catch (e: any) {

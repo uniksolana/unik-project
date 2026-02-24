@@ -172,7 +172,7 @@ This signature is free and does not authorize any transaction.`;
             const signatureBase64 = Buffer.from(signatureBytes).toString('base64');
 
             // Generate encryption key from signature (same message = same key)
-            const key = await deriveKeyFromSignature(signatureBase64);
+            const key = await deriveKeyFromSignature(signatureBase64, publicKey.toBase58());
             // Don't set session key yet to avoid race condition with auth token
 
             // Small delay to prevent wallet from rejecting rapid requests (Fix: increased to 2000ms)

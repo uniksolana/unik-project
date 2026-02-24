@@ -1,12 +1,17 @@
 
 // Client-side encryption utility using Web Crypto API (AES-GCM)
 
-// 1. Derive a symmetric key from the user's signature
-export async function deriveKeyFromSignature(signature: string, salt: string = "unik-salt-v1"): Promise<CryptoKey> {
+// 1. Derive a symmetric key from the user's signature using PBKDF2
+// M-03: Salt is now securely derived from the user's public key instead of a static string.
+// M-02: Iterations increased to 600,000 for brute-force resistance.
+export async function deriveKeyFromSignature(signature: string, publicKey: string): Promise<CryptoKey> {
     const enc = new TextEncoder();
+    // Use a combination of the public key and a versioning prefix for the salt
+    const saltString = `unik-v2-${publicKey}`;
+
     const keyMaterial = await window.crypto.subtle.importKey(
         "raw",
-        enc.encode(signature + salt) as BufferSource,
+        enc.encode(signature + saltString) as BufferSource,
         "PBKDF2",
         false,
         ["deriveBits", "deriveKey"]
@@ -15,8 +20,8 @@ export async function deriveKeyFromSignature(signature: string, salt: string = "
     return window.crypto.subtle.deriveKey(
         {
             name: "PBKDF2",
-            salt: enc.encode(salt) as BufferSource,
-            iterations: 100000,
+            salt: enc.encode(saltString) as BufferSource,
+            iterations: 600000,
             hash: "SHA-256"
         },
         keyMaterial,
@@ -79,7 +84,7 @@ export async function decryptData(encryptedBase64: string, key: CryptoKey): Prom
 export async function encryptBlob(blob: Blob, key: CryptoKey): Promise<Blob> {
     const iv = window.crypto.getRandomValues(new Uint8Array(12));
     const arrayBuffer = await blob.arrayBuffer();
-    
+
     const encryptedContent = await window.crypto.subtle.encrypt(
         {
             name: "AES-GCM",
@@ -97,11 +102,11 @@ export async function encryptBlob(blob: Blob, key: CryptoKey): Promise<Blob> {
 // 5. Decrypt Binary Blob
 export async function decryptBlob(encryptedBlob: Blob, key: CryptoKey, mimeType: string = 'image/png'): Promise<Blob> {
     const arrayBuffer = await encryptedBlob.arrayBuffer();
-    
+
     // Extract IV (first 12 bytes)
     const iv = new Uint8Array(arrayBuffer.slice(0, 12));
     const content = arrayBuffer.slice(12);
-    
+
     try {
         const decryptedContent = await window.crypto.subtle.decrypt(
             {

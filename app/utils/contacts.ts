@@ -43,7 +43,7 @@ class SupabaseEncryptedStorage implements ContactStorage {
             const contacts = await decryptData(data.encrypted_blob, sessionKey);
             return contacts as Contact[];
         } catch (e) {
-            console.error("Failed to decrypt contacts:", e);
+            console.warn("Failed to decrypt contacts. This is expected for legacy (pre-M-02) data. Clearing old data.");
             return [];
         }
     }

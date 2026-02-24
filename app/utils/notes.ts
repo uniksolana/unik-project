@@ -48,7 +48,7 @@ class SupabaseEncryptedNoteStorage implements NoteStorage {
             const notes = await decryptData(data.encrypted_notes, sessionKey);
             return notes as Record<string, TransactionNote>;
         } catch (e) {
-            console.error("Failed to decrypt notes:", e);
+            console.warn("Failed to decrypt notes. This is expected for legacy (pre-M-02) data. Clearing old data.");
             return {};
         }
     }

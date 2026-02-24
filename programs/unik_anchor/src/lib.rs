@@ -27,6 +27,26 @@ pub mod unik_anchor {
         alias_account.bump = ctx.bumps.alias_account;
         
         msg!("Alias registered: {} (version 1)", alias_account.alias);
+        emit!(AliasEvent {
+            event_type: "REGISTER".to_string(),
+            alias: alias_account.alias.clone(),
+            owner: alias_account.owner,
+            timestamp: alias_account.registered_at,
+        });
+        Ok(())
+    }
+
+    pub fn init_route_config(ctx: Context<InitRouteConfig>, alias: String) -> Result<()> {
+        let route_account = &mut ctx.accounts.route_account;
+        let alias_account = &ctx.accounts.alias_account;
+
+        require!(alias_account.owner == ctx.accounts.user.key(), UnikError::Unauthorized);
+        
+        route_account.alias_ref = alias_account.key();
+        route_account.splits = Vec::new(); // Initialize empty splits
+        route_account.bump = ctx.bumps.route_account;
+
+        msg!("Route config initialized for alias: {}", alias);
         Ok(())
     }
 
@@ -63,10 +83,16 @@ pub mod unik_anchor {
         // effectively leaving it in the sender's wallet (since we only transfer calculated amounts).
 
         route_account.alias_ref = alias_account.key();
-        route_account.splits = splits;
-        route_account.bump = ctx.bumps.route_account;
         
-        msg!("Route config set for alias: {} with {} splits", alias, route_account.splits.len());
+        let splits_len = splits.len();
+        route_account.splits = splits;
+        
+        msg!("Route config set for alias: {} with {} splits", alias, splits_len);
+        emit!(RouteEvent {
+            alias: alias.clone(),
+            splits_count: splits_len as u8,
+            timestamp: Clock::get()?.unix_timestamp,
+        });
         Ok(())
     }
 
@@ -96,6 +122,12 @@ pub mod unik_anchor {
                 .ok_or(UnikError::Overflow)? as u64;
 
             if split_amount > 0 {
+                // M-05: Ensure the recipient is a valid system account or has rent to receive lamports
+                require!(
+                    recipient_acc.owner == &system_program::ID || recipient_acc.lamports() > 0,
+                    UnikError::MissingRecipient // Or create a new specific error like InvalidRecipientAccount
+                );
+
                 // Perform transfer from user to recipient
                 let cpi_context = CpiContext::new(
                     system_program_info.clone(),
@@ -173,6 +205,12 @@ pub mod unik_anchor {
         alias_account.metadata_uri = new_metadata_uri;
         
         msg!("Alias metadata updated");
+        emit!(AliasEvent {
+            event_type: "UPDATE".to_string(),
+            alias: alias_account.alias.clone(),
+            owner: alias_account.owner,
+            timestamp: Clock::get()?.unix_timestamp,
+        });
         Ok(())
     }
 
@@ -184,6 +222,12 @@ pub mod unik_anchor {
         alias_account.is_active = false;
         
         msg!("Alias deactivated: {}", alias_account.alias);
+        emit!(AliasEvent {
+            event_type: "DEACTIVATE".to_string(),
+            alias: alias_account.alias.clone(),
+            owner: alias_account.owner,
+            timestamp: Clock::get()?.unix_timestamp,
+        });
         Ok(())
     }
 
@@ -195,23 +239,27 @@ pub mod unik_anchor {
         alias_account.is_active = true;
         
         msg!("Alias reactivated: {}", alias_account.alias);
+        emit!(AliasEvent {
+            event_type: "REACTIVATE".to_string(),
+            alias: alias_account.alias.clone(),
+            owner: alias_account.owner,
+            timestamp: Clock::get()?.unix_timestamp,
+        });
         Ok(())
     }
 
     /// Delete an alias permanently - refunds rent to owner
     /// The alias becomes available for registration by anyone
-    pub fn delete_alias(ctx: Context<DeleteAlias>, alias: String) -> Result<()> {
-        // Manual PDA check for security
-        let (pda, _bump) = Pubkey::find_program_address(&[b"alias", alias.as_bytes()], ctx.program_id);
-        if pda != ctx.accounts.alias_account.key() {
-            msg!("Error: PDA mismatch!");
-            msg!("Expected: {}", pda);
-            msg!("Actual:   {}", ctx.accounts.alias_account.key());
-            return err!(UnikError::InvalidPDA); // Make sure this error exists or use Unauthorized
-        }
-
-        // Note: Anchor automatically closes the account and refunds rent to `close = user`
+    pub fn delete_alias(_ctx: Context<DeleteAlias>, alias: String) -> Result<()> {
+        // Validation is completely handled by Anchor's `seeds`, `bump` and `constraint` macros.
+        // It automatically closes the account and refunds rent to `close = user`.
         msg!("Alias deleted: {}", alias);
+        emit!(AliasEvent {
+            event_type: "DELETE".to_string(),
+            alias: alias.clone(),
+            owner: _ctx.accounts.user.key(),
+            timestamp: Clock::get()?.unix_timestamp,
+        });
         Ok(())
     }
 }
@@ -255,7 +303,8 @@ pub struct UpdateAlias<'info> {
 pub struct DeleteAlias<'info> {
     #[account(
         mut,
-        // Manual check in function body to avoid Anchor macro issues
+        seeds = [b"alias", alias.as_bytes()],
+        bump = alias_account.bump,
         constraint = alias_account.owner == user.key() @ UnikError::Unauthorized,
         close = user,  // Refund rent to user
     )]
@@ -269,7 +318,30 @@ pub struct DeleteAlias<'info> {
 #[instruction(alias: String, splits: Vec<Split>)]
 pub struct SetRouteConfig<'info> {
     #[account(
-        init_if_needed,
+        mut,
+        seeds = [b"route", alias.as_bytes()],
+        bump = route_account.bump,
+    )]
+    pub route_account: Account<'info, RouteAccount>,
+    
+    #[account(
+        seeds = [b"alias", alias.as_bytes()],
+        bump = alias_account.bump,
+        constraint = alias_account.owner == user.key()
+    )]
+    pub alias_account: Account<'info, AliasAccount>,
+    
+    #[account(mut)]
+    pub user: Signer<'info>,
+    
+    pub system_program: Program<'info, System>,
+}
+
+#[derive(Accounts)]
+#[instruction(alias: String)]
+pub struct InitRouteConfig<'info> {
+    #[account(
+        init,
         payer = user,
         space = 8 + 32 + 4 + (5 * 34) + 1 + 100, // Fixed space for max 5 splits
         seeds = [b"route", alias.as_bytes()],
@@ -392,6 +464,21 @@ pub enum UnikError {
     AmountTooSmall,
     #[msg("The provided alias account address does not match the derived PDA.")]
     InvalidPDA,
+}
+
+#[event]
+pub struct AliasEvent {
+    pub event_type: String, // "REGISTER", "UPDATE", "DEACTIVATE", "REACTIVATE", "DELETE"
+    pub alias: String,
+    pub owner: Pubkey,
+    pub timestamp: i64,
+}
+
+#[event]
+pub struct RouteEvent {
+    pub alias: String,
+    pub splits_count: u8,
+    pub timestamp: i64,
 }
 
 
