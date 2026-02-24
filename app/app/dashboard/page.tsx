@@ -3031,10 +3031,14 @@ function HistoryTab({ publicKey, connection, confirmModal, setConfirmModal, cont
                         let isSmartRouting = false;
 
                         // 1. Check for UNIK Interactions via Logs
-                        // 1. Analyze Logs for Context
                         const logs = tx?.meta?.logMessages || [];
                         const isRegisterAlias = logs.some((l: string) => l.includes("Instruction: RegisterAlias"));
                         const isSetRoute = logs.some((l: string) => l.includes("Instruction: SetRouteConfig"));
+
+                        // Detect if this transaction involved a split (smart routing)
+                        if (logs.some((l: string) => l.includes("Instruction: ExecuteTransfer") || l.includes("Instruction: ExecuteTokenTransfer"))) {
+                            isSmartRouting = true;
+                        }
 
                         // Check Order Match (Backend Override - Highest Priority for Meta)
                         const matchingOrder = backendOrders.find((o: any) => o.tx_signature === sig.signature);
