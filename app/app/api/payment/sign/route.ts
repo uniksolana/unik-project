@@ -4,7 +4,9 @@ import { checkRateLimit } from '../../../../utils/rateLimit';
 
 const getHmacSecret = () => {
     const secret = process.env.PAYMENT_HMAC_SECRET;
-    if (!secret) return 'fallback-secret-505'; // Fallback for dev to prevent crashes if missing
+    if (!secret) {
+        throw new Error('Missing PAYMENT_HMAC_SECRET');
+    }
     return secret;
 };
 
