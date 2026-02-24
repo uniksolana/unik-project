@@ -55,43 +55,49 @@ export async function GET(request: NextRequest) {
                             border: '1px solid rgba(255, 255, 255, 0.1)',
                             borderRadius: '48px',
                             boxShadow: '0 20px 40px rgba(0, 0, 0, 0.5)',
-                            padding: '60px',
+                            padding: '40px 60px 50px 60px', /* Reduced top padding slightly to lift up */
                             position: 'relative',
                         }}
                     >
                         {/* Cabecera / Logo */}
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '40px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '20px' }}>
                             <img src={logoUrl} width="64" height="64" style={{ borderRadius: '16px' }} />
-                            <span style={{ color: 'white', fontSize: 48, fontWeight: 700, letterSpacing: '-0.02em' }}>
+                            <span style={{ color: 'white', fontSize: 48, fontWeight: 700, letterSpacing: '-0.02em', display: 'flex', alignItems: 'center' }}>
                                 UNIK<span style={{ color: '#9ca3af', fontWeight: 400 }}>Pay</span>
                             </span>
                         </div>
 
                         {/* Contenido principal */}
-                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px' }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px' }}>
                             {isRequest ? (
-                                <span style={{ color: '#38bdf8', fontSize: 36, fontWeight: 500, letterSpacing: '0.05em', textTransform: 'uppercase' }}>
+                                <span style={{ color: '#38bdf8', fontSize: 32, fontWeight: 500, letterSpacing: '0.05em', textTransform: 'uppercase', marginBottom: '10px' }}>
                                     Solicitud de Pago
                                 </span>
                             ) : (
-                                <span style={{ color: '#a78bfa', fontSize: 36, fontWeight: 500, letterSpacing: '0.05em', textTransform: 'uppercase' }}>
+                                <span style={{ color: '#a78bfa', fontSize: 32, fontWeight: 500, letterSpacing: '0.05em', textTransform: 'uppercase', marginBottom: '10px' }}>
                                     Enviar fondos
                                 </span>
                             )}
 
                             {isRequest && (
-                                <span style={{ color: 'white', fontSize: 130, fontWeight: 800, margin: '20px 0', display: 'flex', alignItems: 'baseline', gap: '20px' }}>
-                                    {amount} <span style={{ fontSize: 60, color: '#9ca3af', fontWeight: 600 }}>{token}</span>
-                                </span>
+                                <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', margin: '20px 0', gap: '20px' }}>
+                                    <span style={{ color: 'white', fontSize: 130, fontWeight: 800, lineHeight: 1 }}>
+                                        {amount}
+                                    </span>
+                                    <span style={{ fontSize: 60, color: '#9ca3af', fontWeight: 600, marginTop: '20px' }}>
+                                        {token}
+                                    </span>
+                                </div>
                             )}
 
-                            <div style={{ display: 'flex', alignItems: 'center', fontSize: 50, color: '#f3f4f6', marginTop: isRequest ? 10 : 30 }}>
+                            <div style={{ display: 'flex', alignItems: 'center', fontSize: 50, color: '#f3f4f6', marginTop: isRequest ? 15 : 30 }}>
                                 <span style={{ color: '#9ca3af', marginRight: '20px' }}>Para:</span> <span style={{ fontWeight: 600 }}>@{alias}</span>
                             </div>
 
                             {concept && (
-                                <div style={{ display: 'flex', alignItems: 'center', fontSize: 36, color: '#d1d5db', marginTop: '30px', background: 'rgba(255, 255, 255, 0.1)', padding: '16px 36px', borderRadius: '100px', textAlign: 'center' }}>
-                                    "{concept}"
+                                <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', gap: '12px', marginTop: '30px', background: 'rgba(255, 255, 255, 0.1)', padding: '16px 36px', borderRadius: '100px' }}>
+                                    <span style={{ color: '#9ca3af', fontSize: 36, fontWeight: 500 }}>Concepto:</span>
+                                    <span style={{ color: '#d1d5db', fontSize: 36, fontWeight: 600 }}>"{concept}"</span>
                                 </div>
                             )}
                         </div>
