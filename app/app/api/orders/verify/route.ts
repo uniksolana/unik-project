@@ -185,7 +185,8 @@ export async function POST(request: NextRequest) {
             actualAmountHuman = Number(actualAmountLamports) / Math.pow(10, decimals);
         }
 
-        const isAmountCorrect = actualAmountHuman >= expectedAmountNumber * 0.99; // 1% tolerance for fees
+        // M-06: Remove 1% underpayment tolerance to prevent systematic sub-payments
+        const isAmountCorrect = actualAmountHuman >= expectedAmountNumber;
 
         // 5. Update order
         const newStatus = isAmountCorrect ? 'paid' : 'failed';

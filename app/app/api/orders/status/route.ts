@@ -18,7 +18,7 @@ export async function POST(request: NextRequest) {
 
         const { data: order, error } = await supabase
             .from('payment_orders')
-            .select('id, merchant_alias, expected_amount, expected_token, concept, status, actual_amount, payer_wallet, tx_signature, created_at, paid_at')
+            .select('id, merchant_alias, merchant_wallet, expected_amount, expected_token, concept, status, actual_amount, payer_wallet, tx_signature, created_at, paid_at')
             .eq('id', order_id)
             .single();
 
@@ -26,24 +26,35 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'Order not found' }, { status: 404 });
         }
 
-        // Optional: verify the requester is the merchant
-        if (merchant_wallet && order.merchant_alias) {
-            // We allow checking without wallet for now (public order status)
-        }
+        // M-04: Restrict public order status to prevent data leakage
+        // We only allow checking full details if the request includes the correct merchant_wallet.
+        // If not, we only return the public payment status to prevent scraping.
+        const isAuthorizedMerchant = merchant_wallet && order.merchant_alias && merchant_wallet === order.merchant_wallet && merchant_wallet !== undefined;
 
-        return NextResponse.json({
-            order_id: order.id,
-            status: order.status,
-            expected_amount: order.expected_amount,
-            expected_token: order.expected_token,
-            actual_amount: order.actual_amount,
-            concept: order.concept,
-            payer_wallet: order.payer_wallet,
-            tx_signature: order.tx_signature,
-            created_at: order.created_at,
-            paid_at: order.paid_at,
-            verified: order.status === 'paid',
-        });
+        if (isAuthorizedMerchant) {
+            return NextResponse.json({
+                order_id: order.id,
+                status: order.status,
+                expected_amount: order.expected_amount,
+                expected_token: order.expected_token,
+                actual_amount: order.actual_amount,
+                concept: order.concept,
+                payer_wallet: order.payer_wallet,
+                tx_signature: order.tx_signature,
+                created_at: order.created_at,
+                paid_at: order.paid_at,
+                verified: order.status === 'paid',
+            });
+        } else {
+            // Minimal public information
+            return NextResponse.json({
+                order_id: order.id,
+                status: order.status,
+                expected_amount: order.expected_amount,
+                expected_token: order.expected_token,
+                verified: order.status === 'paid',
+            });
+        }
     } catch (e) {
         console.error('[Orders/Status] Error:', e);
         return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
