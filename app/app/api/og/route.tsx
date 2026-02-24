@@ -10,7 +10,7 @@ export async function GET(request: NextRequest) {
         // Parametros dinámicos
         const alias = searchParams.get('alias') || 'Usuario';
         const amount = searchParams.get('amount');
-        const token = searchParams.get('token');
+        const token = searchParams.get('token') || 'SOL';
         const concept = searchParams.get('concept') || '';
 
         // Si no hay amount, mostramos una genérica de "Pagar a"
@@ -51,7 +51,6 @@ export async function GET(request: NextRequest) {
                             alignItems: 'center',
                             justifyContent: 'center',
                             width: '85%',
-                            height: '80%',
                             background: 'rgba(255, 255, 255, 0.05)',
                             border: '1px solid rgba(255, 255, 255, 0.1)',
                             borderRadius: '48px',
@@ -61,7 +60,7 @@ export async function GET(request: NextRequest) {
                         }}
                     >
                         {/* Cabecera / Logo */}
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '50px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '40px' }}>
                             <img src={logoUrl} width="64" height="64" style={{ borderRadius: '16px' }} />
                             <span style={{ color: 'white', fontSize: 48, fontWeight: 700, letterSpacing: '-0.02em' }}>
                                 UNIK<span style={{ color: '#9ca3af', fontWeight: 400 }}>Pay</span>
@@ -86,21 +85,15 @@ export async function GET(request: NextRequest) {
                                 </span>
                             )}
 
-                            <div style={{ display: 'flex', alignItems: 'center', fontSize: 50, color: '#f3f4f6', marginTop: isRequest ? 10 : 50 }}>
+                            <div style={{ display: 'flex', alignItems: 'center', fontSize: 50, color: '#f3f4f6', marginTop: isRequest ? 10 : 30 }}>
                                 <span style={{ color: '#9ca3af', marginRight: '20px' }}>Para:</span> <span style={{ fontWeight: 600 }}>@{alias}</span>
                             </div>
 
                             {concept && (
-                                <div style={{ display: 'flex', alignItems: 'center', fontSize: 36, color: '#d1d5db', marginTop: '30px', background: 'rgba(255, 255, 255, 0.1)', padding: '16px 36px', borderRadius: '100px' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', fontSize: 36, color: '#d1d5db', marginTop: '30px', background: 'rgba(255, 255, 255, 0.1)', padding: '16px 36px', borderRadius: '100px', textAlign: 'center' }}>
                                     "{concept}"
                                 </div>
                             )}
-                        </div>
-
-                        {/* Footer (Solana Badge) */}
-                        <div style={{ position: 'absolute', bottom: '40px', display: 'flex', alignItems: 'center', gap: '12px', opacity: 0.7 }}>
-                            <span style={{ color: '#9ca3af', fontSize: 24 }}>Powered by</span>
-                            <span style={{ color: 'white', fontSize: 24, fontWeight: 600, background: 'linear-gradient(to right, #14F195, #9945FF)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>Solana</span>
                         </div>
                     </div>
                 </div>
