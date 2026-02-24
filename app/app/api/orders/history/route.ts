@@ -1,14 +1,24 @@
-
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSupabase } from '../../../../utils/supabaseServer';
+import { verifyWalletSignature } from '../../../../utils/verifyAuth';
 
 export async function POST(req: NextRequest) {
     try {
         const body = await req.json();
-        const { wallet } = body;
+        const { wallet, auth_wallet, auth_signature, auth_message } = body;
 
         if (!wallet) {
             return NextResponse.json({ error: 'Wallet address required' }, { status: 400 });
+        }
+
+        // C-04: Authorization Check
+        if (!auth_wallet || !auth_signature || !auth_message || auth_wallet !== wallet) {
+            return NextResponse.json({ error: 'Unauthorized: Missing or invalid authentication' }, { status: 401 });
+        }
+
+        const isValid = verifyWalletSignature(auth_wallet, auth_signature, auth_message);
+        if (!isValid) {
+            return NextResponse.json({ error: 'Unauthorized: Invalid signature' }, { status: 401 });
         }
 
         const supabase = getServerSupabase();

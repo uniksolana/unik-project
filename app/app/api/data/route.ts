@@ -181,11 +181,9 @@ export async function POST(request: NextRequest) {
 
             case 'save_consent': {
                 if (!wallet_address) return NextResponse.json({ error: 'Missing wallet_address' }, { status: 400 });
-                // We verify the signature provided in the body itself, no need for auth header
-                const { signature_base64, consent_version, ip_address } = body;
+                requireAuth(); // 🔒 AUTH REQUIRED: Verify signature against the payload wallet_address
 
-                // TODO: Verify signature_base64 here against wallet_address if strictness needed
-                // For now, we trust the client logic + signature existence
+                const { signature_base64, consent_version, ip_address } = body;
 
                 const { error } = await supabase
                     .from('legal_consents')
