@@ -254,8 +254,21 @@ pub mod unik_anchor {
         Ok(())
     }
 
+    /// Delete a route config independently - refunds rent to owner
+    /// Must be called BEFORE delete_alias if a route exists.
+    pub fn delete_route_config(_ctx: Context<DeleteRouteConfig>, alias: String) -> Result<()> {
+        msg!("Route config deleted for alias: {}", alias);
+        emit!(RouteEvent {
+            alias: alias.clone(),
+            splits_count: 0,
+            timestamp: Clock::get()?.unix_timestamp,
+        });
+        Ok(())
+    }
+
     /// Delete an alias permanently - refunds rent to owner
     /// The alias becomes available for registration by anyone
+    /// NOTE: If a route config exists, call delete_route_config FIRST.
     pub fn delete_alias(_ctx: Context<DeleteAlias>, alias: String) -> Result<()> {
         // Validation is completely handled by Anchor's `seeds`, `bump` and `constraint` macros.
         // It automatically closes the account and refunds rent to `close = user`.
@@ -315,13 +328,28 @@ pub struct DeleteAlias<'info> {
         close = user,  // Refund rent to user
     )]
     pub alias_account: Account<'info, AliasAccount>,
+    
+    #[account(mut)]
+    pub user: Signer<'info>,
+}
 
-    // CRIT-03: Close the associated route account when deleting an alias
+#[derive(Accounts)]
+#[instruction(alias: String)]
+pub struct DeleteRouteConfig<'info> {
+    // Verify the alias exists and the user owns it
+    #[account(
+        seeds = [b"alias", alias.as_bytes()],
+        bump = alias_account.bump,
+        constraint = alias_account.owner == user.key() @ UnikError::Unauthorized,
+    )]
+    pub alias_account: Account<'info, AliasAccount>,
+
+    // Close the route account and refund rent
     #[account(
         mut,
         seeds = [b"route", alias.as_bytes()],
         bump = route_account.bump,
-        close = user,  // Refund route rent to user
+        close = user,
     )]
     pub route_account: Account<'info, RouteAccount>,
     

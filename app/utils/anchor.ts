@@ -67,7 +67,8 @@ export const IDL = {
       "name": "delete_alias",
       "docs": [
         "Delete an alias permanently - refunds rent to owner",
-        "The alias becomes available for registration by anyone"
+        "The alias becomes available for registration by anyone",
+        "NOTE: If a route config exists, call delete_route_config FIRST."
       ],
       "discriminator": [
         218,
@@ -83,6 +84,57 @@ export const IDL = {
         {
           "name": "alias_account",
           "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  97,
+                  108,
+                  105,
+                  97,
+                  115
+                ]
+              },
+              {
+                "kind": "arg",
+                "path": "alias"
+              }
+            ]
+          }
+        },
+        {
+          "name": "user",
+          "writable": true,
+          "signer": true
+        }
+      ],
+      "args": [
+        {
+          "name": "alias",
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "name": "delete_route_config",
+      "docs": [
+        "Delete a route config independently - refunds rent to owner",
+        "Must be called BEFORE delete_alias if a route exists."
+      ],
+      "discriminator": [
+        250,
+        186,
+        203,
+        55,
+        21,
+        76,
+        176,
+        35
+      ],
+      "accounts": [
+        {
+          "name": "alias_account",
           "pda": {
             "seeds": [
               {
