@@ -37,7 +37,7 @@ export async function generateMetadata(props: Props): Promise<Metadata> {
         : `Enviar Pago a @${alias} - UNIK Pay`;
 
     const description = isRequest
-        ? `Paga ${amount} ${token || 'SOL'} a @${alias} de forma segura con Solana.`
+        ? `Paga ${amount} ${token || 'SOL'} a @${alias} de forma segura con UNIK.`
         : `Envía fondos a @${alias} instantáneamente vía UNIK Pay.`;
 
     return {

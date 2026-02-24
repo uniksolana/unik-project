@@ -55,26 +55,18 @@ export async function GET(request: NextRequest) {
                             border: '1px solid rgba(255, 255, 255, 0.1)',
                             borderRadius: '48px',
                             boxShadow: '0 20px 40px rgba(0, 0, 0, 0.5)',
-                            padding: '40px 60px 50px 60px', /* Reduced top padding slightly to lift up */
+                            padding: '80px 60px 100px 60px', /* Add bottom space for footer */
                             position: 'relative',
                         }}
                     >
-                        {/* Cabecera / Logo */}
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '20px' }}>
-                            <img src={logoUrl} width="64" height="64" style={{ borderRadius: '16px' }} />
-                            <span style={{ color: 'white', fontSize: 48, fontWeight: 700, letterSpacing: '-0.02em', display: 'flex', alignItems: 'center' }}>
-                                UNIK<span style={{ color: '#9ca3af', fontWeight: 400 }}>Pay</span>
-                            </span>
-                        </div>
-
                         {/* Contenido principal */}
                         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px' }}>
                             {isRequest ? (
-                                <span style={{ color: '#38bdf8', fontSize: 32, fontWeight: 500, letterSpacing: '0.05em', textTransform: 'uppercase', marginBottom: '10px' }}>
+                                <span style={{ color: '#38bdf8', fontSize: 40, fontWeight: 500, letterSpacing: '0.05em', textTransform: 'uppercase', marginBottom: '10px' }}>
                                     Solicitud de Pago
                                 </span>
                             ) : (
-                                <span style={{ color: '#a78bfa', fontSize: 32, fontWeight: 500, letterSpacing: '0.05em', textTransform: 'uppercase', marginBottom: '10px' }}>
+                                <span style={{ color: '#a78bfa', fontSize: 40, fontWeight: 500, letterSpacing: '0.05em', textTransform: 'uppercase', marginBottom: '10px' }}>
                                     Enviar fondos
                                 </span>
                             )}
@@ -95,11 +87,22 @@ export async function GET(request: NextRequest) {
                             </div>
 
                             {concept && (
-                                <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', gap: '12px', marginTop: '30px', background: 'rgba(255, 255, 255, 0.1)', padding: '16px 36px', borderRadius: '100px' }}>
+                                <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', gap: '12px', marginTop: '40px', background: 'rgba(255, 255, 255, 0.1)', padding: '16px 36px', borderRadius: '100px' }}>
                                     <span style={{ color: '#9ca3af', fontSize: 36, fontWeight: 500 }}>Concepto:</span>
                                     <span style={{ color: '#d1d5db', fontSize: 36, fontWeight: 600 }}>"{concept}"</span>
                                 </div>
                             )}
+                        </div>
+
+                        {/* Footer (UNIK Badge) */}
+                        <div style={{ position: 'absolute', bottom: '30px', display: 'flex', alignItems: 'center', gap: '12px', opacity: 0.8 }}>
+                            <span style={{ color: '#9ca3af', fontSize: 24, fontWeight: 500 }}>Powered by</span>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <img src={logoUrl} width="32" height="32" style={{ borderRadius: '8px' }} />
+                                <span style={{ color: 'white', fontSize: 28, fontWeight: 700, letterSpacing: '-0.02em', display: 'flex', alignItems: 'center' }}>
+                                    UNIK<span style={{ color: '#9ca3af', fontWeight: 400 }}>Pay</span>
+                                </span>
+                            </div>
                         </div>
                     </div>
                 </div>
