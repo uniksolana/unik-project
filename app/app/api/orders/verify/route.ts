@@ -113,6 +113,7 @@ export async function POST(request: NextRequest) {
         // 3. Parse the transfer amount
         let actualAmountLamports = BigInt(0);
         let tokenTransferFound = false;
+        let postTokenBalances: any[] = []; // L-04 fix scoping
 
         if (order.expected_token === 'SOL') {
             // For SOL transfers, check balance changes
@@ -134,7 +135,7 @@ export async function POST(request: NextRequest) {
         } else {
             // For SPL token transfers, check token balance changes
             const preTokenBalances = tx.meta.preTokenBalances || [];
-            const postTokenBalances = tx.meta.postTokenBalances || [];
+            postTokenBalances = tx.meta.postTokenBalances || [];
 
             // Find merchant's token balance change
             for (const postBal of postTokenBalances) {
@@ -180,8 +181,20 @@ export async function POST(request: NextRequest) {
         if (order.expected_token === 'SOL') {
             actualAmountHuman = Number(actualAmountLamports) / LAMPORTS_PER_SOL;
         } else {
-            // SPL tokens: use the decimals from the token (most stablecoins = 6, some = 9)
-            const decimals = order.expected_token === 'USDC' || order.expected_token === 'USDT' || order.expected_token === 'EURC' ? 6 : 9;
+            // L-04: Fetch SPL token decimals dynamically from the mint instead of hardcoding
+            let decimals = 6; // Default fallback
+            if (postTokenBalances.length > 0 && postTokenBalances[0].mint) {
+                const mintPubkey = new PublicKey(postTokenBalances[0].mint);
+                try {
+                    // Try to get token supply info which contains decimals
+                    const tokenSupply = await connection.getTokenSupply(mintPubkey);
+                    if (tokenSupply && tokenSupply.value) {
+                        decimals = tokenSupply.value.decimals;
+                    }
+                } catch (err) {
+                    console.warn(`[Orders/Verify] Could not fetch decimals for mint ${mintPubkey.toBase58()}, falling back to 6.`, err);
+                }
+            }
             actualAmountHuman = Number(actualAmountLamports) / Math.pow(10, decimals);
         }
 
