@@ -25,6 +25,9 @@ export async function GET(request: NextRequest) {
         };
         const logoUrl = `${getBaseUrl()}/logo-icon.png`;
 
+        const isPubKey = alias.length >= 32 && alias.length <= 44 && !alias.includes(' ');
+        const displayAlias = isPubKey ? `${alias.slice(0, 4)}...${alias.slice(-4)}` : `@${alias}`;
+
         return new ImageResponse(
             (
                 <div
@@ -83,7 +86,8 @@ export async function GET(request: NextRequest) {
                             )}
 
                             <div style={{ display: 'flex', alignItems: 'center', fontSize: 50, color: '#f3f4f6', marginTop: isRequest ? 15 : 30 }}>
-                                <span style={{ color: '#9ca3af', marginRight: '20px' }}>Para:</span> <span style={{ fontWeight: 600 }}>@{alias}</span>
+                                <span style={{ color: '#9ca3af', marginRight: '20px' }}>Para:</span>
+                                <span style={{ fontWeight: 600, color: isPubKey ? '#cbd5e1' : 'white' }}>{displayAlias}</span>
                             </div>
 
                             {concept && (
