@@ -2334,7 +2334,7 @@ function AliasTab({ myAliases, showRegisterForm, setShowRegisterForm, alias, set
                                     <div className="flex items-center justify-between">
                                         <div className="flex items-center gap-3 cursor-pointer flex-1" onClick={() => setRegisteredAlias(a)}>
                                             <span className="text-lg font-semibold text-cyan-400">@{a}</span>
-                                            <span className="text-xs text-gray-600">{t('click_to_switch')}</span>
+
                                         </div>
                                         <button
                                             onClick={(e) => { e.stopPropagation(); setConfirmDeleteAlias(a); }}
@@ -2608,7 +2608,7 @@ function ContactsTab({ setSendRecipient, setSendAlias, setSendNote, setResolvedA
                     notes: label // Save user label (e.g. "Pepe") as note
                 }, ownerKey);
 
-                showTransactionToast({ signature: '', message: `Address added as ${label}`, type: 'success' });
+                toast.success(`Address added as ${label}`);
             } else {
                 // Case 2: UNIK Alias - Verify on-chain using connection directly
                 try {
@@ -2636,7 +2636,7 @@ function ContactsTab({ setSendRecipient, setSendAlias, setSendNote, setResolvedA
                         notes: ''
                     }, ownerKey);
 
-                    showTransactionToast({ signature: '', message: `Contact @${inputLower} added`, type: 'success' });
+                    toast.success(`Contact @${inputLower} added`);
                 } catch (err) {
                     console.error("Lookup failed", err);
                     showTransactionToast({ signature: '', message: `Alias @${inputLower} not found on-chain`, type: 'error' });
@@ -3254,12 +3254,7 @@ function HistoryTab({ publicKey, connection, confirmModal, setConfirmModal, cont
             const loadedSharedNotes = await getSharedNotes(sigList);
             setSharedNotes(loadedSharedNotes);
 
-            // Debug Toast: Confirm history fetch results
-            if (detailedHistory.length > 0) {
-                showSimpleToast(`Debug: ${detailedHistory.length} TXs scanned. ${filteredHistory.length} visible.`, 'success');
-            } else {
-                showSimpleToast('Debug: 0 TXs found.', 'info');
-            }
+
         } catch (e) {
             console.error("Failed to fetch history", e);
         } finally {
