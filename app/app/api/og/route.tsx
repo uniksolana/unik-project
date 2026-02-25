@@ -29,6 +29,22 @@ export async function GET(request: NextRequest) {
         const isPubKey = alias.length >= 32 && alias.length <= 44 && !alias.includes(' ');
         const displayAlias = isPubKey ? `${alias.slice(0, 4)}...${alias.slice(-4)}` : `@${alias}`;
 
+        const pubkey = searchParams.get('pubkey');
+        let avatarUrl: string | null = null;
+
+        if (pubkey && process.env.NEXT_PUBLIC_SUPABASE_URL) {
+            const potentialAvatarUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/avatars/${pubkey}_avatar`;
+            try {
+                // Perform a fast HEAD request to check if the user actually uploaded an avatar
+                const res = await fetch(potentialAvatarUrl, { method: 'HEAD' });
+                if (res.ok) {
+                    avatarUrl = potentialAvatarUrl;
+                }
+            } catch (e) {
+                console.error('Error fetching avatar visibility:', e);
+            }
+        }
+
         return new ImageResponse(
             (
                 <div
@@ -67,8 +83,12 @@ export async function GET(request: NextRequest) {
                         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px', width: '100%' }}>
                             {action === 'add-contact' ? (
                                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', width: '100%' }}>
-                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '160px', height: '160px', borderRadius: '50%', background: 'linear-gradient(to bottom right, #06b6d4, #a855f7)', color: 'white', fontSize: '80px', fontWeight: 'bold', marginBottom: '30px' }}>
-                                        {alias.charAt(0).toUpperCase()}
+                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '160px', height: '160px', borderRadius: '50%', background: 'linear-gradient(to bottom right, #06b6d4, #a855f7)', color: 'white', fontSize: '80px', fontWeight: 'bold', marginBottom: '30px', overflow: 'hidden' }}>
+                                        {avatarUrl ? (
+                                            <img src={avatarUrl} width="160" height="160" style={{ objectFit: 'cover' }} />
+                                        ) : (
+                                            alias.charAt(0).toUpperCase()
+                                        )}
                                     </div>
                                     <div style={{ display: 'flex', alignItems: 'center', fontSize: 90, color: 'white', fontWeight: 800, letterSpacing: '-0.02em', marginBottom: '20px' }}>
                                         <span style={{ fontWeight: 600, color: isPubKey ? '#cbd5e1' : 'white' }}>{displayAlias}</span>
@@ -102,6 +122,11 @@ export async function GET(request: NextRequest) {
 
                                     <div style={{ display: 'flex', alignItems: 'center', fontSize: 50, color: '#f3f4f6', marginTop: isRequest ? 15 : 30 }}>
                                         <span style={{ color: '#9ca3af', marginRight: '20px' }}>Para:</span>
+                                        {avatarUrl && (
+                                            <div style={{ display: 'flex', overflow: 'hidden', borderRadius: '50%', marginRight: '16px', width: '64px', height: '64px' }}>
+                                                <img src={avatarUrl} width="64" height="64" style={{ objectFit: 'cover' }} />
+                                            </div>
+                                        )}
                                         <span style={{ fontWeight: 600, color: isPubKey ? '#cbd5e1' : 'white' }}>{displayAlias}</span>
                                     </div>
 
