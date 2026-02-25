@@ -12,8 +12,9 @@ export async function GET(request: NextRequest) {
         const amount = searchParams.get('amount');
         const token = searchParams.get('token') || 'SOL';
         const concept = searchParams.get('concept') || '';
+        const action = searchParams.get('action');
 
-        // Si no hay amount, mostramos una genérica de "Pagar a"
+        // Si no hay amount, mostramos una genérica de "Pagar a" o si es 'add-contact' ignoramos isRequest
         const isRequest = amount && amount !== '0';
 
         const getBaseUrl = () => {
@@ -64,37 +65,53 @@ export async function GET(request: NextRequest) {
                     >
                         {/* Contenido principal */}
                         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px' }}>
-                            {isRequest ? (
-                                <span style={{ color: '#38bdf8', fontSize: 40, fontWeight: 500, letterSpacing: '0.05em', textTransform: 'uppercase', marginBottom: '10px' }}>
-                                    Solicitud de Pago
-                                </span>
+                            {action === 'add-contact' ? (
+                                <>
+                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '120px', height: '120px', borderRadius: '50%', background: 'linear-gradient(to bottom right, #06b6d4, #a855f7)', color: 'white', fontSize: '64px', fontWeight: 'bold', marginBottom: '20px' }}>
+                                        {alias.charAt(0).toUpperCase()}
+                                    </div>
+                                    <div style={{ display: 'flex', alignItems: 'center', fontSize: 80, color: 'white', fontWeight: 800, letterSpacing: '-0.02em', marginBottom: '20px' }}>
+                                        <span style={{ fontWeight: 600, color: isPubKey ? '#cbd5e1' : 'white' }}>{displayAlias}</span>
+                                    </div>
+                                    <span style={{ color: '#a78bfa', fontSize: 40, fontWeight: 500, letterSpacing: '0.05em', textTransform: 'uppercase' }}>
+                                        Añadir Contacto
+                                    </span>
+                                </>
                             ) : (
-                                <span style={{ color: '#a78bfa', fontSize: 40, fontWeight: 500, letterSpacing: '0.05em', textTransform: 'uppercase', marginBottom: '10px' }}>
-                                    Enviar fondos
-                                </span>
-                            )}
+                                <>
+                                    {isRequest ? (
+                                        <span style={{ color: '#38bdf8', fontSize: 40, fontWeight: 500, letterSpacing: '0.05em', textTransform: 'uppercase', marginBottom: '10px' }}>
+                                            Solicitud de Pago
+                                        </span>
+                                    ) : (
+                                        <span style={{ color: '#a78bfa', fontSize: 40, fontWeight: 500, letterSpacing: '0.05em', textTransform: 'uppercase', marginBottom: '10px' }}>
+                                            Enviar fondos
+                                        </span>
+                                    )}
 
-                            {isRequest && (
-                                <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', margin: '20px 0', gap: '20px' }}>
-                                    <span style={{ color: 'white', fontSize: 130, fontWeight: 800, lineHeight: 1 }}>
-                                        {amount}
-                                    </span>
-                                    <span style={{ fontSize: 60, color: '#9ca3af', fontWeight: 600, marginTop: '20px' }}>
-                                        {token}
-                                    </span>
-                                </div>
-                            )}
+                                    {isRequest && (
+                                        <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', margin: '20px 0', gap: '20px' }}>
+                                            <span style={{ color: 'white', fontSize: 130, fontWeight: 800, lineHeight: 1 }}>
+                                                {amount}
+                                            </span>
+                                            <span style={{ fontSize: 60, color: '#9ca3af', fontWeight: 600, marginTop: '20px' }}>
+                                                {token}
+                                            </span>
+                                        </div>
+                                    )}
 
-                            <div style={{ display: 'flex', alignItems: 'center', fontSize: 50, color: '#f3f4f6', marginTop: isRequest ? 15 : 30 }}>
-                                <span style={{ color: '#9ca3af', marginRight: '20px' }}>Para:</span>
-                                <span style={{ fontWeight: 600, color: isPubKey ? '#cbd5e1' : 'white' }}>{displayAlias}</span>
-                            </div>
+                                    <div style={{ display: 'flex', alignItems: 'center', fontSize: 50, color: '#f3f4f6', marginTop: isRequest ? 15 : 30 }}>
+                                        <span style={{ color: '#9ca3af', marginRight: '20px' }}>Para:</span>
+                                        <span style={{ fontWeight: 600, color: isPubKey ? '#cbd5e1' : 'white' }}>{displayAlias}</span>
+                                    </div>
 
-                            {concept && (
-                                <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', gap: '12px', marginTop: '40px', background: 'rgba(255, 255, 255, 0.1)', padding: '16px 36px', borderRadius: '100px' }}>
-                                    <span style={{ color: '#9ca3af', fontSize: 36, fontWeight: 500 }}>Concepto:</span>
-                                    <span style={{ color: '#d1d5db', fontSize: 36, fontWeight: 600 }}>"{concept}"</span>
-                                </div>
+                                    {concept && (
+                                        <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', gap: '12px', marginTop: '40px', background: 'rgba(255, 255, 255, 0.1)', padding: '16px 36px', borderRadius: '100px' }}>
+                                            <span style={{ color: '#9ca3af', fontSize: 36, fontWeight: 500 }}>Concepto:</span>
+                                            <span style={{ color: '#d1d5db', fontSize: 36, fontWeight: 600 }}>"{concept}"</span>
+                                        </div>
+                                    )}
+                                </>
                             )}
                         </div>
 
