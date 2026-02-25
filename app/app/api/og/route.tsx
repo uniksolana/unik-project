@@ -73,8 +73,8 @@ export async function GET(request: NextRequest) {
                                     <div style={{ display: 'flex', alignItems: 'center', fontSize: 90, color: 'white', fontWeight: 800, letterSpacing: '-0.02em', marginBottom: '20px' }}>
                                         <span style={{ fontWeight: 600, color: isPubKey ? '#cbd5e1' : 'white' }}>{displayAlias}</span>
                                     </div>
-                                    <span style={{ color: '#a78bfa', fontSize: 40, fontWeight: 500, letterSpacing: '0.05em', textTransform: 'uppercase' }}>
-                                        Añadir Contacto
+                                    <span style={{ color: '#06b6d4', fontSize: 36, fontWeight: 600, letterSpacing: '0.1em', textTransform: 'uppercase', marginTop: '10px' }}>
+                                        Nuevo Contacto
                                     </span>
                                 </div>
                             ) : (
