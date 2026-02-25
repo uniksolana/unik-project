@@ -69,7 +69,40 @@ export default function Dashboard() {
     const [uploadingAvatar, setUploadingAvatar] = useState(false);
 
     const lastUploadTime = useRef(0);
-    // New: Load Encrypted Avatar when session is unlocked
+
+    // Phase 1: Load avatar immediately when wallet connects (no encryption needed)
+    useEffect(() => {
+        const loadPublicAvatar = async () => {
+            if (!publicKey) {
+                setAvatarUrl(null);
+                return;
+            }
+            if (Date.now() - lastUploadTime.current < 5000) return;
+
+            const owner = publicKey.toBase58();
+
+            // Try local cache first (instant)
+            if (typeof window !== 'undefined') {
+                const cached = localStorage.getItem(`avatar_cache_${owner}`);
+                if (cached && cached.startsWith('data:image')) {
+                    setAvatarUrl(cached);
+                    return;
+                }
+            }
+
+            // Try public storage (no encryption needed)
+            try {
+                const { getPublicAvatar } = await import('../../utils/avatar');
+                const pubAvatar = await getPublicAvatar(owner);
+                if (pubAvatar) setAvatarUrl(pubAvatar);
+            } catch (e) {
+                console.warn("Failed to load public avatar", e);
+            }
+        };
+        loadPublicAvatar();
+    }, [publicKey]);
+
+    // Phase 2: Upgrade to encrypted version when session is unlocked
     useEffect(() => {
         const loadEncryptedAvatar = async () => {
             if (publicKey && encryptionKey) {
@@ -82,8 +115,6 @@ export default function Dashboard() {
                 } catch (e) {
                     console.error("Failed to load avatar", e);
                 }
-            } else {
-                setAvatarUrl(null);
             }
         };
         loadEncryptedAvatar();

@@ -96,8 +96,10 @@ export async function getPublicAvatar(walletAddress: string): Promise<string | n
 
         if (!publicUrl) return null;
 
-        // Check availability (optional, might slow down listing)
-        // For UI, we usually return the URL and let <img onerror> handle it.
+        // Verify the file actually exists before returning
+        const res = await fetch(publicUrl, { method: 'HEAD' });
+        if (!res.ok) return null;
+
         return `${publicUrl}?t=${Date.now()}`;
     } catch (e) {
         return null;
