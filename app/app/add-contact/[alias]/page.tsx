@@ -41,7 +41,7 @@ export async function generateMetadata(props: Props): Promise<Metadata> {
     ogUrl.searchParams.set('action', 'add-contact');
 
     // ─── Resolve owner pubkey + language from Supabase ───
-    let userLang = 'es';
+    let userLang = 'en'; // Default to English
 
     try {
         const { Connection, PublicKey } = await import('@solana/web3.js');
