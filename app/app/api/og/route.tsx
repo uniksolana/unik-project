@@ -64,21 +64,21 @@ export async function GET(request: NextRequest) {
                         }}
                     >
                         {/* Contenido principal */}
-                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px' }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px', width: '100%' }}>
                             {action === 'add-contact' ? (
-                                <>
-                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '120px', height: '120px', borderRadius: '50%', background: 'linear-gradient(to bottom right, #06b6d4, #a855f7)', color: 'white', fontSize: '64px', fontWeight: 'bold', marginBottom: '20px' }}>
+                                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', width: '100%' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '160px', height: '160px', borderRadius: '50%', background: 'linear-gradient(to bottom right, #06b6d4, #a855f7)', color: 'white', fontSize: '80px', fontWeight: 'bold', marginBottom: '30px' }}>
                                         {alias.charAt(0).toUpperCase()}
                                     </div>
-                                    <div style={{ display: 'flex', alignItems: 'center', fontSize: 80, color: 'white', fontWeight: 800, letterSpacing: '-0.02em', marginBottom: '20px' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', fontSize: 90, color: 'white', fontWeight: 800, letterSpacing: '-0.02em', marginBottom: '20px' }}>
                                         <span style={{ fontWeight: 600, color: isPubKey ? '#cbd5e1' : 'white' }}>{displayAlias}</span>
                                     </div>
                                     <span style={{ color: '#a78bfa', fontSize: 40, fontWeight: 500, letterSpacing: '0.05em', textTransform: 'uppercase' }}>
                                         Añadir Contacto
                                     </span>
-                                </>
+                                </div>
                             ) : (
-                                <>
+                                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', width: '100%' }}>
                                     {isRequest ? (
                                         <span style={{ color: '#38bdf8', fontSize: 40, fontWeight: 500, letterSpacing: '0.05em', textTransform: 'uppercase', marginBottom: '10px' }}>
                                             Solicitud de Pago
@@ -111,7 +111,7 @@ export async function GET(request: NextRequest) {
                                             <span style={{ color: '#d1d5db', fontSize: 36, fontWeight: 600 }}>"{concept}"</span>
                                         </div>
                                     )}
-                                </>
+                                </div>
                             )}
                         </div>
 
