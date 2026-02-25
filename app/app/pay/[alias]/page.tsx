@@ -6,6 +6,28 @@ type Props = {
     searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 };
 
+// ─── i18n for meta tags ───
+const metaI18n: Record<string, Record<string, string>> = {
+    en: {
+        pay_desc: 'Pay {amount} {token} to @{alias} securely with UNIK.',
+        send_desc: 'Send funds to @{alias} instantly via UNIK Pay.',
+        pay_title: 'Payment Request - UNIK Pay',
+        send_title: 'Send Payment to @{alias} - UNIK Pay',
+    },
+    es: {
+        pay_desc: 'Paga {amount} {token} a @{alias} de forma segura con UNIK.',
+        send_desc: 'Envía fondos a @{alias} instantáneamente vía UNIK Pay.',
+        pay_title: 'Solicitud de Pago - UNIK Pay',
+        send_title: 'Enviar Pago a @{alias} - UNIK Pay',
+    },
+    fr: {
+        pay_desc: 'Payez {amount} {token} à @{alias} en toute sécurité avec UNIK.',
+        send_desc: 'Envoyez des fonds à @{alias} instantanément via UNIK Pay.',
+        pay_title: 'Demande de Paiement - UNIK Pay',
+        send_title: 'Envoyer un Paiement à @{alias} - UNIK Pay',
+    },
+};
+
 export async function generateMetadata(props: Props): Promise<Metadata> {
     const params = await props.params;
     const searchParams = await props.searchParams;
@@ -26,6 +48,9 @@ export async function generateMetadata(props: Props): Promise<Metadata> {
     const ogUrl = new URL(baseUrl);
     ogUrl.pathname = '/api/og';
     ogUrl.searchParams.set('alias', alias);
+
+    // ─── Resolve owner pubkey + language from Supabase ───
+    let userLang = 'es'; // Default language
 
     try {
         const { Connection, PublicKey } = await import('@solana/web3.js');
@@ -48,23 +73,51 @@ export async function generateMetadata(props: Props): Promise<Metadata> {
 
         if (ownerPubkey) {
             ogUrl.searchParams.set('pubkey', ownerPubkey);
+
+            // Fetch user's preferred language from Supabase profiles
+            if (process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
+                try {
+                    const profileRes = await fetch(
+                        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/profiles?wallet_address=eq.${ownerPubkey}&select=preferred_language`,
+                        {
+                            headers: {
+                                'apikey': process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+                                'Authorization': `Bearer ${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY}`,
+                            },
+                        }
+                    );
+                    if (profileRes.ok) {
+                        const profiles = await profileRes.json();
+                        if (profiles.length > 0 && profiles[0].preferred_language) {
+                            userLang = profiles[0].preferred_language;
+                        }
+                    }
+                } catch (e) {
+                    console.warn('Failed to fetch user language preference:', e);
+                }
+            }
         }
     } catch (e) {
         console.error("Failed to fetch alias owner pubkey in OG generation:", e);
     }
 
+    // Pass language to OG image generator
+    ogUrl.searchParams.set('lang', userLang);
+
     if (amount) ogUrl.searchParams.set('amount', amount);
     if (token) ogUrl.searchParams.set('token', token);
     if (concept) ogUrl.searchParams.set('concept', concept);
 
+    const i18n = metaI18n[userLang] || metaI18n['en'];
     const isRequest = amount && amount !== '0';
+
     const title = isRequest
-        ? `Solicitud de Pago - UNIK Pay`
-        : `Enviar Pago a @${alias} - UNIK Pay`;
+        ? i18n.pay_title
+        : i18n.send_title.replace('{alias}', alias);
 
     const description = isRequest
-        ? `Paga ${amount} ${token || 'SOL'} a @${alias} de forma segura con UNIK.`
-        : `Envía fondos a @${alias} instantáneamente vía UNIK Pay.`;
+        ? i18n.pay_desc.replace('{amount}', amount!).replace('{token}', token || 'SOL').replace('{alias}', alias)
+        : i18n.send_desc.replace('{alias}', alias);
 
     return {
         metadataBase: new URL(baseUrl),

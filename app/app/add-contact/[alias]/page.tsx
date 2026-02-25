@@ -6,6 +6,22 @@ type Props = {
     searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 };
 
+// ─── i18n for meta tags ───
+const metaI18n: Record<string, Record<string, string>> = {
+    en: {
+        contact_title: 'Add @{alias} to contacts - UNIK Pay',
+        contact_desc: 'Save @{alias} to your contacts to send payments easily and securely.',
+    },
+    es: {
+        contact_title: 'Añadir a @{alias} a contactos - UNIK Pay',
+        contact_desc: 'Guarda a @{alias} en tus contactos para enviarle pagos de forma fácil y segura.',
+    },
+    fr: {
+        contact_title: 'Ajouter @{alias} aux contacts - UNIK Pay',
+        contact_desc: 'Enregistrez @{alias} dans vos contacts pour envoyer des paiements facilement.',
+    },
+};
+
 export async function generateMetadata(props: Props): Promise<Metadata> {
     const params = await props.params;
 
@@ -23,6 +39,9 @@ export async function generateMetadata(props: Props): Promise<Metadata> {
     ogUrl.pathname = '/api/og';
     ogUrl.searchParams.set('alias', alias);
     ogUrl.searchParams.set('action', 'add-contact');
+
+    // ─── Resolve owner pubkey + language from Supabase ───
+    let userLang = 'es';
 
     try {
         const { Connection, PublicKey } = await import('@solana/web3.js');
@@ -45,13 +64,39 @@ export async function generateMetadata(props: Props): Promise<Metadata> {
 
         if (ownerPubkey) {
             ogUrl.searchParams.set('pubkey', ownerPubkey);
+
+            // Fetch user's preferred language from Supabase profiles
+            if (process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
+                try {
+                    const profileRes = await fetch(
+                        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/profiles?wallet_address=eq.${ownerPubkey}&select=preferred_language`,
+                        {
+                            headers: {
+                                'apikey': process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+                                'Authorization': `Bearer ${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY}`,
+                            },
+                        }
+                    );
+                    if (profileRes.ok) {
+                        const profiles = await profileRes.json();
+                        if (profiles.length > 0 && profiles[0].preferred_language) {
+                            userLang = profiles[0].preferred_language;
+                        }
+                    }
+                } catch (e) {
+                    console.warn('Failed to fetch user language preference:', e);
+                }
+            }
         }
     } catch (e) {
         console.error("Failed to fetch alias owner pubkey in OG generation:", e);
     }
 
-    const title = `Añadir a @${alias} a contactos - UNIK Pay`;
-    const description = `Guarda a @${alias} en tus contactos para enviarle pagos de forma fácil y segura.`;
+    ogUrl.searchParams.set('lang', userLang);
+
+    const i18n = metaI18n[userLang] || metaI18n['en'];
+    const title = i18n.contact_title.replace('{alias}', alias);
+    const description = i18n.contact_desc.replace('{alias}', alias);
 
     return {
         metadataBase: new URL(baseUrl),
@@ -66,7 +111,7 @@ export async function generateMetadata(props: Props): Promise<Metadata> {
                     url: ogUrl.toString(),
                     width: 1200,
                     height: 630,
-                    alt: 'Añadir Contacto UNIK',
+                    alt: 'UNIK Contact',
                 },
             ],
             siteName: 'UNIK Pay',

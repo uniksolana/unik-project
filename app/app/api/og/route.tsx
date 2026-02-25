@@ -3,6 +3,62 @@ import { NextRequest } from 'next/server';
 
 export const runtime = 'edge';
 
+// ─── OG Card Translations ───
+const ogTranslations: Record<string, Record<string, string>> = {
+    en: {
+        payment_request: 'Payment Request',
+        send_funds: 'Send Funds',
+        to: 'To:',
+        concept: 'Concept:',
+        new_contact: 'New Contact',
+        powered_by: 'Powered by',
+    },
+    es: {
+        payment_request: 'Solicitud de Pago',
+        send_funds: 'Enviar Fondos',
+        to: 'Para:',
+        concept: 'Concepto:',
+        new_contact: 'Nuevo Contacto',
+        powered_by: 'Powered by',
+    },
+    fr: {
+        payment_request: 'Demande de Paiement',
+        send_funds: 'Envoyer des Fonds',
+        to: 'Pour:',
+        concept: 'Motif:',
+        new_contact: 'Nouveau Contact',
+        powered_by: 'Powered by',
+    },
+};
+
+// ─── Meta description translations ───
+export const metaTranslations: Record<string, Record<string, string>> = {
+    en: {
+        pay_desc: 'Pay {amount} {token} to @{alias} securely with UNIK.',
+        send_desc: 'Send funds to @{alias} instantly via UNIK Pay.',
+        contact_title: 'Add @{alias} to contacts - UNIK Pay',
+        contact_desc: 'Save @{alias} to your contacts to send payments easily and securely.',
+        pay_title: 'Payment Request - UNIK Pay',
+        send_title: 'Send Payment to @{alias} - UNIK Pay',
+    },
+    es: {
+        pay_desc: 'Paga {amount} {token} a @{alias} de forma segura con UNIK.',
+        send_desc: 'Envía fondos a @{alias} instantáneamente vía UNIK Pay.',
+        contact_title: 'Añadir a @{alias} a contactos - UNIK Pay',
+        contact_desc: 'Guarda a @{alias} en tus contactos para enviarle pagos de forma fácil y segura.',
+        pay_title: 'Solicitud de Pago - UNIK Pay',
+        send_title: 'Enviar Pago a @{alias} - UNIK Pay',
+    },
+    fr: {
+        pay_desc: 'Payez {amount} {token} à @{alias} en toute sécurité avec UNIK.',
+        send_desc: 'Envoyez des fonds à @{alias} instantanément via UNIK Pay.',
+        contact_title: 'Ajouter @{alias} aux contacts - UNIK Pay',
+        contact_desc: 'Enregistrez @{alias} dans vos contacts pour envoyer des paiements facilement.',
+        pay_title: 'Demande de Paiement - UNIK Pay',
+        send_title: 'Envoyer un Paiement à @{alias} - UNIK Pay',
+    },
+};
+
 export async function GET(request: NextRequest) {
     try {
         const { searchParams } = new URL(request.url);
@@ -13,8 +69,10 @@ export async function GET(request: NextRequest) {
         const token = searchParams.get('token') || 'SOL';
         const concept = searchParams.get('concept') || '';
         const action = searchParams.get('action');
+        const lang = searchParams.get('lang') || 'es';
 
-        // Si no hay amount, mostramos una genérica de "Pagar a" o si es 'add-contact' ignoramos isRequest
+        const t = ogTranslations[lang] || ogTranslations['en'];
+
         const isRequest = amount && amount !== '0';
 
         const getBaseUrl = () => {
@@ -35,7 +93,6 @@ export async function GET(request: NextRequest) {
         if (pubkey && process.env.NEXT_PUBLIC_SUPABASE_URL) {
             const potentialAvatarUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/avatars/${pubkey}_avatar`;
             try {
-                // Perform a fast HEAD request to check if the user actually uploaded an avatar
                 const res = await fetch(potentialAvatarUrl, { method: 'HEAD' });
                 if (res.ok) {
                     avatarUrl = potentialAvatarUrl;
@@ -55,15 +112,15 @@ export async function GET(request: NextRequest) {
                         flexDirection: 'column',
                         alignItems: 'center',
                         justifyContent: 'center',
-                        background: 'linear-gradient(135deg, #09090b 0%, #1a1a2e 100%)', // Fondo oscuro premium
+                        background: 'linear-gradient(135deg, #09090b 0%, #1a1a2e 100%)',
                         fontFamily: '"Inter", sans-serif',
                     }}
                 >
-                    {/* Elementos decorativos (círculos desenfocados) */}
+                    {/* Decorative blurred circles */}
                     <div style={{ position: 'absolute', top: -150, left: -150, width: 400, height: 400, background: 'rgba(124, 58, 237, 0.4)', filter: 'blur(100px)', borderRadius: '50%' }} />
                     <div style={{ position: 'absolute', bottom: -150, right: -150, width: 400, height: 400, background: 'rgba(56, 189, 248, 0.3)', filter: 'blur(100px)', borderRadius: '50%' }} />
 
-                    {/* Tarjeta principal estilo "Cristal" */}
+                    {/* Glass Card */}
                     <div
                         style={{
                             display: 'flex',
@@ -75,11 +132,11 @@ export async function GET(request: NextRequest) {
                             border: '1px solid rgba(255, 255, 255, 0.1)',
                             borderRadius: '48px',
                             boxShadow: '0 20px 40px rgba(0, 0, 0, 0.5)',
-                            padding: '80px 60px 100px 60px', /* Add bottom space for footer */
+                            padding: '80px 60px 100px 60px',
                             position: 'relative',
                         }}
                     >
-                        {/* Contenido principal */}
+                        {/* Main Content */}
                         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px', width: '100%' }}>
                             {action === 'add-contact' ? (
                                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', width: '100%' }}>
@@ -94,18 +151,18 @@ export async function GET(request: NextRequest) {
                                         <span style={{ fontWeight: 600, color: isPubKey ? '#cbd5e1' : 'white' }}>{displayAlias}</span>
                                     </div>
                                     <span style={{ color: '#06b6d4', fontSize: 36, fontWeight: 600, letterSpacing: '0.1em', textTransform: 'uppercase', marginTop: '10px' }}>
-                                        Nuevo Contacto
+                                        {t.new_contact}
                                     </span>
                                 </div>
                             ) : (
                                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', width: '100%' }}>
                                     {isRequest ? (
                                         <span style={{ color: '#38bdf8', fontSize: 40, fontWeight: 500, letterSpacing: '0.05em', textTransform: 'uppercase', marginBottom: '10px' }}>
-                                            Solicitud de Pago
+                                            {t.payment_request}
                                         </span>
                                     ) : (
                                         <span style={{ color: '#a78bfa', fontSize: 40, fontWeight: 500, letterSpacing: '0.05em', textTransform: 'uppercase', marginBottom: '10px' }}>
-                                            Enviar fondos
+                                            {t.send_funds}
                                         </span>
                                     )}
 
@@ -121,7 +178,7 @@ export async function GET(request: NextRequest) {
                                     )}
 
                                     <div style={{ display: 'flex', alignItems: 'center', fontSize: 50, color: '#f3f4f6', marginTop: isRequest ? 15 : 30 }}>
-                                        <span style={{ color: '#9ca3af', marginRight: '20px' }}>Para:</span>
+                                        <span style={{ color: '#9ca3af', marginRight: '20px' }}>{t.to}</span>
                                         {avatarUrl && (
                                             <div style={{ display: 'flex', overflow: 'hidden', borderRadius: '50%', marginRight: '16px', width: '64px', height: '64px' }}>
                                                 <img src={avatarUrl} width="64" height="64" style={{ objectFit: 'cover' }} />
@@ -132,7 +189,7 @@ export async function GET(request: NextRequest) {
 
                                     {concept && (
                                         <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', gap: '12px', marginTop: '40px', background: 'rgba(255, 255, 255, 0.1)', padding: '16px 36px', borderRadius: '100px' }}>
-                                            <span style={{ color: '#9ca3af', fontSize: 36, fontWeight: 500 }}>Concepto:</span>
+                                            <span style={{ color: '#9ca3af', fontSize: 36, fontWeight: 500 }}>{t.concept}</span>
                                             <span style={{ color: '#d1d5db', fontSize: 36, fontWeight: 600 }}>"{concept}"</span>
                                         </div>
                                     )}
@@ -142,7 +199,7 @@ export async function GET(request: NextRequest) {
 
                         {/* Footer (UNIK Badge) */}
                         <div style={{ position: 'absolute', bottom: '30px', display: 'flex', alignItems: 'center', gap: '12px', opacity: 0.8 }}>
-                            <span style={{ color: '#9ca3af', fontSize: 24, fontWeight: 500 }}>Powered by</span>
+                            <span style={{ color: '#9ca3af', fontSize: 24, fontWeight: 500 }}>{t.powered_by}</span>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                                 <img src={logoUrl} width="32" height="32" style={{ borderRadius: '8px' }} />
                                 <span style={{ color: 'white', fontSize: 28, fontWeight: 700, letterSpacing: '-0.02em', display: 'flex', alignItems: 'center' }}>
