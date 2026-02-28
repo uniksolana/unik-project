@@ -100,7 +100,8 @@ pub mod unik_anchor {
         require!(amount >= 10000, UnikError::AmountTooSmall);
 
         // CRIT-01: Verify the alias is active before accepting payments
-        require!(ctx.accounts.alias_account.is_active, UnikError::AliasInactive);
+        // Backwards compatibility: legacy aliases have registered_at = 0, so treat them as active
+        require!(ctx.accounts.alias_account.is_active || ctx.accounts.alias_account.registered_at == 0, UnikError::AliasInactive);
 
         let route = &ctx.accounts.route_account;
         let splits = &route.splits;
@@ -149,7 +150,8 @@ pub mod unik_anchor {
         require!(amount >= 10000, UnikError::AmountTooSmall);
 
         // CRIT-01: Verify the alias is active before accepting payments
-        require!(ctx.accounts.alias_account.is_active, UnikError::AliasInactive);
+        // Backwards compatibility: legacy aliases have registered_at = 0, so treat them as active
+        require!(ctx.accounts.alias_account.is_active || ctx.accounts.alias_account.registered_at == 0, UnikError::AliasInactive);
 
         let route = &ctx.accounts.route_account;
         let splits = &route.splits;
@@ -223,7 +225,12 @@ pub mod unik_anchor {
     /// Deactivate an alias - payments to this alias will fail
     pub fn deactivate_alias(ctx: Context<UpdateAlias>, _alias: String) -> Result<()> {
         let alias_account = &mut ctx.accounts.alias_account;
-        require!(alias_account.is_active, UnikError::AliasAlreadyInactive);
+        require!(alias_account.is_active || alias_account.registered_at == 0, UnikError::AliasAlreadyInactive);
+        
+        // When a legacy is deactivated, give it a real timestamp to normalize it
+        if alias_account.registered_at == 0 {
+            alias_account.registered_at = Clock::get()?.unix_timestamp;
+        }
         
         alias_account.is_active = false;
         
