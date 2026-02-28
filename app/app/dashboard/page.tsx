@@ -512,9 +512,42 @@ export default function Dashboard() {
 
             const instructions: TransactionInstruction[] = [];
 
-            // L-03: Check if route account exists. If not, we must initialize it in the same tx.
+            // Check if route account exists and is compatible with current schema
             const routeAccountInfo = await connection.getAccountInfo(routePDA);
-            if (!routeAccountInfo) {
+            let needsInit = !routeAccountInfo;
+            let needsDelete = false;
+
+            if (routeAccountInfo) {
+                // Route account exists — try to deserialize and check alias_ref
+                try {
+                    const existingRoute: any = await (program.account as any).routeAccount.fetch(routePDA);
+                    // Check if alias_ref matches current aliasPDA
+                    if (!existingRoute.aliasRef || existingRoute.aliasRef.toBase58() !== aliasPDA.toBase58()) {
+                        console.log('[Splits] Route account has stale alias_ref, will delete and recreate');
+                        needsDelete = true;
+                        needsInit = true;
+                    }
+                } catch (e) {
+                    // Deserialization failed — old schema without alias_ref
+                    console.log('[Splits] Route account has incompatible schema, will delete and recreate');
+                    needsDelete = true;
+                    needsInit = true;
+                }
+            }
+
+            if (needsDelete) {
+                const deleteInstruction = await program.methods
+                    .deleteRouteConfig(normalizedAlias)
+                    .accounts({
+                        aliasAccount: aliasPDA,
+                        routeAccount: routePDA,
+                        user: publicKey,
+                    })
+                    .instruction();
+                instructions.push(deleteInstruction);
+            }
+
+            if (needsInit) {
                 const initInstruction = await program.methods
                     .initRouteConfig(normalizedAlias)
                     .accounts({
@@ -533,7 +566,7 @@ export default function Dashboard() {
                     routeAccount: routePDA,
                     aliasAccount: aliasPDA,
                     user: publicKey,
-                    systemProgram: SystemProgram.programId, // Might not strictly need SystemProgram for mut, but safe to leave
+                    systemProgram: SystemProgram.programId,
                 })
                 .instruction();
             instructions.push(setInstruction);
@@ -544,7 +577,7 @@ export default function Dashboard() {
                 payerKey: publicKey,
                 recentBlockhash: blockhash,
                 instructions: [
-                    ComputeBudgetProgram.setComputeUnitLimit({ units: 50_000 }),
+                    ComputeBudgetProgram.setComputeUnitLimit({ units: 200_000 }),
                     ComputeBudgetProgram.setComputeUnitPrice({ microLamports: 1000 }),
                     ...instructions
                 ],
