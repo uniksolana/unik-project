@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from 'next/server';
 import crypto from 'crypto';
 import { getServerSupabase } from '../../../../utils/supabaseServer';
 import { checkRateLimit } from '../../../../utils/rateLimit';
-import { verifyWalletSignature } from '../../../../utils/verifyAuth';
 
 const getHmacSecret = () => {
     const secret = process.env.PAYMENT_HMAC_SECRET;
@@ -36,18 +35,10 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'Too many requests. Please try again later.' }, { status: 429 });
         }
 
-        const { alias, amount, token, merchant_wallet, concept, auth_wallet, auth_signature, auth_message } = await request.json();
+        const { alias, amount, token, merchant_wallet, concept } = await request.json();
 
         if (!alias || !amount || !merchant_wallet) {
             return NextResponse.json({ error: 'Missing required fields (alias, amount, merchant_wallet)' }, { status: 400 });
-        }
-
-        // MED-02: Require wallet signature to prevent spam order creation
-        if (!auth_wallet || !auth_signature || !auth_message || auth_wallet !== merchant_wallet) {
-            return NextResponse.json({ error: 'Unauthorized: Wallet signature required to create orders' }, { status: 401 });
-        }
-        if (!verifyWalletSignature(auth_wallet, auth_signature, auth_message)) {
-            return NextResponse.json({ error: 'Unauthorized: Invalid wallet signature' }, { status: 401 });
         }
 
         const tokenSymbol = (token || 'SOL').toUpperCase();
