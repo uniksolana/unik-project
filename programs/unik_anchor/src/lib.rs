@@ -354,7 +354,7 @@ pub struct UpdateAlias<'info> {
     #[account(
         mut,
         seeds = [b"alias", alias.as_bytes()],
-        bump = alias_account.bump,
+        bump,
         constraint = alias_account.owner == user.key() @ UnikError::Unauthorized,
     )]
     pub alias_account: Account<'info, AliasAccount>,
@@ -369,7 +369,7 @@ pub struct DeleteAlias<'info> {
     #[account(
         mut,
         seeds = [b"alias", alias.as_bytes()],
-        bump = alias_account.bump,
+        bump,
         constraint = alias_account.owner == user.key() @ UnikError::Unauthorized,
         close = user,  // Refund rent to user
     )]
@@ -385,7 +385,7 @@ pub struct MigrateRouteAccount<'info> {
     /// The alias account - validated normally since its schema hasn't changed
     #[account(
         seeds = [b"alias", alias.as_bytes()],
-        bump = alias_account.bump,
+        bump,
         constraint = alias_account.owner == user.key() @ UnikError::Unauthorized,
     )]
     pub alias_account: Account<'info, AliasAccount>,
@@ -405,7 +405,7 @@ pub struct DeleteRouteConfig<'info> {
     // Verify the alias exists and the user owns it
     #[account(
         seeds = [b"alias", alias.as_bytes()],
-        bump = alias_account.bump,
+        bump,
         constraint = alias_account.owner == user.key() @ UnikError::Unauthorized,
     )]
     pub alias_account: Account<'info, AliasAccount>,
@@ -414,7 +414,7 @@ pub struct DeleteRouteConfig<'info> {
     #[account(
         mut,
         seeds = [b"route", alias.as_bytes()],
-        bump = route_account.bump,
+        bump,
         close = user,
     )]
     pub route_account: Account<'info, RouteAccount>,
@@ -429,13 +429,13 @@ pub struct SetRouteConfig<'info> {
     #[account(
         mut,
         seeds = [b"route", alias.as_bytes()],
-        bump = route_account.bump,
+        bump,
     )]
     pub route_account: Account<'info, RouteAccount>,
     
     #[account(
         seeds = [b"alias", alias.as_bytes()],
-        bump = alias_account.bump,
+        bump,
         constraint = alias_account.owner == user.key()
     )]
     pub alias_account: Account<'info, AliasAccount>,
@@ -460,7 +460,7 @@ pub struct InitRouteConfig<'info> {
     
     #[account(
         seeds = [b"alias", alias.as_bytes()],
-        bump = alias_account.bump,
+        bump,
         constraint = alias_account.owner == user.key()
     )]
     pub alias_account: Account<'info, AliasAccount>,
@@ -476,7 +476,7 @@ pub struct InitRouteConfig<'info> {
 pub struct ExecuteTransfer<'info> {
     #[account(
         seeds = [b"route", alias.as_bytes()],
-        bump = route_account.bump,
+        bump,
         // CRIT-02: Validate route belongs to this alias
         constraint = route_account.alias_ref == alias_account.key() @ UnikError::InvalidPDA,
     )]
@@ -485,7 +485,7 @@ pub struct ExecuteTransfer<'info> {
     // CRIT-01 + CRIT-02: Reference alias account for is_active check and cross-validation
     #[account(
         seeds = [b"alias", alias.as_bytes()],
-        bump = alias_account.bump,
+        bump,
     )]
     pub alias_account: Account<'info, AliasAccount>,
     
@@ -500,7 +500,7 @@ pub struct ExecuteTransfer<'info> {
 pub struct ExecuteTokenTransfer<'info> {
     #[account(
         seeds = [b"route", alias.as_bytes()],
-        bump = route_account.bump,
+        bump,
         // CRIT-02: Validate route belongs to this alias
         constraint = route_account.alias_ref == alias_account.key() @ UnikError::InvalidPDA,
     )]
@@ -509,7 +509,7 @@ pub struct ExecuteTokenTransfer<'info> {
     // CRIT-01 + CRIT-02: Reference alias account for is_active check and cross-validation
     #[account(
         seeds = [b"alias", alias.as_bytes()],
-        bump = alias_account.bump,
+        bump,
     )]
     pub alias_account: Account<'info, AliasAccount>,
     
