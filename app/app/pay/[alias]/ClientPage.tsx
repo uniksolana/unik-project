@@ -33,6 +33,7 @@ function PaymentContent() {
     const [status, setStatus] = useState<'idle' | 'processing' | 'success' | 'error'>('idle');
     const [isMounted, setIsMounted] = useState(false);
     const [balance, setBalance] = useState<number | null>(null);
+    const [recipientAvatarUrl, setRecipientAvatarUrl] = useState<string | null>(null);
 
     const [isLocked, setIsLocked] = useState(false);
     const [concept, setConcept] = useState<string | null>(null);
@@ -175,26 +176,46 @@ function PaymentContent() {
 
     useEffect(() => {
         setIsMounted(true);
-        if (connected && publicKey) {
-            // ... (keep existing balance logic)
-            if (selectedToken.symbol === 'SOL') {
-                connection.getBalance(publicKey).then(b => setBalance(b / 1e9));
-            } else {
-                const fetchSplBalance = async () => {
-                    try {
-                        const accounts = await connection.getParsedTokenAccountsByOwner(publicKey, { mint: selectedToken.mint });
-                        if (accounts.value.length > 0) {
-                            setBalance(accounts.value[0].account.data.parsed.info.tokenAmount.uiAmount);
-                        } else { setBalance(0); }
-                    } catch (e) { setBalance(0); }
-                };
-                fetchSplBalance();
-            }
-        }
         if (alias) {
             checkAlias();
         }
     }, [alias, connected, publicKey, connection]);
+
+    // Fetch balance (updates when token, wallet, or connection changes)
+    useEffect(() => {
+        if (!connected || !publicKey) {
+            setBalance(null);
+            return;
+        }
+        if (selectedToken.symbol === 'SOL') {
+            connection.getBalance(publicKey).then(b => setBalance(b / 1e9)).catch(() => setBalance(null));
+        } else {
+            const fetchSplBalance = async () => {
+                try {
+                    const accounts = await connection.getParsedTokenAccountsByOwner(publicKey, { mint: selectedToken.mint });
+                    if (accounts.value.length > 0) {
+                        setBalance(accounts.value[0].account.data.parsed.info.tokenAmount.uiAmount);
+                    } else { setBalance(0); }
+                } catch (e) { setBalance(0); }
+            };
+            fetchSplBalance();
+        }
+    }, [connected, publicKey, connection, selectedToken]);
+
+    // Fetch requester avatar when aliasOwner is resolved
+    useEffect(() => {
+        if (!aliasOwner) return;
+        const fetchAvatar = async () => {
+            try {
+                const { getPublicAvatar } = await import('../../../utils/avatar');
+                const url = await getPublicAvatar(aliasOwner.toBase58());
+                if (url) setRecipientAvatarUrl(url);
+            } catch (e) {
+                console.warn('Failed to fetch recipient avatar', e);
+            }
+        };
+        fetchAvatar();
+    }, [aliasOwner]);
 
 
     const checkAlias = async () => {
@@ -550,9 +571,15 @@ function PaymentContent() {
             <div className="w-full max-w-md bg-[#13131f]/80 backdrop-blur-xl rounded-[2rem] shadow-2xl overflow-hidden border border-white/5 z-10 relative">
                 {/* Header Section */}
                 <div className="p-10 text-center bg-gradient-to-b from-cyan-500/10 to-transparent pt-12">
-                    <div className="w-24 h-24 bg-gradient-to-br from-cyan-500/20 to-purple-600/20 rounded-2xl mx-auto flex items-center justify-center shadow-lg shadow-cyan-500/10 mb-6 border border-white/10 backdrop-blur-md">
-                        <Image src="/logo-icon.png" alt="UNIK" width={64} height={64} className="w-16 h-16 drop-shadow-[0_0_10px_rgba(255,255,255,0.5)]" />
-                    </div>
+                    {recipientAvatarUrl ? (
+                        <div className="w-24 h-24 rounded-full mx-auto mb-6 overflow-hidden border-2 border-cyan-500/30 shadow-lg shadow-cyan-500/10">
+                            <Image src={recipientAvatarUrl} alt="Avatar" width={96} height={96} className="w-full h-full object-cover" unoptimized />
+                        </div>
+                    ) : (
+                        <div className="w-24 h-24 bg-gradient-to-br from-cyan-500/20 to-purple-600/20 rounded-full mx-auto flex items-center justify-center shadow-lg shadow-cyan-500/10 mb-6 border border-white/10 backdrop-blur-md">
+                            <span className="text-4xl font-bold text-white">{(alias as string).charAt(0).toUpperCase()}</span>
+                        </div>
+                    )}
                     <h1 className="text-3xl font-bold text-white mb-2">
                         {(alias as string).length > 30 ?
                             `Pay ${(alias as string).slice(0, 4)}...${(alias as string).slice(-4)}`
@@ -668,9 +695,16 @@ function PaymentContent() {
                                 </div>
                             )}
                             <div>
-                                <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">
-                                    Amount ({selectedToken.symbol}) {isLocked && <span className="text-yellow-500 ml-2">🔒 Locked</span>}
-                                </label>
+                                <div className="flex items-center justify-between mb-2">
+                                    <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider">
+                                        Amount ({selectedToken.symbol}) {isLocked && <span className="text-yellow-500 ml-2">🔒 Locked</span>}
+                                    </label>
+                                    {connected && balance !== null && (
+                                        <span className="text-xs text-gray-500 font-mono">
+                                            Balance: <span className={`font-bold ${balance < parseFloat(amount || '0') ? 'text-red-400' : 'text-cyan-400'}`}>{balance.toFixed(4)}</span> {selectedToken.symbol}
+                                        </span>
+                                    )}
+                                </div>
                                 <div className="relative group">
                                     <input
                                         type="number"
@@ -804,7 +838,7 @@ function PaymentContent() {
             </div>
 
             <div className="mt-8 text-center">
-                <p className="text-xs text-gray-600 font-medium">Powered by <span className="text-gray-500 font-bold">UNIK Protocol</span></p>
+                <p className="text-xs text-gray-600 font-medium">Powered by <span className="text-gray-500 font-bold">UNIK Pay</span></p>
             </div>
 
             <MobileWalletPrompt />
