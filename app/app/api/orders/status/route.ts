@@ -49,12 +49,13 @@ export async function POST(request: NextRequest) {
                 verified: order.status === 'paid',
             });
         } else {
-            // Minimal public information
+            // Minimal public information (concept included for HMAC verification)
             return NextResponse.json({
                 order_id: order.id,
                 status: order.status,
                 expected_amount: order.expected_amount,
                 expected_token: order.expected_token,
+                concept: order.concept,
                 verified: order.status === 'paid',
             });
         }

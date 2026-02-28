@@ -121,8 +121,18 @@ function PaymentContent() {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ order_id: orderId })
             })
-                .then(res => res.json())
+                .then(res => {
+                    if (!res.ok) throw new Error('Order not found');
+                    return res.json();
+                })
                 .then(data => {
+                    if (data.error) {
+                        // Order ID invalid/not found → treat as tampered
+                        setLinkVerification('invalid');
+                        setIsLocked(true);
+                        setTokenLocked(true);
+                        return;
+                    }
                     if (data.concept) setConcept(data.concept);
                     if (data.expected_amount) {
                         setAmount(String(data.expected_amount));
@@ -136,7 +146,13 @@ function PaymentContent() {
                         }
                     }
                 })
-                .catch(e => console.error("Failed to fetch order details:", e));
+                .catch(e => {
+                    console.error("Failed to fetch order details:", e);
+                    // Order ID tampered/invalid → mark as invalid
+                    setLinkVerification('invalid');
+                    setIsLocked(true);
+                    setTokenLocked(true);
+                });
         }
 
         const queryToken = searchParams.get('token');
