@@ -104,14 +104,14 @@ export async function generateMetadata(props: Props): Promise<Metadata> {
             ogUrl.searchParams.set('pubkey', ownerPubkey);
 
             // Fetch user's preferred language from Supabase profiles
-            if (process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
+            if (process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY) {
                 try {
                     const profileRes = await fetch(
                         `${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/profiles?wallet_address=eq.${ownerPubkey}&select=preferred_language`,
                         {
                             headers: {
-                                'apikey': process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
-                                'Authorization': `Bearer ${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY}`,
+                                'apikey': process.env.SUPABASE_SERVICE_ROLE_KEY,
+                                'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`,
                             },
                         }
                     );

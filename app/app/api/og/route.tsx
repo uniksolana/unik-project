@@ -120,56 +120,58 @@ export async function GET(request: NextRequest) {
 
                             {action === 'add-contact' ? (
                                 /* ═══════ ADD CONTACT ═══════ */
-                                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', width: '100%', gap: '24px' }}>
-                                    <span style={{ color: '#06b6d4', fontSize: 36, fontWeight: 600, letterSpacing: '0.1em', textTransform: 'uppercase' }}>
-                                        {t.new_contact}
-                                    </span>
-                                    {avatarCircle(200)}
-                                    <div style={{ display: 'flex', alignItems: 'center', fontSize: 90, color: 'white', fontWeight: 800, letterSpacing: '-0.02em' }}>
+                                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', width: '100%', gap: '16px' }}>
+                                    {avatarCircle(180)}
+                                    <div style={{ display: 'flex', alignItems: 'center', fontSize: 90, color: 'white', fontWeight: 800, letterSpacing: '-0.02em', marginTop: '16px' }}>
                                         {displayAlias}
                                     </div>
+                                    <span style={{ color: '#06b6d4', fontSize: 36, fontWeight: 600, letterSpacing: '0.1em', textTransform: 'uppercase', marginTop: '12px' }}>
+                                        {t.new_contact}
+                                    </span>
                                 </div>
 
                             ) : !isRequest ? (
                                 /* ═══════ SEND FUNDS (no amount) ═══════ */
-                                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', width: '100%', gap: '24px' }}>
-                                    <span style={{ color: '#a78bfa', fontSize: 36, fontWeight: 600, letterSpacing: '0.1em', textTransform: 'uppercase' }}>
-                                        {t.send_funds}
-                                    </span>
-                                    {avatarCircle(220)}
-                                    <div style={{ display: 'flex', alignItems: 'center', fontSize: 90, color: 'white', fontWeight: 800, letterSpacing: '-0.02em' }}>
+                                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', width: '100%', gap: '16px' }}>
+                                    {avatarCircle(180)}
+                                    <div style={{ display: 'flex', alignItems: 'center', fontSize: 90, color: 'white', fontWeight: 800, letterSpacing: '-0.02em', marginTop: '16px' }}>
                                         {displayAlias}
                                     </div>
+                                    <span style={{ color: '#a78bfa', fontSize: 36, fontWeight: 600, letterSpacing: '0.1em', textTransform: 'uppercase', marginTop: '12px' }}>
+                                        {t.send_funds}
+                                    </span>
                                 </div>
 
                             ) : (
                                 /* ═══════ PAYMENT REQUEST (with amount) ═══════ */
-                                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', width: '100%', gap: '12px' }}>
-                                    <span style={{ color: '#38bdf8', fontSize: 32, fontWeight: 500, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '12px' }}>
-                                        {t.payment_request}
-                                    </span>
-
-                                    {avatarCircle(160)}
-                                    
-                                    <span style={{ fontSize: 56, color: 'white', fontWeight: 800, letterSpacing: '-0.02em', lineHeight: 1.1 }}>
-                                        {displayAlias}
-                                    </span>
+                                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', width: '100%', gap: '10px' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '24px' }}>
+                                        {avatarCircle(130)}
+                                        <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+                                            <span style={{ fontSize: 46, color: 'white', fontWeight: 800, letterSpacing: '-0.02em', lineHeight: 1.1 }}>
+                                                {displayAlias}
+                                            </span>
+                                            <span style={{ color: '#38bdf8', fontSize: 24, fontWeight: 500, letterSpacing: '0.08em', textTransform: 'uppercase', marginTop: '8px' }}>
+                                                {t.payment_request}
+                                            </span>
+                                        </div>
+                                    </div>
 
                                     {/* Big amount */}
-                                    <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: '16px', marginTop: '16px' }}>
-                                        <span style={{ color: 'white', fontSize: 130, fontWeight: 800, lineHeight: 1 }}>
+                                    <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: '16px', marginTop: '20px' }}>
+                                        <span style={{ color: 'white', fontSize: 110, fontWeight: 800, lineHeight: 1 }}>
                                             {amount}
                                         </span>
-                                        <span style={{ fontSize: 60, color: '#9ca3af', fontWeight: 600, paddingTop: '16px' }}>
+                                        <span style={{ fontSize: 50, color: '#9ca3af', fontWeight: 600, paddingTop: '16px' }}>
                                             {token}
                                         </span>
                                     </div>
 
                                     {/* Concept pill */}
                                     {concept && (
-                                        <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', gap: '12px', marginTop: '20px', background: 'rgba(255, 255, 255, 0.1)', padding: '16px 36px', borderRadius: '100px' }}>
-                                            <span style={{ color: '#9ca3af', fontSize: 28, fontWeight: 500 }}>{t.concept}</span>
-                                            <span style={{ color: '#d1d5db', fontSize: 28, fontWeight: 600 }}>"{concept}"</span>
+                                        <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', gap: '12px', marginTop: '16px', background: 'rgba(255, 255, 255, 0.1)', padding: '12px 28px', borderRadius: '100px' }}>
+                                            <span style={{ color: '#9ca3af', fontSize: 24, fontWeight: 500 }}>{t.concept}</span>
+                                            <span style={{ color: '#d1d5db', fontSize: 24, fontWeight: 600 }}>"{concept}"</span>
                                         </div>
                                     )}
                                 </div>
