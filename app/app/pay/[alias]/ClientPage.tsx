@@ -377,14 +377,25 @@ function PaymentContent() {
                     const remainingAccounts = [];
                     const preInstructions = [];
 
+                    console.log('[Payment Debug] SPL Token Routing:', {
+                        alias: normalizedAlias,
+                        amount: amountBN.toString(),
+                        token: selectedToken.symbol,
+                        mint: selectedToken.mint.toBase58(),
+                        userWallet: publicKey.toBase58(),
+                        userATA: userATA.toBase58(),
+                        splitsCount: routeAccount.splits.length,
+                    });
+
                     for (const split of routeAccount.splits) {
                         const destATA = await getAssociatedTokenAddress(selectedToken.mint, split.recipient);
                         remainingAccounts.push({ pubkey: destATA, isSigner: false, isWritable: true });
 
                         // Check if ATA exists, create if not
                         const info = await connection.getAccountInfo(destATA);
+                        console.log(`[Payment Debug] Split recipient ${split.recipient.toBase58()} (${split.percentage / 100}%): ATA ${destATA.toBase58()} exists=${!!info}`);
+
                         if (!info) {
-                            const { createAssociatedTokenAccountIdempotentInstruction } = await import('@solana/spl-token');
                             preInstructions.push(
                                 createAssociatedTokenAccountIdempotentInstruction(
                                     publicKey, // payer
@@ -395,6 +406,9 @@ function PaymentContent() {
                             );
                         }
                     }
+
+                    console.log('[Payment Debug] Pre-instructions (ATA creation):', preInstructions.length);
+                    console.log('[Payment Debug] Remaining accounts:', remainingAccounts.map(a => a.pubkey.toBase58()));
 
                     const ix = await program.methods
                         .executeTokenTransfer(normalizedAlias, amountBN)
