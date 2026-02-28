@@ -1,6 +1,5 @@
 import { PublicKey } from '@solana/web3.js';
 
-// Replaced automatically during build/deployment
 export const PROGRAM_ID = new PublicKey('ASA8xRVPFBQLo3dLJQH2NedBKJWsVXGu46radY6oRX6i');
 
 export const IDL = {
@@ -419,6 +418,68 @@ export const IDL = {
         {
           "name": "system_program",
           "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "alias",
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "name": "migrate_route_account",
+      "docs": [
+        "Migrate a stale route account that can't be deserialized with the current schema.",
+        "Uses UncheckedAccount to bypass Anchor deserialization.",
+        "Only the alias owner can call this. Closes the old account and refunds rent."
+      ],
+      "discriminator": [
+        189,
+        199,
+        93,
+        150,
+        196,
+        240,
+        140,
+        71
+      ],
+      "accounts": [
+        {
+          "name": "alias_account",
+          "docs": [
+            "The alias account - validated normally since its schema hasn't changed"
+          ],
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  97,
+                  108,
+                  105,
+                  97,
+                  115
+                ]
+              },
+              {
+                "kind": "arg",
+                "path": "alias"
+              }
+            ]
+          }
+        },
+        {
+          "name": "route_account",
+          "docs": [
+            "The stale route account - uses UncheckedAccount to bypass deserialization"
+          ],
+          "writable": true
+        },
+        {
+          "name": "user",
+          "writable": true,
+          "signer": true
         }
       ],
       "args": [

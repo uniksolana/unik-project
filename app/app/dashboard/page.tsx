@@ -536,15 +536,16 @@ export default function Dashboard() {
             }
 
             if (needsDelete) {
-                const deleteInstruction = await program.methods
-                    .deleteRouteConfig(normalizedAlias)
+                // Use migrateRouteAccount which uses UncheckedAccount — bypasses deserialization
+                const migrateInstruction = await program.methods
+                    .migrateRouteAccount(normalizedAlias)
                     .accounts({
                         aliasAccount: aliasPDA,
                         routeAccount: routePDA,
                         user: publicKey,
                     })
                     .instruction();
-                instructions.push(deleteInstruction);
+                instructions.push(migrateInstruction);
             }
 
             if (needsInit) {

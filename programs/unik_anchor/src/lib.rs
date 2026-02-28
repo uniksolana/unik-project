@@ -254,6 +254,52 @@ pub mod unik_anchor {
         Ok(())
     }
 
+    /// Migrate a stale route account that can't be deserialized with the current schema.
+    /// Uses UncheckedAccount to bypass Anchor deserialization.
+    /// Only the alias owner can call this. Closes the old account and refunds rent.
+    pub fn migrate_route_account(ctx: Context<MigrateRouteAccount>, alias: String) -> Result<()> {
+        let alias_account = &ctx.accounts.alias_account;
+        require!(alias_account.owner == ctx.accounts.user.key(), UnikError::Unauthorized);
+
+        // Validate the route_account PDA manually
+        let (expected_route_pda, _bump) = Pubkey::find_program_address(
+            &[b"route", alias.as_bytes()],
+            ctx.program_id,
+        );
+        require!(
+            ctx.accounts.route_account.key() == expected_route_pda,
+            UnikError::InvalidPDA
+        );
+
+        // Verify the account is owned by our program
+        require!(
+            ctx.accounts.route_account.owner == ctx.program_id,
+            UnikError::InvalidPDA
+        );
+
+        // Close the account: transfer all lamports to user, zero data, assign to system program
+        let route_info = ctx.accounts.route_account.to_account_info();
+        let user_info = ctx.accounts.user.to_account_info();
+
+        let route_lamports = route_info.lamports();
+        **route_info.try_borrow_mut_lamports()? = 0;
+        **user_info.try_borrow_mut_lamports()? = user_info.lamports()
+            .checked_add(route_lamports)
+            .ok_or(UnikError::Overflow)?;
+
+        // Zero account data
+        route_info.try_borrow_mut_data()?.fill(0);
+        route_info.assign(&anchor_lang::solana_program::system_program::ID);
+
+        msg!("Stale route account migrated (closed) for alias: {}", alias);
+        emit!(RouteEvent {
+            alias: alias.clone(),
+            splits_count: 0,
+            timestamp: Clock::get()?.unix_timestamp,
+        });
+        Ok(())
+    }
+
     /// Delete a route config independently - refunds rent to owner
     /// Must be called BEFORE delete_alias if a route exists.
     pub fn delete_route_config(_ctx: Context<DeleteRouteConfig>, alias: String) -> Result<()> {
@@ -329,6 +375,26 @@ pub struct DeleteAlias<'info> {
     )]
     pub alias_account: Account<'info, AliasAccount>,
     
+    #[account(mut)]
+    pub user: Signer<'info>,
+}
+
+#[derive(Accounts)]
+#[instruction(alias: String)]
+pub struct MigrateRouteAccount<'info> {
+    /// The alias account - validated normally since its schema hasn't changed
+    #[account(
+        seeds = [b"alias", alias.as_bytes()],
+        bump = alias_account.bump,
+        constraint = alias_account.owner == user.key() @ UnikError::Unauthorized,
+    )]
+    pub alias_account: Account<'info, AliasAccount>,
+
+    /// The stale route account - uses UncheckedAccount to bypass deserialization
+    /// CHECK: Manually validated in the instruction handler via PDA derivation and owner check
+    #[account(mut)]
+    pub route_account: UncheckedAccount<'info>,
+
     #[account(mut)]
     pub user: Signer<'info>,
 }
