@@ -793,7 +793,7 @@ function PaymentContent() {
 
                             <button
                                 onClick={recipientNeedsATA ? handleActivation : handlePayment}
-                                disabled={loading || (!amount && !recipientNeedsATA) || linkVerification === 'invalid' || isCheckingATA}
+                                disabled={loading || (!amount && !recipientNeedsATA) || linkVerification === 'invalid' || isCheckingATA || (!recipientNeedsATA && balance !== null && balance < parseFloat(amount || '0'))}
                                 className={`w-full py-5 font-bold text-lg rounded-2xl shadow-xl transition-all transform hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed
                                     ${recipientNeedsATA
                                         ? 'bg-gradient-to-r from-orange-500 to-pink-600 hover:from-orange-400 hover:to-pink-500 text-white shadow-orange-900/30'
