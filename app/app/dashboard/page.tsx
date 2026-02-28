@@ -545,7 +545,23 @@ export default function Dashboard() {
                         user: publicKey,
                     })
                     .instruction();
-                instructions.push(migrateInstruction);
+
+                const { blockhash: mBlockhash, lastValidBlockHeight: mBlockHeight } = await connection.getLatestBlockhash('finalized');
+                const migrateMessage = new TransactionMessage({
+                    payerKey: publicKey,
+                    recentBlockhash: mBlockhash,
+                    instructions: [
+                        ComputeBudgetProgram.setComputeUnitLimit({ units: 100_000 }),
+                        ComputeBudgetProgram.setComputeUnitPrice({ microLamports: 1000 }),
+                        migrateInstruction
+                    ],
+                }).compileToV0Message();
+
+                toast.loading("Migrating legacy configuration...", { id: 'migrate-toast' });
+                const migrateTx = new VersionedTransaction(migrateMessage);
+                const migrateSig = await wallet.sendTransaction(migrateTx, connection);
+                await connection.confirmTransaction({ signature: migrateSig, blockhash: mBlockhash, lastValidBlockHeight: mBlockHeight });
+                toast.dismiss('migrate-toast');
             }
 
             if (needsInit) {
