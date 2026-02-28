@@ -35,9 +35,36 @@ export async function generateMetadata(props: Props): Promise<Metadata> {
     const searchParams = await props.searchParams;
 
     const alias = params.alias;
-    const amount = typeof searchParams.amount === 'string' ? searchParams.amount : null;
-    const token = typeof searchParams.token === 'string' ? searchParams.token : null;
-    const concept = typeof searchParams.concept === 'string' ? searchParams.concept : null;
+    const orderId = typeof searchParams.order_id === 'string' ? searchParams.order_id : null;
+    let amount = typeof searchParams.amount === 'string' ? searchParams.amount : null;
+    let token = typeof searchParams.token === 'string' ? searchParams.token : null;
+    let concept = typeof searchParams.concept === 'string' ? searchParams.concept : null;
+
+    if (orderId && process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY) {
+        try {
+            const orderRes = await fetch(
+                `${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/payment_orders?id=eq.${orderId}&select=expected_amount,expected_token,concept`,
+                {
+                    headers: {
+                        'apikey': process.env.SUPABASE_SERVICE_ROLE_KEY,
+                        'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`,
+                    },
+                    cache: 'no-store'
+                }
+            );
+            if (orderRes.ok) {
+                const orders = await orderRes.json();
+                if (orders.length > 0) {
+                    const o = orders[0];
+                    if (o.expected_amount) amount = String(o.expected_amount);
+                    if (o.concept) concept = o.concept;
+                    if (o.expected_token) token = o.expected_token;
+                }
+            }
+        } catch (e) {
+            console.warn('Failed to fetch order details for OG metadata:', e);
+        }
+    }
 
     const getBaseUrl = () => {
         if (process.env.NEXT_PUBLIC_APP_URL) return process.env.NEXT_PUBLIC_APP_URL;
