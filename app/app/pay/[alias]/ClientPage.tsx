@@ -152,6 +152,7 @@ function PaymentContent() {
         // Use URL param OR fetched state (for clean URLs)
         const queryAmount = searchParams.get('amount') || amount;
         const queryToken = searchParams.get('token') || selectedToken.symbol || 'SOL';
+        const queryConcept = searchParams.get('concept') || concept || '';
 
         if (!sig || !queryAmount || !alias) {
             setLinkVerification(sig ? 'checking' : 'unsigned');
@@ -165,12 +166,13 @@ function PaymentContent() {
                 queryAmount,
                 queryToken.toUpperCase(),
                 sig,
-                searchParams.get('order_id')
+                searchParams.get('order_id'),
+                queryConcept ? decodeURIComponent(queryConcept) : ''
             );
             setLinkVerification(result);
         };
         verify();
-    }, [alias, searchParams, amount, selectedToken]);
+    }, [alias, searchParams, amount, selectedToken, concept]);
 
     // ... (keep useEffect for balance/alias check same)
 

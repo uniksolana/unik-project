@@ -1145,7 +1145,8 @@ function ReceiveTab({ avatarUrl, registeredAlias, linkAmount, setLinkAmount, lin
                             String(shareValue),
                             linkAmount,
                             requestToken.symbol,
-                            orderId || undefined
+                            orderId || undefined,
+                            linkConcept || ''
                         );
 
                         if (sig) {

@@ -10,8 +10,8 @@ const getHmacSecret = () => {
     return secret;
 };
 
-function computeHmac(alias: string, amount: string, token: string, orderId?: string): string {
-    const payload = `${alias.toLowerCase().trim()}|${amount}|${token.toUpperCase()}|${orderId || ''}`;
+function computeHmac(alias: string, amount: string, token: string, orderId?: string, concept?: string): string {
+    const payload = `${alias.toLowerCase().trim()}|${amount}|${token.toUpperCase()}|${orderId || ''}|${concept || ''}`;
     return crypto.createHmac('sha256', getHmacSecret()).update(payload).digest('hex').slice(0, 16);
 }
 
@@ -28,13 +28,13 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ valid: false, reason: 'Rate limit exceeded' }, { status: 429 });
         }
 
-        const { alias, amount, token, sig, orderId } = await request.json();
+        const { alias, amount, token, sig, orderId, concept } = await request.json();
 
         if (!alias || !amount || !sig) {
             return NextResponse.json({ valid: false, reason: 'Missing parameters' });
         }
 
-        const expectedSig = computeHmac(alias, String(amount), token || 'SOL', orderId);
+        const expectedSig = computeHmac(alias, String(amount), token || 'SOL', orderId, concept || '');
         const valid = sig === expectedSig;
 
         return NextResponse.json({ valid });
