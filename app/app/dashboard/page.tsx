@@ -1717,13 +1717,15 @@ function SendTab({ sendRecipient, setSendRecipient, sendAlias, setSendAlias, sen
                     const routeAccount: any = await (program.account as any).routeAccount.fetch(routePDA);
 
                     if (routeAccount && routeAccount.splits && routeAccount.splits.length > 0) {
+                        const [aliasPDA] = PublicKey.findProgramAddressSync([Buffer.from("alias"), Buffer.from(targetAlias)], PROGRAM_ID);
+
                         if (sendToken.symbol === 'SOL') {
                             // --- SOL ROUTING ---
                             const remainingAccounts = routeAccount.splits.map((s: any) => ({
                                 pubkey: s.recipient, isSigner: false, isWritable: true
                             }));
                             const ix = await (program.methods as any).executeTransfer(targetAlias, amountBN).accounts({
-                                routeAccount: routePDA, user: publicKey, systemProgram: SystemProgram.programId
+                                routeAccount: routePDA, aliasAccount: aliasPDA, user: publicKey, systemProgram: SystemProgram.programId
                             }).remainingAccounts(remainingAccounts).instruction();
 
                             const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash('finalized');
@@ -1782,6 +1784,7 @@ function SendTab({ sendRecipient, setSendRecipient, sendAlias, setSendAlias, sen
                                 .executeTokenTransfer(targetAlias, amountBN)
                                 .accounts({
                                     routeAccount: routePDA,
+                                    aliasAccount: aliasPDA,
                                     user: publicKey,
                                     mint: sendToken.mint,
                                     userTokenAccount: userATA,
