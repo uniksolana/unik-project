@@ -1824,8 +1824,19 @@ function SendTab({ sendRecipient, setSendRecipient, sendAlias, setSendAlias, sen
                         }
                         setLoading(false); setSendAmount(''); setPaymentConcept(''); return;
                     }
-                } catch (e) {
-                    console.log("Routing failed/skipped", e);
+                } catch (e: any) {
+                    // Only fall through to direct transfer if route account doesn't exist
+                    // If route exists but transaction fails, show the error (don't bypass splits!)
+                    const errMsg = e?.message || String(e);
+                    const isAccountNotFound = errMsg.includes('Account does not exist') || errMsg.includes('could not find');
+                    if (isAccountNotFound) {
+                        console.log("No route account, falling through to direct transfer");
+                    } else {
+                        console.error("Routing transaction failed:", e);
+                        toast.error("Split payment failed. Try re-saving your split config in the Splits tab to update it.");
+                        setLoading(false);
+                        return;
+                    }
                 }
             }
 
