@@ -1,4 +1,5 @@
 import { Metadata } from 'next';
+import { unstable_noStore as noStore } from 'next/cache';
 import ClientPage from './ClientPage';
 
 type Props = {
@@ -29,6 +30,7 @@ const metaI18n: Record<string, Record<string, string>> = {
 };
 
 export async function generateMetadata(props: Props): Promise<Metadata> {
+    noStore();
     const params = await props.params;
     const searchParams = await props.searchParams;
 
