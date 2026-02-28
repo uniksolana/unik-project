@@ -1116,6 +1116,7 @@ function ReceiveTab({ avatarUrl, registeredAlias, linkAmount, setLinkAmount, lin
 
     const [isPayShareOpen, setIsPayShareOpen] = useState(false);
     const [isContactShareOpen, setIsContactShareOpen] = useState(false);
+    const [linkExpiration, setLinkExpiration] = useState('1m'); // LOW-06: Added expiration UI state
 
     const shareValue = useAddress ? publicKey?.toBase58() : registeredAlias;
 
@@ -1176,6 +1177,7 @@ function ReceiveTab({ avatarUrl, registeredAlias, linkAmount, setLinkAmount, lin
                                     token: requestToken.symbol,
                                     merchant_wallet: publicKey.toBase58(),
                                     concept: linkConcept || null,
+                                    expiration: linkExpiration,
                                 }),
                             });
 
@@ -1215,7 +1217,7 @@ function ReceiveTab({ avatarUrl, registeredAlias, linkAmount, setLinkAmount, lin
         }, 1000);
 
         return () => clearTimeout(timer);
-    }, [linkAmount, linkConcept, requestToken.symbol, shareValue]);
+    }, [linkAmount, linkConcept, requestToken.symbol, shareValue, linkExpiration]);
 
     const getShareMessage = () => {
         const amount = linkAmount ? ` ${linkAmount} ${requestToken.symbol}` : '';
@@ -1289,6 +1291,23 @@ function ReceiveTab({ avatarUrl, registeredAlias, linkAmount, setLinkAmount, lin
                     className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-xl text-white focus:outline-none focus:border-cyan-500"
                     onChange={(e) => setLinkConcept(e.target.value)}
                 />
+            </div>
+
+            <div className="mb-6">
+                <label className="text-sm text-gray-400 block mb-2">Link Expiration</label>
+                <select
+                    value={linkExpiration}
+                    onChange={(e) => setLinkExpiration(e.target.value)}
+                    className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-xl text-white focus:outline-none focus:border-cyan-500"
+                >
+                    <option value="1d">1 Day</option>
+                    <option value="1w">1 Week</option>
+                    <option value="1m">1 Month</option>
+                    <option value="3m">3 Months</option>
+                    <option value="1y">1 Year</option>
+                    <option value="never">No Expiration</option>
+                </select>
+                <p className="text-[10px] text-gray-500 mt-2">Only applies to specific amounts to prevent replay attacks.</p>
             </div>
 
             <div className="bg-gray-800 p-6 border border-gray-700">

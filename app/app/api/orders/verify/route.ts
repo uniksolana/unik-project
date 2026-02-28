@@ -48,6 +48,14 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ verified: false, status: 'expired', message: 'Order has expired' });
         }
 
+        // LOW-06: Check explicit expiration before verifying payment
+        if (order.status !== 'paid' && order.status !== 'expired' && order.expires_at) {
+            if (new Date(order.expires_at) < new Date()) {
+                await supabase.from('payment_orders').update({ status: 'expired' }).eq('id', order_id);
+                return NextResponse.json({ verified: false, status: 'expired', message: 'Order has expired' });
+            }
+        }
+
         // N-003: Replay Attack Protection
         // Check if this signature has already been used to fulfill a DIFFERENT order
         const { data: existingUsage } = await supabase

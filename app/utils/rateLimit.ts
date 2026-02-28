@@ -73,7 +73,16 @@ export async function checkRateLimit(identifier: string, limit: number, windowSe
 
     } catch (e) {
         console.error("Rate limit exception:", e);
-        return { success: true, remaining: 1 };
+        // MED-02: Fallback to strict local cache limit to avoid fail-open DDoS vulnerability
+        const fallbackLimit = 2;
+        const cached = localCache.get(key) || { count: 0, expiresAt: Date.now() + windowSeconds * 1000 };
+
+        if (cached.count >= fallbackLimit) {
+            return { success: false, remaining: 0 };
+        }
+
+        localCache.set(key, { count: cached.count + 1, expiresAt: cached.expiresAt });
+        return { success: true, remaining: fallbackLimit - (cached.count + 1) };
     }
 }
 

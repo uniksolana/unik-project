@@ -43,6 +43,7 @@ function PaymentContent() {
     const [tokenLocked, setTokenLocked] = useState(false);
     const [isDirectAddress, setIsDirectAddress] = useState(false);
     const [linkVerification, setLinkVerification] = useState<'checking' | 'valid' | 'invalid' | 'unsigned'>('checking');
+    const [isExpired, setIsExpired] = useState(false);
 
     useEffect(() => {
         // Fetch SOL price from CoinGecko... (omitted for brevity, assume keeps existing)
@@ -110,7 +111,7 @@ function PaymentContent() {
 
         const queryConcept = searchParams.get('concept');
         if (queryConcept) {
-            setConcept(decodeURIComponent(queryConcept));
+            setConcept(decodeURIComponent(queryConcept).replace(/[<>]/g, '')); // MED-01: Sanitize
         }
 
         const orderId = searchParams.get('order_id');
@@ -133,7 +134,11 @@ function PaymentContent() {
                         setTokenLocked(true);
                         return;
                     }
-                    if (data.concept) setConcept(data.concept);
+                    if (data.status === 'expired') {
+                        setIsExpired(true);
+                        setLinkVerification('invalid');
+                    }
+                    if (data.concept) setConcept(data.concept.replace(/[<>]/g, '')); // MED-01: Sanitize
                     if (data.expected_amount) {
                         setAmount(String(data.expected_amount));
                         setIsLocked(true);
@@ -717,12 +722,23 @@ function PaymentContent() {
                     ) : (
                         <div className="space-y-6">
                             {/* Tamper Warning */}
-                            {linkVerification === 'invalid' && (
+                            {linkVerification === 'invalid' && !isExpired && (
                                 <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-4 flex items-start gap-3">
                                     <span className="text-red-400 text-lg mt-0.5">🚨</span>
                                     <div>
                                         <p className="text-red-400 font-bold text-sm">Warning: This link has been modified</p>
                                         <p className="text-red-400/70 text-xs mt-1">The payment parameters do not match the original link. The amount or token may have been tampered with. Proceed with caution.</p>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Expiration Warning */}
+                            {isExpired && (
+                                <div className="bg-orange-500/10 border border-orange-500/30 rounded-xl p-4 flex items-start gap-3">
+                                    <span className="text-orange-400 text-lg mt-0.5">⏳</span>
+                                    <div>
+                                        <p className="text-orange-400 font-bold text-sm">This payment link has expired</p>
+                                        <p className="text-orange-400/70 text-xs mt-1">The time limit to fulfill this payment order has passed. Please request a new link.</p>
                                     </div>
                                 </div>
                             )}
@@ -787,7 +803,7 @@ function PaymentContent() {
                                     <input
                                         type="text"
                                         value={concept || ''}
-                                        onChange={(e) => setConcept(e.target.value)}
+                                        onChange={(e) => setConcept(e.target.value.replace(/[<>]/g, ''))} // MED-01
                                         placeholder="e.g. Donation, Gift, Service..."
                                         className="w-full px-4 py-3 bg-black/30 border border-white/10 rounded-xl text-white placeholder-gray-600 focus:outline-none focus:border-cyan-500/50 focus:bg-black/40 transition-all font-medium"
                                         maxLength={60}

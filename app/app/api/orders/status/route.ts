@@ -19,12 +19,21 @@ export async function POST(request: NextRequest) {
 
         const { data: order, error } = await supabase
             .from('payment_orders')
-            .select('id, merchant_alias, merchant_wallet, expected_amount, expected_token, concept, status, actual_amount, payer_wallet, tx_signature, created_at, paid_at')
+            .select('*') // LOW-06 safe schema fetching to avoid crashing before SQL migration
             .eq('id', order_id)
             .single();
 
         if (error || !order) {
             return NextResponse.json({ error: 'Order not found' }, { status: 404 });
+        }
+
+        // LOW-06: Check expiration dynamically
+        if (order.status !== 'paid' && order.status !== 'expired' && order.expires_at) {
+            if (new Date(order.expires_at) < new Date()) {
+                // If it's expired, update DB (fire and forget) and update local object
+                supabase.from('payment_orders').update({ status: 'expired' }).eq('id', order_id).then();
+                order.status = 'expired';
+            }
         }
 
         // MED-01: Require cryptographic wallet signature for full details (not just knowing the wallet address)

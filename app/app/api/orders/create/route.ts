@@ -13,7 +13,7 @@ const getHmacSecret = () => {
 
 function signOrder(alias: string, amount: string, token: string, orderId: string): string {
     const payload = `order|${alias.toLowerCase().trim()}|${amount}|${token.toUpperCase()}|${orderId}`;
-    return crypto.createHmac('sha256', getHmacSecret()).update(payload).digest('hex').slice(0, 24);
+    return crypto.createHmac('sha256', getHmacSecret()).update(payload).digest('hex'); // LOW-01 fix: full length HMAC
 }
 
 /**
@@ -35,7 +35,7 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'Too many requests. Please try again later.' }, { status: 429 });
         }
 
-        const { alias, amount, token, merchant_wallet, concept } = await request.json();
+        const { alias, amount, token, merchant_wallet, concept, expiration } = await request.json();
 
         if (!alias || !amount || !merchant_wallet) {
             return NextResponse.json({ error: 'Missing required fields (alias, amount, merchant_wallet)' }, { status: 400 });
@@ -44,23 +44,46 @@ export async function POST(request: NextRequest) {
         const tokenSymbol = (token || 'SOL').toUpperCase();
         const supabase = getServerSupabase();
 
+        // LOW-06: Calculate expires_at
+        let expiresAt: string | null = null;
+        if (expiration && expiration !== 'never') {
+            const now = Date.now();
+            let addedMs = 0;
+            if (expiration === '1d') addedMs = 24 * 60 * 60 * 1000;
+            else if (expiration === '1w') addedMs = 7 * 24 * 60 * 60 * 1000;
+            else if (expiration === '1m') addedMs = 30 * 24 * 60 * 60 * 1000;
+            else if (expiration === '3m') addedMs = 90 * 24 * 60 * 60 * 1000;
+            else if (expiration === '1y') addedMs = 365 * 24 * 60 * 60 * 1000;
+
+            if (addedMs > 0) {
+                expiresAt = new Date(now + addedMs).toISOString(); // Requires DB column `expires_at`
+            }
+        }
+
         // Generate order ID
         const orderId = crypto.randomUUID();
         const orderSig = signOrder(alias, amount, tokenSymbol, orderId);
 
         // Insert order
+        // WARNING: Ensure expires_at column exists in DB. If not, this might fail, need migration.
+        const insertData: any = {
+            id: orderId,
+            merchant_alias: alias.toLowerCase().trim(),
+            merchant_wallet,
+            expected_amount: amount,
+            expected_token: tokenSymbol,
+            concept: concept || null,
+            order_sig: orderSig,
+            status: 'pending',
+        };
+
+        if (expiresAt) {
+            insertData.expires_at = expiresAt;
+        }
+
         const { error } = await supabase
             .from('payment_orders')
-            .insert({
-                id: orderId,
-                merchant_alias: alias.toLowerCase().trim(),
-                merchant_wallet,
-                expected_amount: amount,
-                expected_token: tokenSymbol,
-                concept: concept || null,
-                order_sig: orderSig,
-                status: 'pending',
-            });
+            .insert(insertData);
 
         if (error) {
             console.error('[Orders] Create failed:', error);

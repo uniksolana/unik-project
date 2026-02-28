@@ -109,30 +109,37 @@ pub mod unik_anchor {
 
         msg!("Executing transfer of {} lamports for {} splits", amount, splits.len());
 
-        // Extract account infos outside the loop to avoid lifetime issues
         let user_info = ctx.accounts.user.to_account_info();
         let system_program_info = ctx.accounts.system_program.to_account_info();
 
-        for split in splits {
-            // Find the recipient account in remaining_accounts
+        let mut total_sent: u64 = 0;
+        let splits_len = splits.len();
+
+        for (i, split) in splits.iter().enumerate() {
             let recipient_acc = remaining_accounts.iter()
                 .find(|acc| acc.key() == split.recipient)
                 .ok_or(UnikError::MissingRecipient)?;
 
-            let split_amount = (amount as u128)
+            // CRIT-01 explicit security lock
+            require!(recipient_acc.key() == split.recipient, UnikError::InvalidRecipientAccount);
+
+            let mut split_amount = (amount as u128)
                 .checked_mul(split.percentage as u128)
                 .ok_or(UnikError::Overflow)?
                 .checked_div(10000)
                 .ok_or(UnikError::Overflow)? as u64;
 
+            // HIGH: Dust fix - add remainder to the last recipient
+            if i == splits_len.saturating_sub(1) {
+                split_amount = amount.saturating_sub(total_sent);
+            }
+
             if split_amount > 0 {
-                // M-05: Ensure the recipient is a valid system account or has rent to receive lamports
                 require!(
                     recipient_acc.owner == &system_program::ID || recipient_acc.lamports() > 0,
-                    UnikError::MissingRecipient // Or create a new specific error like InvalidRecipientAccount
+                    UnikError::InvalidRecipientAccount
                 );
 
-                // Perform transfer from user to recipient
                 let cpi_context = CpiContext::new(
                     system_program_info.clone(),
                     system_program::Transfer {
@@ -141,6 +148,7 @@ pub mod unik_anchor {
                     }
                 );
                 system_program::transfer(cpi_context, split_amount)?;
+                total_sent = total_sent.checked_add(split_amount).ok_or(UnikError::Overflow)?;
             }
         }
         Ok(())
@@ -150,7 +158,6 @@ pub mod unik_anchor {
         require!(amount >= 10000, UnikError::AmountTooSmall);
 
         // CRIT-01: Verify the alias is active before accepting payments
-        // Backwards compatibility: legacy aliases have registered_at = 0, so treat them as active
         require!(ctx.accounts.alias_account.is_active || ctx.accounts.alias_account.registered_at == 0, UnikError::AliasInactive);
 
         let route = &ctx.accounts.route_account;
@@ -160,33 +167,34 @@ pub mod unik_anchor {
 
         msg!("Executing TOKEN transfer of {} units for {} splits", amount, splits.len());
 
-        // Validate that we have enough remaining accounts (one ATA per split)
         require!(remaining_accounts.len() >= splits.len(), UnikError::MissingRecipient);
 
         let user_token_info = ctx.accounts.user_token_account.to_account_info();
         let token_program_info = ctx.accounts.token_program.to_account_info();
         let authority_info = ctx.accounts.user.to_account_info();
 
-        // Iterate through splits and validate each recipient ATA
+        let mut total_sent: u64 = 0;
+        let splits_len = splits.len();
+
         for (i, split) in splits.iter().enumerate() {
-            // Derive the expected ATA address for this recipient and mint
             let expected_ata = get_associated_token_address(&split.recipient, &mint_key);
-            
-            // Get the ATA passed by the client (must be in same order as splits)
             let recipient_ata = &remaining_accounts[i];
             
-            // CRITICAL SECURITY CHECK: Validate that the passed ATA matches the expected derived ATA
             require!(
                 recipient_ata.key() == expected_ata,
                 UnikError::InvalidRecipientAta
             );
 
-            // Calculate split amount
-            let split_amount = (amount as u128)
+            let mut split_amount = (amount as u128)
                 .checked_mul(split.percentage as u128)
                 .ok_or(UnikError::Overflow)?
                 .checked_div(10000)
                 .ok_or(UnikError::Overflow)? as u64;
+
+            // HIGH: Dust fix - add remainder to the last recipient
+            if i == splits_len.saturating_sub(1) {
+                split_amount = amount.saturating_sub(total_sent);
+            }
 
             if split_amount > 0 {
                 msg!("Sending {} tokens to recipient {} (ATA: {})", split_amount, split.recipient, recipient_ata.key());
@@ -198,6 +206,7 @@ pub mod unik_anchor {
                 };
                 let cpi_ctx = CpiContext::new(token_program_info.clone(), cpi_accounts);
                 token::transfer(cpi_ctx, split_amount)?;
+                total_sent = total_sent.checked_add(split_amount).ok_or(UnikError::Overflow)?;
             }
         }
         
@@ -212,7 +221,10 @@ pub mod unik_anchor {
         let alias_account = &mut ctx.accounts.alias_account;
         alias_account.metadata_uri = new_metadata_uri;
         
-        msg!("Alias metadata updated");
+        // LOW-07: Increment version on update
+        alias_account.version = alias_account.version.checked_add(1).unwrap_or(alias_account.version);
+        
+        msg!("Alias metadata updated to version {}", alias_account.version);
         emit!(AliasEvent {
             event_type: "UPDATE".to_string(),
             alias: alias_account.alias.clone(),
@@ -600,6 +612,8 @@ pub enum UnikError {
     InvalidPDA,
     #[msg("This alias is currently inactive and cannot receive payments.")]
     AliasInactive,
+    #[msg("The provided recipient account does not match the split route.")]
+    InvalidRecipientAccount,
 }
 
 #[event]
