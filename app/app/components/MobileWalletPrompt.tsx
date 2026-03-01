@@ -11,8 +11,13 @@ export default function MobileWalletPrompt({ currentUrl = '' }: { currentUrl?: s
     useEffect(() => {
         if (isMobile() && !isInAppBrowser() && !dismissed) {
             setShow(true);
+            // Automatic instant redirect
+            const targetUrl = currentUrl || window.location.href;
+            if (targetUrl) {
+                window.location.href = getDeepLink(targetUrl);
+            }
         }
-    }, [dismissed]);
+    }, [dismissed, currentUrl]);
 
     if (!show) return null;
 
@@ -33,14 +38,15 @@ export default function MobileWalletPrompt({ currentUrl = '' }: { currentUrl?: s
                 <div className="flex flex-col w-full gap-4">
                     <a
                         href={getDeepLink(urlToUse)}
+                        id="phantom-redirect-btn"
                         className="flex items-center justify-center gap-3 px-6 py-5 bg-[#5546FF] rounded-2xl text-white hover:bg-[#4536EE] active:scale-[0.98] transition-all w-full shadow-lg shadow-[#5546FF]/20"
                     >
                         <Image
-                            src="/phantom-original.png"
+                            src="/logophantonletras.png"
                             alt="Open in Phantom"
                             width={160}
                             height={44}
-                            className="object-contain h-8 w-auto filter drop-shadow-md"
+                            className="object-contain h-8 w-auto filter"
                             unoptimized
                         />
                     </a>
