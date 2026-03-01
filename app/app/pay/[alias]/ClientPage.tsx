@@ -2,7 +2,7 @@
 
 import { useWallet, useConnection } from '@solana/wallet-adapter-react';
 import { WalletMultiButton } from '@solana/wallet-adapter-react-ui';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import toast from 'react-hot-toast';
 import { showTransactionToast, showSimpleToast } from '../../components/CustomToast';
 import { useParams, useSearchParams } from 'next/navigation';
@@ -26,6 +26,26 @@ const TOKEN_OPTIONS_MAP: any = {
 function PaymentContent() {
     const { alias } = useParams();
     const searchParams = useSearchParams();
+
+    // Recover order_id and sig safely immediately from searchParams, bypassing Phantom/Solflare encode bugs
+    const { cleanOrderId, cleanSig } = useMemo(() => {
+        const rawOrderId = searchParams.get('order_id');
+        const rawSig = searchParams.get('sig');
+        let orderId = rawOrderId;
+        let sig = rawSig;
+        if (!orderId && sig && sig.includes('order_id=')) {
+            try {
+                const parts = sig.split(/&order_id=|%26order_id=/);
+                if (parts.length > 1) {
+                    sig = parts[0];
+                    orderId = parts[1].split(/[&%]/)[0];
+                    console.log("Rescued orderId from sig parameter:", orderId);
+                }
+            } catch (e) { console.warn("Could not rescue order_id", e); }
+        }
+        return { cleanOrderId: orderId, cleanSig: sig };
+    }, [searchParams]);
+
     const { connection } = useConnection();
     const wallet = useWallet();
     const { publicKey, connected } = useWallet();
@@ -131,13 +151,12 @@ function PaymentContent() {
             setConcept(decodeURIComponent(queryConcept).replace(/[<>]/g, '')); // MED-01: Sanitize
         }
 
-        const orderId = searchParams.get('order_id');
-        if (orderId) {
+        if (cleanOrderId) {
             // Fetch secure details (concept, amount, token) from backend
             fetch('/api/orders/status', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ order_id: orderId })
+                body: JSON.stringify({ order_id: cleanOrderId })
             })
                 .then(res => {
                     if (!res.ok) throw new Error('Order not found');
@@ -186,14 +205,13 @@ function PaymentContent() {
 
     // Verify HMAC signature of payment link
     useEffect(() => {
-        const sig = searchParams.get('sig');
         // Use URL param OR fetched state (for clean URLs)
         const queryAmount = searchParams.get('amount') || amount;
         const queryToken = searchParams.get('token') || selectedToken.symbol || 'SOL';
         const queryConcept = searchParams.get('concept') || concept || '';
 
-        if (!sig || !queryAmount || !alias) {
-            setLinkVerification(sig ? 'checking' : 'unsigned');
+        if (!cleanSig || !queryAmount || !alias) {
+            setLinkVerification(cleanSig ? 'checking' : 'unsigned');
             return;
         }
 
@@ -203,14 +221,14 @@ function PaymentContent() {
                 String(alias).toLowerCase().trim(),
                 queryAmount,
                 queryToken.toUpperCase(),
-                sig,
-                searchParams.get('order_id'),
+                cleanSig,
+                cleanOrderId,
                 queryConcept ? decodeURIComponent(queryConcept) : ''
             );
             setLinkVerification(result);
         };
         verify();
-    }, [alias, searchParams, amount, selectedToken, concept]);
+    }, [alias, searchParams, amount, selectedToken, concept, cleanSig, cleanOrderId]);
 
     // ... (keep useEffect for balance/alias check same)
 

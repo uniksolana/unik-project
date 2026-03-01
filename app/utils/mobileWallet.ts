@@ -11,7 +11,9 @@ export const isInAppBrowser = () => {
 };
 
 export const getDeepLink = (url: string, wallet: 'phantom' | 'solflare') => {
-    const encodedUrl = encodeURIComponent(url);
+    // Double-encode the URL to prevent mobile wallet deep-link parsers (Phantom/Solflare)
+    // from inadvertently splitting the target URL's own query parameters (&)
+    const encodedUrl = encodeURIComponent(encodeURIComponent(url));
     const encodedRef = encodeURIComponent(typeof window !== 'undefined' ? window.location.origin : 'https://www.unikpay.xyz');
 
     if (wallet === 'phantom') {
