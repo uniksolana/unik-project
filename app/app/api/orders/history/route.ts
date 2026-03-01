@@ -26,7 +26,7 @@ export async function POST(req: NextRequest) {
         // Fetch orders and transaction notes where user is involved
         // We select orders where the user is either the merchant (recipient) or payer (sender)
         const { data: orders, error } = await supabase
-            .from('orders')
+            .from('payment_orders')
             .select('*')
             .or(`merchant_wallet.eq.${wallet},payer_wallet.eq.${wallet}`)
             .order('created_at', { ascending: false })

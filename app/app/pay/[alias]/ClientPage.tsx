@@ -497,13 +497,14 @@ function PaymentContent() {
 
             setLastSignature(txSignature);
 
-            if (concept && txSignature && publicKey && aliasOwner) {
-                // Save Private Note using Transaction Verification (No backend auth required for sender)
+            if (txSignature && publicKey && aliasOwner) {
+                // Save shared note with alias for history resolution
                 saveSharedNote(
                     txSignature,
-                    concept,
+                    concept || '',
                     publicKey.toBase58(),
-                    aliasOwner.toBase58()
+                    aliasOwner.toBase58(),
+                    typeof alias === 'string' ? alias : undefined
                 ).catch((e: any) => console.warn("Note save failed", e));
             }
 

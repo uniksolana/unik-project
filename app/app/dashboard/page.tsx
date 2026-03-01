@@ -3169,8 +3169,14 @@ function HistoryTab({ publicKey, connection, confirmModal, setConfirmModal, cont
                         const isSetRoute = logs.some((l: string) => l.includes("Instruction: SetRouteConfig"));
 
                         // Detect if this transaction involved a split (smart routing)
+                        let detectedAlias = '';
                         if (logs.some((l: string) => l.includes("Instruction: ExecuteTransfer") || l.includes("Instruction: ExecuteTokenTransfer"))) {
                             isSmartRouting = true;
+                            // Try to extract alias from program logs (Anchor logs the alias parameter)
+                            for (const log of logs) {
+                                const match = log.match(/Program log: Executing (?:TOKEN )?transfer of \d+ (?:lamports|units) for \d+ splits/);
+                                if (match) break;
+                            }
                         }
 
                         // Check Order Match (Backend Override - Highest Priority for Meta)
@@ -3179,13 +3185,13 @@ function HistoryTab({ publicKey, connection, confirmModal, setConfirmModal, cont
                         if (matchingOrder) {
                             if (matchingOrder.payer_wallet === publicKey.toBase58()) {
                                 type = 'Sent';
-                                otherSide = matchingOrder.alias ? `ALIAS:${matchingOrder.alias}` : matchingOrder.merchant_wallet;
+                                otherSide = matchingOrder.merchant_alias ? `ALIAS:${matchingOrder.merchant_alias}` : matchingOrder.merchant_wallet;
                             } else {
                                 type = 'Received';
                                 otherSide = matchingOrder.payer_wallet || 'Unknown Sender';
                             }
-                            amount = parseFloat(matchingOrder.amount || '0');
-                            symbol = matchingOrder.token || 'SOL';
+                            amount = parseFloat(matchingOrder.expected_amount || matchingOrder.actual_amount || '0');
+                            symbol = matchingOrder.expected_token || 'SOL';
                             actionLabel = matchingOrder.concept || 'Payment';
                         } else {
                             // On-Chain Parsing Fallback
@@ -3255,10 +3261,14 @@ function HistoryTab({ publicKey, connection, confirmModal, setConfirmModal, cont
 
                                 actionLabel = actionLabel === 'Interaction' ? 'Token Transfer' : actionLabel;
 
-                                // Sender Identification (for Received)
+                                // Sender/Recipient Identification
                                 if (type === 'Received') {
                                     const payerKey = tx.transaction.message.accountKeys[0];
                                     otherSide = payerKey.pubkey ? payerKey.pubkey.toString() : payerKey.toString();
+                                } else if (type === 'Sent' && isSmartRouting) {
+                                    // For smart routing sends, try to find the route PDA owner alias
+                                    // The alias is usually the 2nd-3rd account in the instruction
+                                    // Use sharedNotes or on-chain lookup later in batch
                                 }
                             }
                             // D. Pure SOL Transfer
