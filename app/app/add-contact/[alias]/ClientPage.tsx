@@ -25,6 +25,21 @@ export default function AddContactPage() {
     const [aliasData, setAliasData] = useState<any>(null);
     const [note, setNote] = useState('');
     const [error, setError] = useState('');
+    const [recipientAvatarUrl, setRecipientAvatarUrl] = useState<string | null>(null);
+
+    useEffect(() => {
+        if (!aliasData) return;
+        const fetchAvatar = async () => {
+            try {
+                const { getPublicAvatar } = await import('../../../utils/avatar');
+                const url = await getPublicAvatar(aliasData.address);
+                if (url) setRecipientAvatarUrl(url);
+            } catch (e) {
+                console.warn('Failed to fetch recipient avatar', e);
+            }
+        };
+        fetchAvatar();
+    }, [aliasData]);
 
     useEffect(() => {
         const fetchAliasData = async () => {
@@ -120,10 +135,16 @@ export default function AddContactPage() {
                 ) : aliasData ? (
                     <div className="bg-gray-900 border border-gray-800 p-8">
                         <div className="text-center mb-8">
-                            <div className="w-20 h-20 rounded-full bg-gradient-to-br from-cyan-500 to-purple-500 flex items-center justify-center text-3xl mx-auto mb-4">
-                                {aliasData.alias[0].toUpperCase()}
-                            </div>
-                            <h1 className="text-4xl font-bold mb-2">@{aliasData.alias}</h1>
+                            {recipientAvatarUrl ? (
+                                <div className="w-24 h-24 mx-auto mb-6 rounded-full overflow-hidden border border-white/10 shadow-lg shadow-cyan-500/10">
+                                    <Image src={recipientAvatarUrl} alt="Avatar" width={96} height={96} className="w-full h-full object-cover" unoptimized />
+                                </div>
+                            ) : (
+                                <div className="w-24 h-24 rounded-full bg-gradient-to-br from-cyan-500/20 to-purple-600/20 text-white flex items-center justify-center text-4xl mx-auto mb-6 border border-white/10 shadow-lg shadow-cyan-500/10 backdrop-blur-md">
+                                    {aliasData.alias[0].toUpperCase()}
+                                </div>
+                            )}
+                            <h1 className="text-4xl font-bold text-white mb-2">@{aliasData.alias}</h1>
                             <p className="text-sm text-gray-400 font-mono">{aliasData.address.slice(0, 8)}...{aliasData.address.slice(-8)}</p>
                         </div>
 

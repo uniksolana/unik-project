@@ -2937,7 +2937,7 @@ function ContactsTab({ setSendRecipient, setSendAlias, setSendNote, setResolvedA
                                     <div className="flex items-center justify-end gap-2 pt-3 border-t border-white/5 w-full mt-auto">
                                         <button
                                             onClick={() => {
-                                                const url = `${window.location.origin}/pay/${isUnik ? c.alias : ownerAddr}`;
+                                                const url = `${window.location.origin}/add-contact/${isUnik ? c.alias : ownerAddr}`;
                                                 navigator.clipboard.writeText(url);
                                                 toast.success("Link copied to clipboard!");
                                             }}
