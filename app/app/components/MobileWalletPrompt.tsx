@@ -2,26 +2,41 @@
 
 import { useEffect, useState } from 'react';
 import Image from 'next/image';
+import { usePathname, useSearchParams } from 'next/navigation';
 import { isMobile, isInAppBrowser, getDeepLink } from '../../utils/mobileWallet';
 
 export default function MobileWalletPrompt({ currentUrl = '' }: { currentUrl?: string }) {
+    const pathname = usePathname();
+    const searchParams = useSearchParams();
     const [show, setShow] = useState(false);
     const [dismissed, setDismissed] = useState(false);
 
     useEffect(() => {
+        // Do not block the landing page from mobile visibility. Let users read it first.
+        if (pathname === '/') {
+            setShow(false);
+            return;
+        }
+
         if (isMobile() && !isInAppBrowser() && !dismissed) {
             setShow(true);
-            // Automatic instant redirect
-            const targetUrl = currentUrl || window.location.href;
+
+            // Reconstruct the exact route during NextJS client side navigation
+            const queryRaw = searchParams.toString();
+            const queryString = queryRaw ? `?${queryRaw}` : '';
+            const targetUrl = currentUrl || (typeof window !== 'undefined' ? `${window.location.origin}${pathname}${queryString}` : '');
+
             if (targetUrl) {
-                window.location.href = getDeepLink(targetUrl);
+                window.location.assign(getDeepLink(targetUrl));
             }
         }
-    }, [dismissed, currentUrl]);
+    }, [dismissed, currentUrl, pathname, searchParams]);
 
     if (!show) return null;
 
-    const urlToUse = currentUrl || (typeof window !== 'undefined' ? window.location.href : '');
+    const queryRaw = searchParams.toString();
+    const queryString = queryRaw ? `?${queryRaw}` : '';
+    const urlToUse = currentUrl || (typeof window !== 'undefined' ? `${window.location.origin}${pathname}${queryString}` : '');
 
     return (
         <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-300">
