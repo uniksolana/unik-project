@@ -12,10 +12,12 @@ export const isInAppBrowser = () => {
 
 export const getDeepLink = (url: string, wallet: 'phantom' | 'solflare') => {
     const encodedUrl = encodeURIComponent(url);
+    const encodedRef = encodeURIComponent(typeof window !== 'undefined' ? window.location.origin : 'https://www.unikpay.xyz');
+
     if (wallet === 'phantom') {
-        return `https://phantom.app/ul/browse/${encodedUrl}?ref=${encodeURIComponent(window.location.origin)}`;
+        return `https://phantom.app/ul/v1/browse?url=${encodedUrl}&ref=${encodedRef}`;
     } else if (wallet === 'solflare') {
-        return `https://solflare.com/ul/v1/browse/${encodedUrl}?ref=${encodeURIComponent(window.location.origin)}`;
+        return `https://solflare.com/ul/v1/browse?url=${encodedUrl}&ref=${encodedRef}`;
     }
     return url;
 };
