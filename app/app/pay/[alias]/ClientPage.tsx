@@ -13,6 +13,7 @@ import { Program, AnchorProvider, BN } from '@coral-xyz/anchor';
 import { Buffer } from 'buffer';
 import Image from 'next/image';
 import { saveSharedNote } from '../../../utils/sharedNotes';
+import { contactStorage } from '../../../utils/contacts';
 import { TOKEN_PROGRAM_ID, ASSOCIATED_TOKEN_PROGRAM_ID, getAssociatedTokenAddress, createAssociatedTokenAccountInstruction, createTransferInstruction, createAssociatedTokenAccountIdempotentInstruction } from '@solana/spl-token';
 import MobileWalletPrompt from '../../components/MobileWalletPrompt';
 
@@ -44,6 +45,22 @@ function PaymentContent() {
     const [isDirectAddress, setIsDirectAddress] = useState(false);
     const [linkVerification, setLinkVerification] = useState<'checking' | 'valid' | 'invalid' | 'unsigned'>('checking');
     const [isExpired, setIsExpired] = useState(false);
+
+    const [isContactSaved, setIsContactSaved] = useState(false);
+    const [showContactNoteModal, setShowContactNoteModal] = useState(false);
+    const [contactNote, setContactNote] = useState('');
+
+    useEffect(() => {
+        if (connected && publicKey) {
+            const ownerKey = publicKey.toBase58();
+            contactStorage.getContacts(ownerKey).then(contacts => {
+                const aliasStr = String(alias);
+                if (contacts.some(c => c.alias === aliasStr || c.aliasOwner === aliasStr)) {
+                    setIsContactSaved(true);
+                }
+            });
+        }
+    }, [connected, publicKey, alias]);
 
     useEffect(() => {
         // Fetch SOL price from CoinGecko... (omitted for brevity, assume keeps existing)
@@ -645,6 +662,20 @@ function PaymentContent() {
                                 <span className="text-xs font-bold text-red-400">Link Manipulated</span>
                             </div>
                         )}
+                        {connected && (aliasOwner || routeAccount) && !isContactSaved && (
+                            <button
+                                onClick={() => setShowContactNoteModal(true)}
+                                className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-purple-500/10 border border-purple-500/20 hover:bg-purple-500/20 transition-all cursor-pointer group"
+                            >
+                                <svg className="w-3.5 h-3.5 text-purple-400 group-hover:scale-110 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4v16m8-8H4" /></svg>
+                                <span className="text-xs font-bold text-purple-400">Add Contact</span>
+                            </button>
+                        )}
+                        {connected && isContactSaved && (
+                            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-gray-800/50 border border-gray-700/50">
+                                <span className="text-xs font-bold text-gray-400">In Contacts</span>
+                            </div>
+                        )}
                     </div>
                 </div>
 
@@ -886,6 +917,57 @@ function PaymentContent() {
             <div className="mt-8 text-center">
                 <p className="text-xs text-gray-600 font-medium">Powered by <span className="text-gray-500 font-bold">UNIK Pay</span></p>
             </div>
+
+            {/* Note Modal for Adding Contact */}
+            {showContactNoteModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+                    <div className="bg-[#13131f] border border-white/10 rounded-3xl p-6 w-full max-w-sm shadow-2xl">
+                        <h3 className="text-xl font-bold text-white mb-2">Save Contact</h3>
+                        <p className="text-sm text-gray-400 mb-4">Add a private note for @{alias}</p>
+                        <input
+                            type="text"
+                            value={contactNote}
+                            onChange={e => setContactNote(e.target.value)}
+                            placeholder="Optional note (e.g. My friend John)"
+                            className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-cyan-500/50 focus:bg-white/10 transition-all mb-4"
+                            autoFocus
+                        />
+                        <div className="flex gap-2">
+                            <button
+                                onClick={() => setShowContactNoteModal(false)}
+                                className="flex-1 py-3 bg-white/5 hover:bg-white/10 text-white font-bold rounded-xl transition-all"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={async () => {
+                                    if (!publicKey) return;
+                                    try {
+                                        // Priority: Use the specific alias owner PDA, otherwise fallback to the routing account PDA or bare recipient
+                                        const addressToSave = aliasOwner?.toBase58() || recipientAddress?.toBase58();
+                                        if (!addressToSave) throw new Error("Could not resolve address. Wait for verification.");
+                                        const newContact = {
+                                            alias: String(alias),
+                                            aliasOwner: addressToSave,
+                                            savedAt: Date.now(),
+                                            notes: contactNote
+                                        };
+                                        await contactStorage.saveContact(newContact, publicKey.toBase58());
+                                        setIsContactSaved(true);
+                                        setShowContactNoteModal(false);
+                                        toast.success("Contact added to your address book");
+                                    } catch (err: any) {
+                                        toast.error(err.message || "Failed to add contact");
+                                    }
+                                }}
+                                className="flex-1 py-3 bg-cyan-500 hover:bg-cyan-400 text-black font-bold rounded-xl transition-all"
+                            >
+                                Save
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             <MobileWalletPrompt />
         </div>
