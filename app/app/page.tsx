@@ -3,7 +3,6 @@
 import Image from 'next/image';
 import Link from 'next/link';
 import dynamic from 'next/dynamic';
-import MobileWalletPrompt from './components/MobileWalletPrompt';
 
 const LandingAuth = dynamic(
   () => import('./components/LandingAuth'),
@@ -166,8 +165,6 @@ export default function Home() {
           </div>
         </div>
       </footer>
-
-      <MobileWalletPrompt />
     </div>
   );
 }

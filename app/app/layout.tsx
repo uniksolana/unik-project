@@ -21,6 +21,7 @@ export const metadata: Metadata = {
 
 import { Toaster } from "react-hot-toast";
 import RiskModal from './components/RiskModal';
+import MobileWalletPrompt from './components/MobileWalletPrompt';
 
 export default function RootLayout({
   children,
@@ -69,6 +70,7 @@ export default function RootLayout({
               }}
             />
             <RiskModal />
+            <MobileWalletPrompt />
             {children}
           </PreferencesProvider>
         </WalletContextProvider>

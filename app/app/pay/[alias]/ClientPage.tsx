@@ -15,7 +15,6 @@ import Image from 'next/image';
 import { saveSharedNote } from '../../../utils/sharedNotes';
 import { contactStorage } from '../../../utils/contacts';
 import { TOKEN_PROGRAM_ID, ASSOCIATED_TOKEN_PROGRAM_ID, getAssociatedTokenAddress, createAssociatedTokenAccountInstruction, createTransferInstruction, createAssociatedTokenAccountIdempotentInstruction } from '@solana/spl-token';
-import MobileWalletPrompt from '../../components/MobileWalletPrompt';
 
 const TOKEN_OPTIONS_MAP: any = {
     'SOL': { label: 'SOL', symbol: 'SOL', mint: null, decimals: 9 },
@@ -986,8 +985,6 @@ function PaymentContent() {
                     </div>
                 </div>
             )}
-
-            <MobileWalletPrompt />
         </div>
     );
 }
