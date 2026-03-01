@@ -125,41 +125,42 @@ export async function POST(request: NextRequest) {
 
         if (order.expected_token === 'SOL') {
             // For SOL transfers, check balance changes
+            // When splits are active, the merchant_wallet only receives their split %.
+            // We sum ALL positive balance changes (recipients) to get the total amount paid.
             const preBalances = tx.meta.preBalances;
             const postBalances = tx.meta.postBalances;
             const accountKeys = tx.transaction.message.accountKeys;
+            const feePayer = accountKeys[0]?.pubkey.toBase58();
 
-            // Find the merchant's account and calculate received amount
             for (let i = 0; i < accountKeys.length; i++) {
                 const pubkey = accountKeys[i].pubkey.toBase58();
-                if (pubkey === order.merchant_wallet) {
-                    const received = BigInt(postBalances[i]) - BigInt(preBalances[i]);
-                    if (received > 0) {
-                        actualAmountLamports = received;
-                    }
-                    break;
+                // Skip fee payer (sender) - their balance drops due to payment + fees
+                if (pubkey === feePayer) continue;
+                // Skip system program, compute budget, etc.
+                if (accountKeys[i].signer) continue;
+
+                const diff = BigInt(postBalances[i]) - BigInt(preBalances[i]);
+                if (diff > BigInt(0)) {
+                    actualAmountLamports += diff;
                 }
             }
         } else {
             // For SPL token transfers, check token balance changes
+            // Sum ALL positive token balance changes to account for splits
             const preTokenBalances = tx.meta.preTokenBalances || [];
             postTokenBalances = tx.meta.postTokenBalances || [];
 
-            // Find merchant's token balance change
             for (const postBal of postTokenBalances) {
-                if (postBal.owner === order.merchant_wallet) {
-                    const preBal = preTokenBalances.find(
-                        (p) => p.accountIndex === postBal.accountIndex
-                    );
-                    const preAmount = BigInt(preBal?.uiTokenAmount?.amount || '0');
-                    const postAmount = BigInt(postBal.uiTokenAmount.amount || '0');
-                    const received = postAmount - preAmount;
+                const preBal = preTokenBalances.find(
+                    (p) => p.accountIndex === postBal.accountIndex
+                );
+                const preAmount = BigInt(preBal?.uiTokenAmount?.amount || '0');
+                const postAmount = BigInt(postBal.uiTokenAmount.amount || '0');
+                const received = postAmount - preAmount;
 
-                    if (received > BigInt(0)) {
-                        actualAmountLamports = received;
-                        tokenTransferFound = true;
-                    }
-                    break;
+                if (received > BigInt(0)) {
+                    actualAmountLamports += received;
+                    tokenTransferFound = true;
                 }
             }
 
