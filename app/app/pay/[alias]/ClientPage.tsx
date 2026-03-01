@@ -710,15 +710,12 @@ function PaymentContent() {
                             )}
 
                             {senderNote && <div className="bg-white/5 rounded-xl p-4 mb-8 border border-white/5"><p className="text-white italic text-sm">"{senderNote}"</p></div>}
-                            <button
-                                onClick={() => {
-                                    setStatus('idle');
-                                    setLastSignature(null);
-                                }}
-                                className="w-full py-4 rounded-xl bg-white/5 hover:bg-white/10 text-white font-bold transition-all border border-white/5"
+                            <a
+                                href="/dashboard"
+                                className="w-full py-4 rounded-xl bg-gradient-to-r from-cyan-600/80 to-purple-600/80 hover:from-cyan-500 hover:to-purple-500 text-white font-bold transition-all border border-white/10 text-center block shadow-lg"
                             >
-                                Send another payment
-                            </button>
+                                Go to Dashboard
+                            </a>
                         </div>
                     ) : (
                         <div className="space-y-6">
