@@ -54,14 +54,14 @@ export default function MobileWalletPrompt({ currentUrl = '' }: { currentUrl?: s
                     <a
                         href={getDeepLink(urlToUse)}
                         id="phantom-redirect-btn"
-                        className="flex items-center justify-center gap-3 px-6 py-5 bg-[#5546FF] rounded-2xl text-white hover:bg-[#4536EE] active:scale-[0.98] transition-all w-full shadow-lg shadow-[#5546FF]/20"
+                        className="flex items-center justify-center px-4 py-4 bg-[#AB9FF2] rounded-2xl text-white hover:bg-[#9789E2] active:scale-[0.98] transition-all w-full shadow-lg shadow-[#AB9FF2]/20"
                     >
                         <Image
                             src="/logophantonletras.png"
                             alt="Open in Phantom"
-                            width={160}
-                            height={44}
-                            className="object-contain h-8 w-auto filter"
+                            width={220}
+                            height={60}
+                            className="object-contain h-12 w-auto filter drop-shadow-sm"
                             unoptimized
                         />
                     </a>

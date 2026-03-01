@@ -4,6 +4,7 @@ import { useWallet } from '@solana/wallet-adapter-react';
 import { WalletMultiButton } from '@solana/wallet-adapter-react-ui';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
+import { isMobile, isInAppBrowser } from '../../utils/mobileWallet';
 
 export default function LandingAuth() {
     const { connected } = useWallet();
@@ -17,7 +18,8 @@ export default function LandingAuth() {
         return <div className="h-[48px] w-[160px] bg-white/5 rounded-lg animate-pulse"></div>;
     }
 
-    if (connected) {
+    // On mobile web browsers, clicking "Connect / Launch" goes straight to dashboard where the global Deep Link catches them
+    if (connected || (isMobile() && !isInAppBrowser())) {
         return (
             <Link
                 href="/dashboard"
