@@ -15,5 +15,5 @@ export const getDeepLink = (url: string) => {
     const encodedUrl = encodeURIComponent(url);
     const encodedRef = encodeURIComponent(typeof window !== 'undefined' ? window.location.origin : 'https://www.unikpay.xyz');
 
-    return `https://phantom.app/ul/browse/${encodedUrl}?ref=${encodedRef}`;
+    return `https://phantom.app/ul/v1/browse?url=${encodedUrl}&ref=${encodedRef}`;
 };
