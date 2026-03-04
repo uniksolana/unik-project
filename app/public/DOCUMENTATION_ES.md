@@ -488,6 +488,6 @@ Para asegurar la robustez a nivel protocolo, debes conocer estas fronteras del s
 ---
 
 **Última actualización:** Marzo 2026
-**Versión del Protocolo:** 1.2
-**Estado:** ✅ Producción (Mainnet de Solana)
+**Versión del Protocolo:** 1.2-beta
+**Estado:** 🧪 Desarrollo (Solana Devnet)
 **Sitio Web:** [unikpay.xyz](https://unikpay.xyz)

@@ -4,16 +4,47 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 
+type Language = 'en' | 'es' | 'fr';
+
+const LANG_CONFIG: Record<Language, { label: string; flag: string; file: string }> = {
+    en: { label: 'English', flag: '🇬🇧', file: '/DOCUMENTATION_EN.md' },
+    es: { label: 'Español', flag: '🇪🇸', file: '/DOCUMENTATION_ES.md' },
+    fr: { label: 'Français', flag: '🇫🇷', file: '/DOCUMENTATION_FR.md' },
+};
+
 export default function DocsPage() {
     const [content, setContent] = useState<string>('');
+    const [language, setLanguage] = useState<Language>('en');
     const [activeSection, setActiveSection] = useState<string>('');
+    const [langMenuOpen, setLangMenuOpen] = useState(false);
 
+    // Load saved language preference
     useEffect(() => {
-        fetch('/DOCUMENTATION.md')
+        if (typeof window !== 'undefined') {
+            const saved = localStorage.getItem('unik_docs_lang') as Language;
+            if (saved && LANG_CONFIG[saved]) {
+                setLanguage(saved);
+            }
+        }
+    }, []);
+
+    // Fetch documentation when language changes
+    useEffect(() => {
+        setContent('');
+        const config = LANG_CONFIG[language];
+        fetch(config.file)
             .then(res => res.text())
             .then(text => setContent(text))
             .catch(() => setContent('# Error loading documentation'));
-    }, []);
+    }, [language]);
+
+    const switchLanguage = (lang: Language) => {
+        setLanguage(lang);
+        setLangMenuOpen(false);
+        if (typeof window !== 'undefined') {
+            localStorage.setItem('unik_docs_lang', lang);
+        }
+    };
 
     // Parse markdown to HTML (lightweight parser)
     const parseMarkdown = (md: string): string => {
@@ -31,7 +62,7 @@ export default function DocsPage() {
             .replace(/^#####\s+(.+)$/gm, '<h5 class="text-lg font-semibold text-gray-200 mt-6 mb-2">$1</h5>')
             .replace(/^####\s+(.+)$/gm, '<h4 class="text-xl font-bold text-white mt-8 mb-3">$1</h4>')
             .replace(/^###\s+(.+)$/gm, '<h3 class="text-2xl font-bold text-white mt-10 mb-4">$1</h3>')
-            .replace(/^##\s+(.+)$/gm, '<h2 id="$1" class="text-3xl font-bold text-white mt-14 mb-6 pb-3 border-b border-white/10">$1</h2>')
+            .replace(/^##\s+(.+)$/gm, '<h2 id="$1" class="text-3xl font-bold text-white mt-14 mb-6 pb-3 border-b border-white/10 scroll-mt-24">$1</h2>')
             .replace(/^#\s+(.+)$/gm, '<h1 class="text-4xl md:text-5xl font-bold text-white mb-8 leading-tight">$1</h1>')
 
             // Blockquotes
@@ -126,17 +157,55 @@ export default function DocsPage() {
 
             {/* Navigation */}
             <nav className="sticky top-0 z-50 backdrop-blur-xl bg-[#0d0d12]/80 border-b border-white/5">
-                <div className="container mx-auto px-6 py-4 flex justify-between items-center">
+                <div className="container mx-auto px-4 sm:px-6 py-4 flex justify-between items-center">
                     <Link href="/" className="flex items-center gap-3 group">
                         <Image src="/logo-icon.png" alt="UNIK" width={36} height={36} className="w-9 h-9" />
                         <Image src="/logo-text.png" alt="UNIK" width={80} height={24} className="h-6 w-auto hidden sm:block" />
                     </Link>
-                    <div className="flex items-center gap-4">
+                    <div className="flex items-center gap-3">
+                        {/* Language Switcher */}
+                        <div className="relative">
+                            <button
+                                onClick={() => setLangMenuOpen(!langMenuOpen)}
+                                className="flex items-center gap-2 px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-sm text-gray-300 hover:bg-white/10 hover:text-white transition-all"
+                            >
+                                <span className="text-base">{LANG_CONFIG[language].flag}</span>
+                                <span className="hidden sm:inline">{LANG_CONFIG[language].label}</span>
+                                <svg className={`w-3 h-3 transition-transform ${langMenuOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                </svg>
+                            </button>
+                            {langMenuOpen && (
+                                <>
+                                    <div className="fixed inset-0 z-40" onClick={() => setLangMenuOpen(false)} />
+                                    <div className="absolute right-0 top-full mt-2 bg-[#1a1a2e] border border-white/10 rounded-xl shadow-2xl overflow-hidden z-50 min-w-[160px]">
+                                        {(Object.keys(LANG_CONFIG) as Language[]).map((lang) => (
+                                            <button
+                                                key={lang}
+                                                onClick={() => switchLanguage(lang)}
+                                                className={`w-full flex items-center gap-3 px-4 py-3 text-sm transition-all ${language === lang
+                                                        ? 'bg-purple-500/10 text-purple-400'
+                                                        : 'text-gray-400 hover:bg-white/5 hover:text-white'
+                                                    }`}
+                                            >
+                                                <span className="text-base">{LANG_CONFIG[lang].flag}</span>
+                                                <span>{LANG_CONFIG[lang].label}</span>
+                                                {language === lang && (
+                                                    <svg className="w-4 h-4 ml-auto text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                                    </svg>
+                                                )}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </>
+                            )}
+                        </div>
                         <Link
                             href="/dashboard"
-                            className="px-5 py-2 bg-gradient-to-r from-cyan-500 to-purple-600 text-white text-sm font-bold rounded-full hover:shadow-[0_0_20px_rgba(139,92,246,0.3)] transition-all hover:-translate-y-0.5"
+                            className="px-4 py-2 bg-gradient-to-r from-cyan-500 to-purple-600 text-white text-sm font-bold rounded-full hover:shadow-[0_0_20px_rgba(139,92,246,0.3)] transition-all hover:-translate-y-0.5"
                         >
-                            Launch Dashboard →
+                            Dashboard →
                         </Link>
                     </div>
                 </div>
@@ -146,7 +215,9 @@ export default function DocsPage() {
 
                 {/* Sidebar - Desktop */}
                 <aside className="hidden lg:block w-64 shrink-0 sticky top-[73px] h-[calc(100vh-73px)] overflow-y-auto border-r border-white/5 py-8 pr-6">
-                    <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-4 px-4">Contenido</h3>
+                    <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-4 px-4">
+                        {language === 'es' ? 'Contenido' : language === 'fr' ? 'Contenu' : 'Contents'}
+                    </h3>
                     <nav className="space-y-1">
                         {sections.map((section, i) => (
                             <a
@@ -165,7 +236,7 @@ export default function DocsPage() {
                 </aside>
 
                 {/* Main Content */}
-                <main className="flex-1 min-w-0 px-6 md:px-12 py-12 pb-24 max-w-4xl">
+                <main className="flex-1 min-w-0 px-4 sm:px-6 md:px-12 py-8 sm:py-12 pb-24 max-w-4xl">
                     {content ? (
                         <article
                             className="prose prose-invert max-w-none"
