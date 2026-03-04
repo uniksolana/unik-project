@@ -94,8 +94,8 @@ This signature is free and does not authorize any transaction.`;
     // ----------------------------------
 
     const checkConsent = async () => {
-        // Skip check on public pages (Landing, Terms, Privacy)
-        if (pathname === '/' || pathname === '/terms' || pathname === '/privacy') {
+        // Skip check on public pages (Landing, Terms, Privacy, Docs)
+        if (pathname === '/' || pathname === '/terms' || pathname === '/privacy' || pathname === '/docs') {
             return;
         }
 
