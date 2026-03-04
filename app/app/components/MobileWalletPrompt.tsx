@@ -12,8 +12,8 @@ export default function MobileWalletPrompt({ currentUrl = '' }: { currentUrl?: s
     const [dismissed, setDismissed] = useState(false);
 
     useEffect(() => {
-        // Do not block the landing page from mobile visibility. Let users read it first.
-        if (pathname === '/') {
+        // Do not block the landing page or docs from mobile visibility. Let users read content first.
+        if (pathname === '/' || pathname === '/docs') {
             setShow(false);
             return;
         }

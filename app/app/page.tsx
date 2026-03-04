@@ -38,7 +38,6 @@ export default function Home() {
           <Image src="/logo-text.png" alt="UNIK" width={96} height={28} className="h-7 w-auto hidden sm:block" />
         </div>
         <div className="flex items-center gap-4">
-          <Link href="/docs" className="text-gray-400 hover:text-white transition-colors text-sm font-medium">Documentation</Link>
           <LandingAuth />
         </div>
       </nav>
@@ -83,6 +82,15 @@ export default function Home() {
               Learn More
             </Link>
           </div>
+
+          <Link
+            href="/docs"
+            className="mt-6 inline-flex items-center gap-2 text-gray-500 hover:text-gray-300 transition-colors text-sm font-medium group"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+            Documentation
+            <svg className="w-3 h-3 group-hover:translate-x-0.5 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+          </Link>
         </div>
       </div>
 
