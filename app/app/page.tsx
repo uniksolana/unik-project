@@ -38,7 +38,7 @@ export default function Home() {
           <Image src="/logo-text.png" alt="UNIK" width={96} height={28} className="h-7 w-auto hidden sm:block" />
         </div>
         <div className="flex items-center gap-4">
-          <Link href="https://docs.unik.app" className="hidden md:block text-gray-400 hover:text-white transition-colors text-sm font-medium">Documentation</Link>
+          <Link href="/docs" className="text-gray-400 hover:text-white transition-colors text-sm font-medium">Documentation</Link>
           <LandingAuth />
         </div>
       </nav>
