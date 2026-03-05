@@ -30,13 +30,14 @@ export default function TermsOfService() {
                     <section>
                         <h2 className="text-2xl font-bold text-white mb-4">2. Description of Service</h2>
                         <p className="text-gray-300 leading-relaxed">
-                            UNIK Protocol is a non-custodial payment routing protocol built on the Solana blockchain. The service allows users to:
+                            UNIK Protocol is a non-custodial payment routing protocol built on the Solana blockchain. Our web application interface acts merely as a visual client that helps you interact with the blockchain. The service allows users to:
                         </p>
                         <ul className="list-disc list-inside text-gray-300 mt-4 space-y-2">
-                            <li>Create human-readable aliases for their Solana wallet addresses</li>
-                            <li>Configure automatic payment splits to multiple recipients</li>
-                            <li>Generate shareable payment links</li>
-                            <li>Send and receive cryptocurrency payments</li>
+                            <li>Create human-readable aliases (stored as Program Derived Addresses) for their Solana wallet addresses.</li>
+                            <li>Configure automatic on-chain payment splits to multiple recipients.</li>
+                            <li>Generate shareable, HMAC-SHA256 validated payment links (Orders) and Open Tip links.</li>
+                            <li>Send and receive cryptocurrency payments directly on the Solana network.</li>
+                            <li>Maintain End-to-End Encrypted contact books, personal notes, and private avatars.</li>
                         </ul>
                         <p className="text-gray-300 leading-relaxed mt-4">
                             <strong className="text-yellow-400">IMPORTANT: UNIK is currently deployed on Solana DEVNET and is in active development.</strong> Devnet tokens have no real monetary value.
@@ -44,16 +45,16 @@ export default function TermsOfService() {
                     </section>
 
                     <section>
-                        <h2 className="text-2xl font-bold text-white mb-4">3. Non-Custodial Nature</h2>
+                        <h2 className="text-2xl font-bold text-white mb-4">3. Non-Custodial Nature & Data Encryption</h2>
                         <p className="text-gray-300 leading-relaxed">
-                            UNIK Protocol is non-custodial. This means:
+                            UNIK Protocol is entirely non-custodial. This means:
                         </p>
                         <ul className="list-disc list-inside text-gray-300 mt-4 space-y-2">
-                            <li>We never hold, control, or have access to your funds</li>
-                            <li>All transactions are executed directly on the Solana blockchain</li>
-                            <li>You are solely responsible for the security of your wallet and private keys</li>
-                            <li>We cannot reverse, cancel, or modify any transactions</li>
-                            <li>We cannot recover lost or stolen funds</li>
+                            <li>We never hold, control, or have access to your funds or private keys.</li>
+                            <li>All transactions are executed directly on the Solana blockchain via Smart Contracts.</li>
+                            <li>We cannot reverse, cancel, or modify any transactions under any circumstances.</li>
+                            <li>We cannot recover lost or stolen funds.</li>
+                            <li><strong>Encryption Constraints:</strong> Your private data (contacts, notes, avatar) is encrypted using a key derived from your wallet signature. If you lose access to your Solana wallet or its seed phrase, your encrypted data becomes permanently inaccessible. We cannot bypass this encryption to recover your data.</li>
                         </ul>
                     </section>
 
@@ -115,11 +116,11 @@ export default function TermsOfService() {
                         </p>
                         <ul className="list-disc list-inside text-gray-300 mt-4 space-y-2">
                             <li>Any direct, indirect, incidental, special, or consequential damages</li>
-                            <li>Loss of profits, revenue, data, or cryptocurrency</li>
-                            <li>Service interruptions or technical failures</li>
-                            <li>Actions of third parties, including hackers or malicious actors</li>
-                            <li>Errors in transaction processing</li>
-                            <li>User errors, including sending funds to wrong addresses</li>
+                            <li>Loss of profits, revenue, cryptocurrency, or permanent loss of access to encrypted data</li>
+                            <li>Service interruptions, UI downtime, or technical failures</li>
+                            <li>Actions of third parties, including hackers, malicious actors, or phishing attacks</li>
+                            <li>Errors in transaction processing by the Solana network</li>
+                            <li>User errors, including sending funds to wrong addresses or incorrectly configuring split percentages</li>
                         </ul>
                     </section>
 
