@@ -711,7 +711,7 @@ function PaymentContent() {
                                     <button
                                         onClick={() => {
                                             const url = encodeURIComponent(window.location.href);
-                                            window.location.href = `https://phantom.app/ul/browse/${url}?ref=${encodeURIComponent(window.location.origin)}`;
+                                            window.location.href = `https://phantom.app/ul/v1/browse?url=${url}&ref=${encodeURIComponent(window.location.origin)}`;
                                         }}
                                         className="py-3 px-3 bg-[#AB9FF2]/10 hover:bg-[#AB9FF2]/20 text-[#AB9FF2] border border-[#AB9FF2]/30 rounded-xl text-sm font-bold transition-all"
                                     >
