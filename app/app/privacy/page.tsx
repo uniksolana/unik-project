@@ -35,35 +35,44 @@ export default function PrivacyPolicy() {
                             When you use UNIK, the following information is recorded on the Solana blockchain and is publicly accessible:
                         </p>
                         <ul className="list-disc list-inside text-gray-300 mt-4 space-y-2">
-                            <li>Your wallet address</li>
-                            <li>Registered aliases</li>
+                            <li>Your wallet address and Public Keys</li>
+                            <li>Registered aliases (stored as Program Derived Addresses)</li>
                             <li>Split configurations (recipient addresses and percentages)</li>
-                            <li>Transaction history and amounts</li>
+                            <li>Transaction history, amounts, and public signatures</li>
                         </ul>
                         <p className="text-gray-300 leading-relaxed mt-4">
                             <strong>This data is stored on a decentralized blockchain and cannot be deleted or modified.</strong>
                         </p>
 
-                        <h3 className="text-xl font-semibold text-cyan-400 mt-6 mb-3">2.2 Technical Data</h3>
+                        <h3 className="text-xl font-semibold text-cyan-400 mt-6 mb-3">2.2 Application Database (Cloud)</h3>
+                        <p className="text-gray-300 leading-relaxed">
+                            Our secure databases (hosted via Supabase) store the following data necessary to provide our UI enrichment:
+                        </p>
+                        <ul className="list-disc list-inside text-gray-300 mt-4 space-y-2">
+                            <li><strong>Encrypted Private Data:</strong> Your contact list, private notes, and private avatar are End-to-End Encrypted (AES-256-GCM) in your browser before reaching our servers. We only store unreadable ciphertext and cannot decrypt or access this data.</li>
+                            <li><strong>Shared Transaction Notes:</strong> Messages attached to payments are obfuscated using the public transaction signature to protect them from casual observation.</li>
+                            <li><strong>Public Avatars & Settings:</strong> Non-encrypted profile photos (if uploaded publicly), your preferred language, and display currency.</li>
+                            <li><strong>Payment Orders:</strong> Generated payment links (concept, amount, token, expiration, and their HMAC-SHA256 signatures).</li>
+                        </ul>
+
+                        <h3 className="text-xl font-semibold text-cyan-400 mt-6 mb-3">2.3 Technical Data</h3>
                         <p className="text-gray-300 leading-relaxed">
                             Our servers may automatically collect:
                         </p>
                         <ul className="list-disc list-inside text-gray-300 mt-4 space-y-2">
-                            <li>IP address (for security and rate limiting)</li>
+                            <li>IP address (for security and rate limiting against DDoS attacks)</li>
                             <li>Browser type and version</li>
                             <li>Device information</li>
                             <li>Access timestamps</li>
-                            <li>Referring URLs</li>
                         </ul>
 
-                        <h3 className="text-xl font-semibold text-cyan-400 mt-6 mb-3">2.3 Local Storage Data</h3>
+                        <h3 className="text-xl font-semibold text-cyan-400 mt-6 mb-3">2.4 Local Storage & Memory Data</h3>
                         <p className="text-gray-300 leading-relaxed">
                             We store the following data locally in your browser (not on our servers):
                         </p>
                         <ul className="list-disc list-inside text-gray-300 mt-4 space-y-2">
-                            <li>Contact lists you create</li>
-                            <li>UI preferences</li>
-                            <li>Recent transaction history cache</li>
+                            <li><strong>Ephemeral Session Keys:</strong> Your encryption derivation key is held exclusively in browser RAM and is instantly destroyed when you close the tab.</li>
+                            <li>Local caches of your contact lists and UI preferences (when not synced to the cloud).</li>
                         </ul>
                     </section>
 
@@ -74,7 +83,7 @@ export default function PrivacyPolicy() {
                             <li>Email addresses</li>
                             <li>Phone numbers</li>
                             <li>Physical addresses</li>
-                            <li>Private keys or seed phrases</li>
+                            <li>Private keys or seed phrases (You authenticate via wallet signatures; your keys never leave your device)</li>
                             <li>Passwords</li>
                         </ul>
                         <p className="text-gray-300 leading-relaxed mt-4">
@@ -124,17 +133,18 @@ export default function PrivacyPolicy() {
                     </section>
 
                     <section>
-                        <h2 className="text-2xl font-bold text-white mb-4">7. Data Security</h2>
+                        <h2 className="text-2xl font-bold text-white mb-4">7. Data Security & Encryption</h2>
                         <p className="text-gray-300 leading-relaxed">
-                            We implement industry-standard security measures including:
+                            We implement industry-leading security and cryptographic measures including:
                         </p>
                         <ul className="list-disc list-inside text-gray-300 mt-4 space-y-2">
-                            <li>HTTPS encryption for all connections</li>
-                            <li>Regular security audits</li>
-                            <li>Access controls and monitoring</li>
+                            <li><strong>AES-256-GCM End-to-End Encryption:</strong> For your private data, using PBKDF2 with 600,000 iterations to derive your key from your wallet signature.</li>
+                            <li><strong>HMAC-SHA256 Signatures:</strong> To mathematically guarantee payment orders cannot be tampered with.</li>
+                            <li>HTTPS encryption for all network connections.</li>
+                            <li>Strict API rate-limiting and input sanitization.</li>
                         </ul>
                         <p className="text-gray-300 leading-relaxed mt-4">
-                            However, no system is 100% secure. You are responsible for keeping your wallet credentials safe.
+                            However, no system is 100% secure. You are responsible for keeping your wallet credentials safe as they act as your master key.
                         </p>
                     </section>
 
