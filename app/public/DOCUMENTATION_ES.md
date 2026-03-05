@@ -170,26 +170,23 @@ UNIK implementa un sistema de cifrado multicapa diseñado para que **ni siquiera
 
 > **Clave efímera:** La clave de sesión se almacena **exclusivamente en la memoria RAM** del navegador (`sessionState.ts`). Nunca se escribe en disco, `localStorage`, cookies, ni se envía al servidor. Al cerrar la pestaña del navegador, la clave desaparece automática e irrecuperablemente.
 
-### 6.2. Notas Compartidas de Transacción (Mensajes entre Emisor y Receptor)
+### 6.2. Notas Compartidas de Transacción (Ofuscación de Base de Datos)
 
 **Algoritmo:** AES-256-GCM
-**Clave derivada de:** La firma de la transacción en blockchain (SHA-256)
+**Clave derivada de:** La firma pública de la transacción en blockchain (SHA-256)
 
-Las notas que un pagador adjunta al enviar dinero (ej. *"Pago del alquiler de Marzo"*) necesitan ser legibles tanto para quien envía como para quien recibe. UNIK resuelve esto sin comprometer la privacidad usando la propia firma de la transacción en la blockchain como clave criptográfica compartida:
+Las notas que un pagador adjunta al enviar dinero (ej. *"Pago del alquiler de Marzo"*) necesitan ser legibles tanto para quien envía como para quien recibe. Dado que el cifrado E2EE real entre billeteras requeriría un intercambio de claves complejo, UNIK utiliza la firma de la transacción para ofuscar la nota en la base de datos:
 
 **¿Cómo funciona?**
 
 1. El pagador escribe una nota al enviar fondos.
-2. La transacción se envía a Solana y genera una **firma única** (`signature`, ej: `5UHk7...wQ3P`).
+2. La transacción se envía a Solana y genera una **firma pública** (`signature`, ej: `5UHk7...wQ3P`).
 3. Esa firma se hashea con SHA-256 para generar una clave AES-256.
 4. La nota se cifra con esa clave y se almacena en la tabla `transaction_notes` de la base de datos.
-5. Tanto el emisor como el receptor conocen la firma de la transacción (es pública en el explorador), por lo que ambos pueden derivar la clave y descifrar la nota.
+5. Dentro de la UI de UNIK, tanto el emisor como el receptor utilizan la firma conocida de la transacción para descifrar la nota localmente de forma transparente.
 
-**¿Quién puede leer la nota?**
-- ✅ El emisor (conoce la firma, él la generó).
-- ✅ El receptor (ve la firma en su historial de transacciones en Solana).
-- ❌ Administradores del servidor (solo ven el blob cifrado, no conocen la firma en ese contexto).
-- ❌ Terceros sin acceso a la firma.
+**Nivel de Privacidad:**
+Las notas compartidas se ofuscan en nuestra base de datos contra observadores casuales. Nosotros, como administradores del servidor, solo vemos texto ilegible (ciphertext). Sin embargo, al ser Solana una red pública, cualquier usuario avanzado que conozca la firma pública exacta de la transacción podría teóricamente derivar la clave y leer la nota. No uses este campo para contraseñas o secretos corporativos, úsalo para conceptos de pago descriptivos.
 
 ### 6.3. Cifrado de Imágenes y Archivos Binarios (Avatar Privado)
 
@@ -310,7 +307,7 @@ Se accede pulsando el icono de engranaje (⚙️) en la parte superior del dashb
    - La dirección de la billetera (truncada para legibilidad, ej. `7xQ2...Y9P`).
    - El porcentaje asignado.
    - Un botón de eliminar (🗑️) para cada regla añadida.
-4. **Porcentaje Residual Automático:** La billetera principal siempre recibe el porcentaje restante. Si asignas un 30% a un tercero, tu principal baja automáticamente al 70%.
+4. **Porcentaje Residual Automático:** La billetera principal siempre recibe el porcentaje restante. Si asignas un 30% a un tercero, tu principal baja automáticamente al 70%. El sistema UI y el Smart Contract validan que la suma de las reglas externas nunca exceda el 100% para prevenir errores de cálculo en la blockchain.
 5. **Guardar Configuración:** Al pulsar *Save*, se genera una transacción en Solana que almacena las reglas on-chain en un `RouteAccount` (PDA). Esto requiere una firma de tu billetera y un mínimo de gas.
 
 > **Requisito:** Debes tener un alias registrado para configurar splits. Si no lo tienes, la pestaña te redirigirá a la sección de Alias.
@@ -358,7 +355,7 @@ Al pulsar *Generate*, el sistema:
 
 - **📷 Escáner QR:** Botón que activa la cámara de tu dispositivo para escanear un código QR de UNIK (generado por la pestaña *Create Link* de otro usuario). Decodifica automáticamente el alias, monto, token y concepto.
 - **👥 Acceso Rápido desde Contactos:** Puedes ir a la pestaña Contactos, pulsar sobre un contacto, y el formulario de envío se rellenará automáticamente con su alias y dirección resuelta.
-- **Activación de ATA:** Si el destinatario nunca ha recibido el token seleccionado (USDC/EURC), el sistema detecta que su *Associated Token Account (ATA)* no existe y le ofrece al remitente crearla en un paso previo (coste mínimo de ~0.002 SOL). Esto previene errores y pérdida de fondos.
+- **Activación de ATA:** Si el destinatario nunca ha recibido el token seleccionado (USDC/EURC), el sistema detecta que su *Associated Token Account (ATA)* no existe y le ofrece al remitente crearla en un paso previo (coste mínimo de ~0.002 SOL). Esto previene transacciones fallidas y mejora la experiencia de usuario, ya que el remitente cubre automáticamente el "rent" de creación.
 - **Detección de Splits:** Si el destinatario tiene reglas de enrutamiento activas, el sistema automáticamente distribuye los fondos según su configuración. El pagador ve un desglose claro antes de confirmar.
 
 ---
@@ -482,8 +479,8 @@ Para asegurar la robustez a nivel protocolo, debes conocer estas fronteras del s
 | 🧹 **Input Sanitization** | Validación y saneamiento de todas las entradas del usuario para prevenir XSS e inyección de código. |
 | 🔑 **Non-Custodial** | UNIK nunca tiene acceso a las claves privadas ni a los fondos. Los Smart Contracts ejecutan, no custodían. |
 | 🪪 **PDA Uniqueness** | Los alias son únicos e inmutables en la blockchain gracias al sistema de Program Derived Addresses de Solana. |
-| ✅ **ATA Idempotente** | Las cuentas de token asociadas se crean automáticamente si no existen, evitando pérdida de fondos hacia billeteras "vírgenes". |
-| 🔄 **Replay Protection** | Las firmas de transacciones procesadas se registran para prevenir doble gasto (`processed_signatures`). |
+| ✅ **ATA Idempotente** | Las cuentas de token asociadas se crean automáticamente si no existen, garantizando transacciones fluidas hacia billeteras "vírgenes" sin errores de red. |
+| 🔄 **Replay Protection** | Solana provee protección anti-replay nativa a nivel consenso. Nuestra tabla `processed_signatures` actúa a nivel aplicación para evitar que la UI o el backend den por pagada la misma orden dos veces. |
 
 ---
 

@@ -152,24 +152,23 @@ UNIK implémente un système de chiffrement multicouche conçu pour que **même 
 
 > **Clé éphémère :** La clé de session est stockée **exclusivement dans la RAM du navigateur**. Elle n'est jamais écrite sur disque, dans le `localStorage`, les cookies, ni envoyée au serveur. En fermant l'onglet, la clé disparaît automatiquement et irrécupérablement.
 
-### 6.2. Notes de Transaction Partagées (Messages entre Émetteur et Destinataire)
+### 6.2. Notes de Transaction Partagées (Obfuscation de Base de Données)
 
 **Algorithme :** AES-256-GCM
-**Clé dérivée de :** La signature de la transaction blockchain (SHA-256)
+**Clé dérivée de :** La signature publique de la transaction sur la blockchain (SHA-256)
 
-Les notes qu'un payeur joint lors de l'envoi d'argent (ex : *« Loyer de Mars »*) doivent être lisibles par l'émetteur et le destinataire. UNIK résout cela en utilisant la signature de la transaction elle-même comme clé cryptographique partagée :
+Les notes qu'un payeur joint lors de l'envoi d'argent (ex : *« Loyer de Mars »*) doivent être lisibles par l'émetteur et le destinataire. Étant donné qu'un véritable chiffrement E2EE nécessiterait un échange de clés complexe, UNIK utilise la signature de la transaction pour ofusquer la note dans la base de données :
+
+**Comment ça marche ?**
 
 1. Le payeur écrit une note lors de l'envoi.
-2. La transaction génère une **signature unique** sur Solana.
+2. La transaction est envoyée sur Solana et génère une **signature publique**.
 3. Cette signature est hachée avec SHA-256 pour générer une clé AES-256.
-4. La note est chiffrée et stockée dans la table `transaction_notes`.
-5. L'émetteur et le destinataire connaissent tous deux la signature, et peuvent donc déchiffrer la note.
+4. La note est chiffrée avec cette clé et stockée dans la table `transaction_notes`.
+5. Au sein de l'interface UNIK, l'émetteur et le destinataire utilisent la signature de la transaction pour déchiffrer la note localement de manière transparente.
 
-**Qui peut lire la note ?**
-- ✅ L'émetteur (connaît la signature).
-- ✅ Le destinataire (voit la signature dans son historique Solana).
-- ❌ Les administrateurs du serveur.
-- ❌ Les tiers sans accès à la signature.
+**Niveau de Confidentialité :**
+Les notes partagées sont ofusquées dans notre base de données contre les regards indiscrets. En tant qu'administrateurs, nous ne voyons que du texte illisible (ciphertext). Cependant, Solana étant un réseau public, tout utilisateur avancé connaissant la signature publique exacte pourrait théoriquement dériver la clé et lire la note. N'utilisez pas ce champ pour des mots de passe ou des secrets critiques, utilisez-le pour des concepts descriptifs.
 
 ### 6.3. Chiffrement d'Images et Fichiers Binaires (Avatar Privé)
 
@@ -243,7 +242,7 @@ Toutes les opérations de données personnelles utilisent un système **« Smart
 1. **État Initial :** Votre portefeuille principal reçoit 100%.
 2. **Ajouter une Règle :** Collez une adresse Solana valide + pourcentage (0-100%). Validation automatique.
 3. **Tableau Visuel :** Indicateurs de couleur, adresses tronquées, pourcentages et boutons de suppression.
-4. **Pourcentage Résiduel :** Le portefeuille principal reçoit automatiquement le reste.
+4. **Pourcentage Résiduel :** Le portefeuille principal reçoit automatiquement le reste. Le système UI et le Smart Contract valident que la somme des règles externes ne dépasse jamais 100% pour éviter les erreurs de calcul sur la blockchain.
 5. **Sauvegarder :** Transaction Solana stockant les règles on-chain. Maximum 5 destinations.
 
 ---
@@ -267,7 +266,7 @@ Toutes les opérations de données personnelles utilisent un système **« Smart
 - **Montant :** Avec équivalent en devise préférée en temps réel.
 - **Note :** Message optionnel chiffré (lisible uniquement par émetteur et destinataire).
 - **📷 Scanner QR :** Décodage automatique alias/montant/token/concept.
-- **Activation ATA :** Création automatique du compte token si nécessaire (~0,002 SOL).
+- **Activation ATA :** Création automatique du compte token si nécessaire (~0,002 SOL), ce qui prévient l'échec des transactions et améliore l'expérience utilisateur, l'expéditeur couvrant automatiquement les frais de création.
 
 ---
 
@@ -326,8 +325,8 @@ Les liens partagés via WhatsApp, Telegram ou Twitter génèrent automatiquement
 | ⏱️ **TTL** | Expiration configurable des liens (15 min – 1 semaine). |
 | 🚦 **Rate Limiting** | Protection contre les attaques par force brute. |
 | 🔑 **Non-Custodial** | UNIK n'a jamais accès aux clés privées ni aux fonds. |
-| ✅ **ATA Idempotent** | Création automatique des comptes token associés. |
-| 🔄 **Protection Replay** | Enregistrement des signatures traitées. |
+| ✅ **ATA Idempotent** | Création automatique des comptes token associés, garantissant des transactions fluides sans erreurs réseau. |
+| 🔄 **Protection Replay** | Solana offre une protection anti-replay native au niveau du consensus. Notre registre agit au niveau applicatif pour éviter de traiter deux fois le même paiement. |
 
 ---
 
