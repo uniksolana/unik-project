@@ -169,7 +169,7 @@ export default function Home() {
           <div className="flex gap-6 text-sm text-gray-500">
             <Link href="/privacy" className="hover:text-white transition-colors">Privacy</Link>
             <Link href="/terms" className="hover:text-white transition-colors">Terms</Link>
-            <Link href="https://x.com/uniksolana" target="_blank" rel="noopener noreferrer" className="hover:text-white transition-colors">Twitter</Link>
+            <Link href="https://x.com/UnikPay" target="_blank" rel="noopener noreferrer" className="hover:text-white transition-colors">Twitter</Link>
           </div>
         </div>
       </footer>
