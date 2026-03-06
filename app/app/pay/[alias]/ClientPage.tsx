@@ -15,6 +15,7 @@ import Image from 'next/image';
 import { saveSharedNote } from '../../../utils/sharedNotes';
 import { contactStorage } from '../../../utils/contacts';
 import { TOKEN_PROGRAM_ID, ASSOCIATED_TOKEN_PROGRAM_ID, getAssociatedTokenAddress, createAssociatedTokenAccountInstruction, createTransferInstruction, createAssociatedTokenAccountIdempotentInstruction } from '@solana/spl-token';
+import { getDeepLink } from '../../../utils/mobileWallet';
 
 const TOKEN_OPTIONS_MAP: any = {
     'SOL': { label: 'SOL', symbol: 'SOL', mint: null, decimals: 9 },
@@ -710,10 +711,7 @@ function PaymentContent() {
                                 <div className="grid grid-cols-2 gap-3">
                                     <button
                                         onClick={() => {
-                                            const url = window.location.href;
-                                            const isTelegram = typeof window !== 'undefined' && /Telegram/i.test(navigator.userAgent);
-                                            const encodedUrl = isTelegram ? encodeURIComponent(encodeURIComponent(url)) : encodeURIComponent(url);
-                                            window.location.href = `https://phantom.app/ul/v1/browse?url=${encodedUrl}&ref=${encodeURIComponent(window.location.origin)}`;
+                                            window.location.href = getDeepLink(window.location.href);
                                         }}
                                         className="py-3 px-3 bg-[#AB9FF2]/10 hover:bg-[#AB9FF2]/20 text-[#AB9FF2] border border-[#AB9FF2]/30 rounded-xl text-sm font-bold transition-all"
                                     >
