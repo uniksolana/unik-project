@@ -21,10 +21,9 @@ export default function MobileWalletPrompt({ currentUrl = '' }: { currentUrl?: s
         if (isMobile() && !isInAppBrowser() && !dismissed) {
             setShow(true);
 
-            // Reconstruct the exact route during NextJS client side navigation
-            const queryRaw = searchParams.toString();
-            const queryString = queryRaw ? `?${queryRaw}` : '';
-            const targetUrl = currentUrl || (typeof window !== 'undefined' ? `${window.location.origin}${pathname}${queryString}` : '');
+            // Reconstruct the exact route. NextJS searchParams might be empty on first render 
+            // in some in-app browsers before hydration, so we rely on native window.location.
+            const targetUrl = currentUrl || (typeof window !== 'undefined' ? window.location.href : '');
 
             if (targetUrl) {
                 window.location.assign(getDeepLink(targetUrl));
@@ -34,9 +33,7 @@ export default function MobileWalletPrompt({ currentUrl = '' }: { currentUrl?: s
 
     if (!show) return null;
 
-    const queryRaw = searchParams.toString();
-    const queryString = queryRaw ? `?${queryRaw}` : '';
-    const urlToUse = currentUrl || (typeof window !== 'undefined' ? `${window.location.origin}${pathname}${queryString}` : '');
+    const urlToUse = currentUrl || (typeof window !== 'undefined' ? window.location.href : '');
 
     return (
         <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-300">
