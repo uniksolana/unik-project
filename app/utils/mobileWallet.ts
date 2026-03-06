@@ -12,7 +12,12 @@ export const isInAppBrowser = () => {
 
 export const getDeepLink = (url: string) => {
     // encode uri component to safely pass to the browse path
-    const encodedUrl = encodeURIComponent(url);
+    const isTelegram = typeof window !== 'undefined' && /Telegram/i.test(navigator.userAgent);
+
+    // Telegram's in-app browser has a bug/feature where it aggressively URL-decodes Universal Links 
+    // before handing them off to iOS/Android. This strips all nested query parameters (like ?amount= &token=).
+    // To fix this, we double encode the URL ONLY for Telegram.
+    const encodedUrl = isTelegram ? encodeURIComponent(encodeURIComponent(url)) : encodeURIComponent(url);
     const encodedRef = encodeURIComponent(typeof window !== 'undefined' ? window.location.origin : 'https://www.unikpay.xyz');
 
     return `https://phantom.app/ul/v1/browse?url=${encodedUrl}&ref=${encodedRef}`;

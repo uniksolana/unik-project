@@ -710,8 +710,10 @@ function PaymentContent() {
                                 <div className="grid grid-cols-2 gap-3">
                                     <button
                                         onClick={() => {
-                                            const url = encodeURIComponent(window.location.href);
-                                            window.location.href = `https://phantom.app/ul/v1/browse?url=${url}&ref=${encodeURIComponent(window.location.origin)}`;
+                                            const url = window.location.href;
+                                            const isTelegram = typeof window !== 'undefined' && /Telegram/i.test(navigator.userAgent);
+                                            const encodedUrl = isTelegram ? encodeURIComponent(encodeURIComponent(url)) : encodeURIComponent(url);
+                                            window.location.href = `https://phantom.app/ul/v1/browse?url=${encodedUrl}&ref=${encodeURIComponent(window.location.origin)}`;
                                         }}
                                         className="py-3 px-3 bg-[#AB9FF2]/10 hover:bg-[#AB9FF2]/20 text-[#AB9FF2] border border-[#AB9FF2]/30 rounded-xl text-sm font-bold transition-all"
                                     >
