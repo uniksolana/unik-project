@@ -3451,7 +3451,9 @@ function HistoryTab({ publicKey, connection, confirmModal, setConfirmModal, cont
         fetchHistory();
     }, [fetchHistory]);
 
-    // Re-fetch shared notes when auth becomes available (after RiskModal completes)
+    // Re-fetch shared notes when auth becomes available OR when history loads after auth
+    // On mobile, RiskModal often completes BEFORE history finishes loading from blockchain.
+    // So we need both: (1) immediate retry when history populates, (2) event listener as fallback.
     useEffect(() => {
         const reloadSharedNotes = async () => {
             if (history.length === 0) return;
@@ -3463,6 +3465,13 @@ function HistoryTab({ publicKey, connection, confirmModal, setConfirmModal, cont
                 }
             } catch { }
         };
+
+        // Immediately try to reload when history changes (covers: auth ready BEFORE history)
+        if (history.length > 0 && Object.keys(sharedNotes).length === 0) {
+            reloadSharedNotes();
+        }
+
+        // Also listen for auth events (covers: history ready BEFORE auth)
         window.addEventListener('unik-contacts-updated', reloadSharedNotes);
         return () => window.removeEventListener('unik-contacts-updated', reloadSharedNotes);
     }, [history]);
