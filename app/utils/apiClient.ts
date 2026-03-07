@@ -8,15 +8,12 @@ export async function authenticatedApiCall(body: Record<string, unknown>) {
     const authToken = getAuthToken();
 
     // Include auth credentials if available
-    if (authToken && body.wallet_address) {
+    // Always attach auth when token exists (some actions like get_shared_notes
+    // don't send wallet_address but still need auth for the MED-02 filter)
+    if (authToken) {
         body.auth_wallet = authToken.wallet;
         body.auth_signature = authToken.signature;
         body.auth_message = authToken.message;
-
-        // Debug
-        // console.log("[ApiClient] Sending Auth:", { w: authToken.wallet, m: authToken.message });
-    } else {
-        console.warn("[ApiClient] No auth token found or wallet mismatch", { hasToken: !!authToken, target: body.wallet_address });
     }
 
     const res = await fetch('/api/data', {
