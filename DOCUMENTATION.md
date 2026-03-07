@@ -57,13 +57,13 @@ El pagador (cliente) realiza **una única transacción**, y el Contrato Intelige
 
 ### C. Enlaces de Pago Validados con HMAC (Seguridad Anti-Tampering)
 
-UNIK permite crear facturas u órdenes de pago "cerradas" a prueba de manipulaciones. Por ejemplo:
+UNIK permite crear facturas u órdenes de pago "cerradas" a prueba de manipulaciones. A diferencia de otros sistemas que exponen los parámetros de pago en la URL, UNIK genera **URLs limpias** donde los detalles (monto, token, concepto) se almacenan de forma segura en el servidor:
 
 ```
-unikpay.xyz/pay/alias?amount=50&token=USDC&concept=Consultoría
+unikpay.xyz/pay/alias?sig=33bc9f...cc02d&order_id=b308de1c-...-8aae
 ```
 
-Para evitar que un cliente o atacante modifique la URL maliciosamente antes de pagar (ej. cambiando `amount=50` a `amount=1`), todo enlace de orden de pago viaja validado por una **Firma Criptográfica HMAC-SHA256**. Si la firma no coincide exactamente con los parámetros emitidos por el creador, el sistema rechaza y bloquea el pago instantáneamente, garantizando así seguridad total en plataformas e-commerce.
+Los parámetros de pago se sellan con una **Firma Criptográfica HMAC-SHA256**. Cuando el pagador abre el enlace, el sistema recupera los datos desde la base de datos y verifica que la firma coincida exactamente con los parámetros originales emitidos por el creador. Si la firma no es válida, el sistema rechaza y bloquea el pago instantáneamente, garantizando así seguridad total en plataformas e-commerce.
 
 ---
 
