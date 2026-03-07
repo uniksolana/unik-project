@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSupabase } from '../../../../utils/supabaseServer';
+import { verifyWalletSignature } from '../../../../utils/verifyAuth';
 
 export async function POST(req: NextRequest) {
     try {
@@ -10,8 +11,11 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({ error: 'Wallet address required' }, { status: 400 });
         }
 
-        // Note: Auth relaxed here - history data is scoped to caller's wallet
-        // and only contains on-chain public data (aliases, amounts, tx signatures)
+        // CRIT-03: Require wallet authentication to prevent unauthorized history access
+        if (!auth_wallet || !auth_signature || !auth_message || auth_wallet !== wallet
+            || !verifyWalletSignature(auth_wallet, auth_signature, auth_message)) {
+            return NextResponse.json({ error: 'Unauthorized: Valid wallet signature required' }, { status: 401 });
+        }
 
         const supabase = getServerSupabase();
 

@@ -29,10 +29,11 @@ export async function GET(request: NextRequest) {
     try {
         const decoded = Buffer.from(encoded, 'base64').toString('utf-8');
 
-        // Security: only allow redirects to our own domain
+        // CRIT-04: Only allow redirects to UNIK's own domains (no wildcard .vercel.app)
         const url = new URL(decoded);
         const allowedHosts = ['unikpay.xyz', 'www.unikpay.xyz', 'localhost'];
-        const isAllowed = allowedHosts.some(host => url.hostname === host || url.hostname.endsWith('.vercel.app'));
+        const isAllowed = allowedHosts.some(host => url.hostname === host)
+            || url.hostname.endsWith('.unikpay.xyz');
 
         if (!isAllowed) {
             return NextResponse.json({ error: 'Invalid redirect domain' }, { status: 403 });

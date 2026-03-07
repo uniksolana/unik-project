@@ -144,7 +144,8 @@ export async function POST(request: NextRequest) {
             }
 
             case 'get_shared_notes': {
-                // Publicly readable if you have the signature (encrypted content)
+                // MED-02: Require auth — notes are only visible to sender or recipient
+                requireAuth(); // 🔒 AUTH REQUIRED
                 const { signatures } = body;
                 if (!signatures || !Array.isArray(signatures) || signatures.length === 0) {
                     return NextResponse.json({ data: [] });
@@ -153,10 +154,12 @@ export async function POST(request: NextRequest) {
                 // Limit to prevent abuse
                 const limitedSigs = signatures.slice(0, 100);
 
+                // MED-02: Filter by sender_wallet or recipient_wallet matching the authenticated wallet
                 const { data, error } = await supabase
                     .from('transaction_notes')
                     .select('signature, encrypted_note, sender_alias')
-                    .in('signature', limitedSigs);
+                    .in('signature', limitedSigs)
+                    .or(`sender_wallet.eq.${auth_wallet},recipient_wallet.eq.${auth_wallet}`);
 
                 if (error) return NextResponse.json({ error: error.message }, { status: 500 });
                 return NextResponse.json({ data: data || [] });
@@ -183,7 +186,12 @@ export async function POST(request: NextRequest) {
                 if (!wallet_address) return NextResponse.json({ error: 'Missing wallet_address' }, { status: 400 });
                 requireAuth(); // 🔒 AUTH REQUIRED: Verify signature against the payload wallet_address
 
-                const { signature_base64, consent_version, ip_address } = body;
+                const { signature_base64, consent_version } = body;
+
+                // LOW-03: Read IP from server request headers, not client body (anti-spoofing)
+                const clientIp = request.headers.get('x-vercel-forwarded-for')
+                    || request.headers.get('x-forwarded-for')?.split(',')[0]?.trim()
+                    || null;
 
                 const { error } = await supabase
                     .from('legal_consents')
@@ -191,7 +199,7 @@ export async function POST(request: NextRequest) {
                         wallet_address,
                         signature: signature_base64,
                         consent_version: consent_version || '1.0',
-                        ip_address: ip_address || null,
+                        ip_address: clientIp,
                         accepted_at: new Date().toISOString()
                     });
 
@@ -283,6 +291,7 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'Config Error: Missing SERVICE_ROLE_KEY' }, { status: 500 });
         }
         console.error('[API /data] Error:', e);
-        return NextResponse.json({ error: 'Internal server error: ' + (e.message || 'Unknown') }, { status: 500 });
+        // LOW-02: Don't leak internal error details to clients
+        return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
     }
 }

@@ -40,11 +40,12 @@ export function verifyWalletSignature(
             return false;
         }
 
-        // L-01: Verify timestamp freshness (5 minutes = 300,000 ms)
+        // MED-03: Extended from 5min to 30min to prevent silent API failures during sessions
+        // Token is RAM-only (never persisted), so extended window is safe
         if (timestampStr) {
             const timestamp = parseInt(timestampStr, 10);
             const now = Date.now();
-            if (now - timestamp > 300000 || timestamp > now + 60000) {
+            if (now - timestamp > 1800000 || timestamp > now + 60000) {
                 console.error(`[Auth] Signature expired or invalid timestamp: ${timestamp}`);
                 return false;
             }

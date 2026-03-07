@@ -12,14 +12,18 @@ const getHmacSecret = () => {
 
 function computeHmac(alias: string, amount: string, token: string, orderId?: string, concept?: string): string {
     const payload = `${alias.toLowerCase().trim()}|${amount}|${token.toUpperCase()}|${orderId || ''}|${concept || ''}`;
-    return crypto.createHmac('sha256', getHmacSecret()).update(payload).digest('hex').slice(0, 16);
+    // CRIT-02: Use full 256-bit HMAC (64 hex chars) instead of truncated 64-bit (16 hex chars)
+    return crypto.createHmac('sha256', getHmacSecret()).update(payload).digest('hex');
 }
 
 export async function POST(request: NextRequest) {
     try {
         // N-002: Rate Limiting
-        const failOverIp = '0.0.0.0';
-        const ip = request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || failOverIp;
+        // MED-05: Use Vercel's trusted header first (not spoofable), fallback chain for other environments
+        const ip = request.headers.get('x-vercel-forwarded-for')
+            || request.headers.get('x-forwarded-for')?.split(',')[0]?.trim()
+            || request.headers.get('x-real-ip')
+            || '0.0.0.0';
 
         // Limit: 30 requests per 1 minute (60s) for signing to allow typing/updates
         const { success } = await checkRateLimit(ip.split(',')[0].trim(), 30, 60);

@@ -25,8 +25,11 @@ function signOrder(alias: string, amount: string, token: string, orderId: string
 export async function POST(request: NextRequest) {
     try {
         // N-002: Rate Limiting
-        const failOverIp = '0.0.0.0';
-        const ip = request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || failOverIp;
+        // MED-05: Use Vercel's trusted header first (not spoofable)
+        const ip = request.headers.get('x-vercel-forwarded-for')
+            || request.headers.get('x-forwarded-for')?.split(',')[0]?.trim()
+            || request.headers.get('x-real-ip')
+            || '0.0.0.0';
 
         // Limit: 10 requests per 1 minute (60s)
         const { success, remaining } = await checkRateLimit(ip.split(',')[0].trim(), 10, 60);
