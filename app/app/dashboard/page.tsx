@@ -3426,6 +3426,18 @@ function HistoryTab({ publicKey, connection, confirmModal, setConfirmModal, cont
             const loadedSharedNotes = await getSharedNotes(sigList);
             setSharedNotes(loadedSharedNotes);
 
+            // If no shared notes were found and we have signatures, retry after a delay
+            // (auth token might not be ready yet on initial load, especially on mobile)
+            if (Object.keys(loadedSharedNotes).length === 0 && sigList.length > 0) {
+                setTimeout(async () => {
+                    try {
+                        const retryNotes = await getSharedNotes(sigList);
+                        if (Object.keys(retryNotes).length > 0) {
+                            setSharedNotes(retryNotes);
+                        }
+                    } catch { }
+                }, 3000);
+            }
 
         } catch (e) {
             console.error("Failed to fetch history", e);
@@ -3438,6 +3450,22 @@ function HistoryTab({ publicKey, connection, confirmModal, setConfirmModal, cont
     useEffect(() => {
         fetchHistory();
     }, [fetchHistory]);
+
+    // Re-fetch shared notes when auth becomes available (after RiskModal completes)
+    useEffect(() => {
+        const reloadSharedNotes = async () => {
+            if (history.length === 0) return;
+            const sigList = history.map((tx: any) => tx.signature);
+            try {
+                const reloaded = await getSharedNotes(sigList);
+                if (Object.keys(reloaded).length > 0) {
+                    setSharedNotes(reloaded);
+                }
+            } catch { }
+        };
+        window.addEventListener('unik-contacts-updated', reloadSharedNotes);
+        return () => window.removeEventListener('unik-contacts-updated', reloadSharedNotes);
+    }, [history]);
 
     const getContactAlias = (address: string) => {
         if (!contacts || !address) return null;
