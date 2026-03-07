@@ -2693,6 +2693,7 @@ function ContactsTab({ setSendRecipient, setSendAlias, setSendNote, setResolvedA
     const [filter, setFilter] = useState('recent');
     const [searchTerm, setSearchTerm] = useState('');
     const [showAll, setShowAll] = useState(false);
+    const [pendingAddress, setPendingAddress] = useState<string | null>(null);
 
     // Filter Logic
     const filteredContacts = contacts.filter((c: any) =>
@@ -2713,46 +2714,62 @@ function ContactsTab({ setSendRecipient, setSendAlias, setSendNote, setResolvedA
 
     const displayedContacts = showAll ? sortedContacts : sortedContacts.slice(0, 4);
 
-    const addContact = async () => {
-        if (!newContactAlias) return;
+    const addContact = async (addressOverride?: string, noteOverride?: string) => {
+        const inputValue = addressOverride || newContactAlias;
+        if (!inputValue) return;
         setLoading(true);
 
         try {
-            const inputLower = newContactAlias.trim();
+            const inputLower = inputValue.trim();
             const ownerKey = wallet?.publicKey?.toBase58();
             if (!ownerKey) return;
 
-            // Check if input is a raw address (Base58ish check: 32-44 chars)
-            const isAddress = /^[1-9A-HJ-NP-Za-km-z]{32, 44}$/.test(inputLower);
+            // Check if input is a raw Solana address by trying to construct a PublicKey
+            let isAddress = false;
+            try {
+                const potentialPubkey = new PublicKey(inputLower);
+                // Valid Base58 and 32 bytes = valid Solana address
+                if (potentialPubkey.toBytes().length === 32) {
+                    isAddress = true;
+                }
+            } catch {
+                isAddress = false;
+            }
 
             if (isAddress) {
-                // Case 1: Raw Address
-                const label = prompt("Enter a name for this wallet address:", "My Wallet");
-                if (!label) {
+                // If no note override, open the NoteModal to get a label
+                if (!noteOverride && noteOverride !== '') {
+                    setPendingAddress(inputLower);
+                    setNoteModal({
+                        isOpen: true,
+                        alias: `${inputLower.slice(0, 4)}...${inputLower.slice(-4)}`,
+                        note: '',
+                        onSave: async (label: string) => {
+                            setPendingAddress(null);
+                            await addContact(inputLower, label || 'Wallet Contact');
+                        }
+                    });
                     setLoading(false);
                     return;
                 }
 
+                // Save the raw address as a contact
                 await contactStorage.saveContact({
                     alias: inputLower,
                     aliasOwner: inputLower,
                     savedAt: Date.now(),
-                    notes: label // Save user label (e.g. "Pepe") as note
+                    notes: noteOverride || 'Wallet Contact'
                 }, ownerKey);
 
-                toast.success(`Address added as ${label}`);
+                toast.success(`Address saved as "${noteOverride || 'Wallet Contact'}"`);
             } else {
                 // Case 2: UNIK Alias - Verify on-chain using connection directly
                 try {
-                    // Using connection directly instead of Anchor provider to fetch account info
-                    // because we might not be connected or signed in yet if just browsing
                     const [aliasPDA] = PublicKey.findProgramAddressSync(
                         [Buffer.from("alias"), Buffer.from(inputLower)],
                         PROGRAM_ID
                     );
 
-                    // We need to decode the account manually or use the Program if available
-                    // For simplicity, let's use the Anchor Program from the hook context if possible
                     const provider = new AnchorProvider(connection, wallet as any, {});
                     const program = new Program(IDL as any, provider);
 
@@ -2842,7 +2859,7 @@ function ContactsTab({ setSendRecipient, setSendAlias, setSendNote, setResolvedA
                         className="flex-1 px-4 py-3 rounded-xl bg-gray-900 border border-gray-700 focus:outline-none focus:border-cyan-500 transition-all font-mono text-sm"
                     />
                     <button
-                        onClick={addContact}
+                        onClick={() => addContact()}
                         disabled={loading}
                         className="px-6 py-3 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 rounded-xl font-bold disabled:opacity-50 transition-all shadow-lg active:scale-95 whitespace-nowrap"
                     >
