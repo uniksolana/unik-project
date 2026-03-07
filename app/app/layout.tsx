@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { WalletContextProvider } from "./components/WalletContextProvider";
 import { PreferencesProvider } from "../context/PreferencesContext";
+import { Analytics } from "@vercel/analytics/next";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -74,6 +75,7 @@ export default function RootLayout({
             {children}
           </PreferencesProvider>
         </WalletContextProvider>
+        <Analytics />
       </body>
     </html>
   );
