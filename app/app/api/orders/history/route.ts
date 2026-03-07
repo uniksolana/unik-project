@@ -30,11 +30,11 @@ export async function POST(req: NextRequest) {
 
         if (error) {
             console.error("Error fetching orders:", error);
-            return NextResponse.json({ error: error.message }, { status: 500 });
+            return NextResponse.json({ error: 'Failed to fetch orders' }, { status: 500 });
         }
 
         return NextResponse.json({ orders: orders || [] });
     } catch (e: any) {
-        return NextResponse.json({ error: e.message }, { status: 500 });
+        return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
     }
 }

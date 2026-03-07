@@ -11,7 +11,7 @@ import { Connection, PublicKey } from '@solana/web3.js';
  *   - get_encrypted_data: Get encrypted blob/notes for a wallet (AUTH REQUIRED)
  *   - save_encrypted_data: Upsert encrypted blob and/or notes (AUTH REQUIRED)
  *   - save_shared_note: Insert a transaction note (AUTH REQUIRED)
- *   - get_shared_notes: Get shared notes by signatures (PUBLIC)
+ *   - get_shared_notes: Get shared notes by signatures (AUTH REQUIRED, filtered by sender/recipient)
  *   - save_consent: Save legal consent (Internal signature check)
  *   - get_consent: Check legal consent (PUBLIC)
  *   - upload_avatar: Upload avatar to storage (AUTH REQUIRED)
