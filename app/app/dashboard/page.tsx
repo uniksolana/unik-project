@@ -1951,8 +1951,8 @@ function SendTab({ sendRecipient, setSendRecipient, sendAlias, setSendAlias, sen
                 try {
                     await noteStorage.saveNote({ signature, note: paymentConcept, recipient: targetAlias ? `@${targetAlias}` : sendRecipient.slice(0, 8) + '...', amount: sendAmount, token: sendToken.symbol, timestamp: Date.now() }, publicKey.toBase58());
                     // Also save to shared notes (visible to both sender and recipient)
-                    // For direct transfers, sendRecipient should be the full wallet address
-                    await saveSharedNote(signature, paymentConcept, publicKey.toBase58(), sendRecipient, myAliases[0]);
+                    // For direct transfers, use the resolved wallet address (not the alias string)
+                    await saveSharedNote(signature, paymentConcept, publicKey.toBase58(), recipientPubkey.toBase58(), myAliases[0]);
                     console.log('[Dashboard] Note saved successfully');
                 } catch (noteErr) {
                     console.error('[Dashboard] Failed to save note:', noteErr);
