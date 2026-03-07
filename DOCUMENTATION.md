@@ -186,7 +186,7 @@ Las notas que un pagador adjunta al enviar dinero (ej. *"Pago del alquiler de Ma
 5. Dentro de la UI de UNIK, tanto el emisor como el receptor utilizan la firma conocida de la transacción para descifrar la nota localmente de forma transparente.
 
 **Nivel de Privacidad:**
-Las notas compartidas se ofuscan en nuestra base de datos contra observadores casuales. Nosotros, como administradores del servidor, solo vemos texto ilegible (ciphertext). Sin embargo, al ser Solana una red pública, cualquier usuario avanzado que conozca la firma pública exacta de la transacción podría teóricamente derivar la clave y leer la nota. No uses este campo para contraseñas o secretos corporativos, úsalo para conceptos de pago descriptivos.
+Las notas compartidas están protegidas por dos capas de seguridad: (1) la API que las sirve requiere **autenticación de wallet** y solo devuelve notas donde tu billetera sea el emisor o el receptor; (2) el contenido se cifra con AES-256-GCM usando una clave derivada de la firma de la transacción. Un atacante externo no puede acceder a las notas ajenas bajo ninguna circunstancia. A nivel interno, un administrador con acceso directo a la base de datos y conocimiento del mecanismo de derivación de la clave podría teóricamente descifrar la nota (ya que la firma de la transacción es pública en Solana). Para información altamente confidencial, recomendamos usar las notas privadas personales (sección 6.1) que sí ofrecen E2E completo.
 
 ### 6.3. Cifrado de Imágenes y Archivos Binarios (Avatar Privado)
 
