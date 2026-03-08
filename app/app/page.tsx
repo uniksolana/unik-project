@@ -342,8 +342,8 @@ export default function Home() {
             </div>
 
             {/* Token Support */}
-            <div className="mt-12 flex flex-col sm:flex-row items-start sm:items-center gap-4 sm:gap-8 text-sm">
-              <div className="flex items-center gap-3 glass rounded-full px-4 py-2">
+            <div className="mt-12 flex flex-col sm:flex-row items-center sm:items-center sm:justify-start w-full gap-4 sm:gap-8 text-sm">
+              <div className="flex items-center justify-center gap-3 glass rounded-full px-4 py-2 w-full sm:w-auto">
                 <Image src="/sol.png" alt="SOL" width={22} height={22} className="w-5 h-5" />
                 <span className="text-gray-300 font-medium">Solana</span>
                 <span className="text-gray-600">·</span>
