@@ -297,7 +297,7 @@ export default function Home() {
       </nav>
 
       {/* ═══════════════════ HERO ═══════════════════ */}
-      <section ref={heroRef.ref} className="relative z-10 container mx-auto px-4 pt-8 md:pt-16 pb-24 md:pb-36">
+      <section ref={heroRef.ref} className="relative z-10 container mx-auto px-4 pt-8 md:pt-16 pb-16 md:pb-24">
         <div className="grid lg:grid-cols-2 gap-12 lg:gap-8 items-center max-w-7xl mx-auto">
 
           {/* Left Column — Text */}
@@ -437,7 +437,7 @@ export default function Home() {
       </section>
 
       {/* ═══════════════════ FEATURES ═══════════════════ */}
-      <section id="features" ref={featRef.ref} className="relative z-10 container mx-auto px-4 py-24 md:py-36">
+      <section id="features" ref={featRef.ref} className="relative z-10 container mx-auto px-4 py-16 md:py-24">
         <div className={`reveal ${featRef.isVisible ? 'visible' : ''} text-center mb-16`}>
           <div className="inline-block px-5 py-2 rounded-full border border-purple-500/30 bg-purple-500/10 mb-6 shadow-[0_0_15px_rgba(168,85,247,0.15)]">
             <p className="text-sm font-bold text-purple-400 uppercase tracking-widest">Why UnikPay</p>
@@ -466,7 +466,7 @@ export default function Home() {
       </section>
 
       {/* ═══════════════════ SUPPORTED TOKENS ═══════════════════ */}
-      <section ref={tokensRef.ref} className="relative z-10 container mx-auto px-4 py-16">
+      <section ref={tokensRef.ref} className="relative z-10 container mx-auto px-4 py-16 md:py-24">
         <div className={`reveal ${tokensRef.isVisible ? 'visible' : ''} max-w-4xl mx-auto`}>
           <div className="glass-strong rounded-3xl p-8 md:p-12 relative overflow-hidden">
             {/* Shimmer line */}
@@ -499,7 +499,7 @@ export default function Home() {
       </section>
 
       {/* ═══════════════════ HOW IT WORKS ═══════════════════ */}
-      <section ref={howRef.ref} className="relative z-10 container mx-auto px-4 py-24 md:py-36">
+      <section ref={howRef.ref} className="relative z-10 container mx-auto px-4 py-16 md:py-24">
         <div className={`reveal ${howRef.isVisible ? 'visible' : ''} text-center mb-16`}>
           <div className="inline-block px-5 py-2 rounded-full border border-cyan-500/30 bg-cyan-500/10 mb-6 shadow-[0_0_15px_rgba(6,182,212,0.15)]">
             <p className="text-sm font-bold text-cyan-400 uppercase tracking-widest">Simplicity by Design</p>
@@ -534,7 +534,7 @@ export default function Home() {
       </section>
 
       {/* ═══════════════════ ROADMAP ═══════════════════ */}
-      <section id="roadmap" ref={roadmapRef.ref} className="relative z-10 container mx-auto px-4 py-24 md:py-36 overflow-hidden">
+      <section id="roadmap" ref={roadmapRef.ref} className="relative z-10 container mx-auto px-4 py-16 md:py-24 overflow-hidden">
         <div className={`reveal ${roadmapRef.isVisible ? 'visible' : ''} text-center mb-16`}>
           <div className="inline-block px-5 py-2 rounded-full border border-emerald-500/30 bg-emerald-500/10 mb-6 shadow-[0_0_15px_rgba(16,185,129,0.15)]">
             <p className="text-sm font-bold text-emerald-400 uppercase tracking-widest">Roadmap</p>
@@ -615,7 +615,7 @@ export default function Home() {
       </section>
 
       {/* ═══════════════════ CTA ═══════════════════ */}
-      <section className="relative z-10 container mx-auto px-4 py-24">
+      <section className="relative z-10 container mx-auto px-4 py-16 md:py-24">
         <div className="max-w-4xl mx-auto text-center glass-strong rounded-3xl p-12 md:p-16 relative overflow-hidden">
           <div className="absolute top-0 left-0 w-[300px] h-[300px] bg-purple-600/10 rounded-full blur-[100px] -translate-x-1/2 -translate-y-1/2" />
           <div className="absolute bottom-0 right-0 w-[300px] h-[300px] bg-cyan-600/10 rounded-full blur-[100px] translate-x-1/2 translate-y-1/2" />
