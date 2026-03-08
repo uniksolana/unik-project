@@ -361,14 +361,14 @@ export default function Home() {
           </div>
 
           {/* Right Column — Floating Cards */}
-          <div className={`reveal ${heroRef.isVisible ? 'visible' : ''} relative h-[450px] md:h-[500px] w-full max-w-[320px] md:max-w-none mx-auto mt-16 md:mt-0`} style={{ transitionDelay: '0.3s' }}>
+          <div className={`reveal ${heroRef.isVisible ? 'visible' : ''} relative md:h-[500px] w-full max-w-[320px] md:max-w-none mx-auto mt-16 md:mt-0 flex flex-col md:block gap-6 items-center`} style={{ transitionDelay: '0.3s' }}>
 
-            {/* Decorative ring */}
-            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[300px] md:w-[350px] h-[300px] md:h-[350px] rounded-full border border-purple-500/10 animate-spin-slow" />
-            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[200px] md:w-[250px] h-[200px] md:h-[250px] rounded-full border border-cyan-500/5 animate-spin-slow" style={{ animationDirection: 'reverse', animationDuration: '30s' }} />
+            {/* Decorative rings (hidden on mobile to prevent overlapping native flow) */}
+            <div className="hidden md:block absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[350px] h-[350px] rounded-full border border-purple-500/10 animate-spin-slow" />
+            <div className="hidden md:block absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[250px] h-[250px] rounded-full border border-cyan-500/5 animate-spin-slow" style={{ animationDirection: 'reverse', animationDuration: '30s' }} />
 
             {/* Card 1 — Alias Input */}
-            <div className="absolute top-0 left-1/2 -translate-x-1/2 md:translate-x-0 md:left-0 md:top-4 w-[260px] md:w-[280px] glass-strong rounded-2xl p-4 md:p-5 shadow-2xl animate-float1 z-30">
+            <div className="relative md:absolute md:top-4 md:left-0 w-[260px] md:w-[280px] glass-strong rounded-2xl p-4 md:p-5 shadow-2xl md:animate-float1 z-30">
               <p className="text-[11px] text-gray-500 uppercase tracking-widest font-semibold mb-3">Claim Alias</p>
               <div className="flex items-center gap-2 bg-white/5 rounded-xl px-4 py-3 border border-white/10">
                 <span className="text-purple-400 font-bold">@</span>
@@ -384,7 +384,7 @@ export default function Home() {
             </div>
 
             {/* Card 2 — Chat Bubble */}
-            <div className="absolute top-[130px] md:top-[140px] left-1/2 -translate-x-1/2 md:translate-x-0 md:left-auto md:right-0 w-[280px] md:w-[300px] glass-strong rounded-2xl p-4 md:p-5 shadow-2xl animate-float2 z-20">
+            <div className="relative md:absolute md:top-[140px] md:right-0 w-[280px] md:w-[300px] glass-strong rounded-2xl p-4 md:p-5 shadow-2xl md:animate-float2 z-20">
               <div className="flex items-center gap-3 mb-3">
                 <div className="w-8 h-8 rounded-full bg-gradient-to-br from-emerald-400 to-cyan-400 flex items-center justify-center text-sm font-bold text-black">D</div>
                 <div>
@@ -399,7 +399,7 @@ export default function Home() {
             </div>
 
             {/* Card 3 — Transaction Approve */}
-            <div className="absolute bottom-0 md:bottom-4 left-1/2 -translate-x-1/2 md:translate-x-0 md:left-8 w-[250px] md:w-[260px] glass-strong rounded-2xl p-4 md:p-5 shadow-2xl animate-float3 z-30">
+            <div className="relative md:absolute md:bottom-4 md:left-8 w-[250px] md:w-[260px] glass-strong rounded-2xl p-4 md:p-5 shadow-2xl md:animate-float3 z-30">
               <div className="flex items-center justify-between mb-4">
                 <p className="text-[11px] text-gray-500 uppercase tracking-widest font-semibold">Confirm Payment</p>
                 <Image src="/logophantom.png" alt="Phantom" width={22} height={22} className="w-5 h-5 rounded opacity-70" />
