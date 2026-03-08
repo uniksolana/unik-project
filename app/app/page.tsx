@@ -123,8 +123,8 @@ const FEATURES = [
 const HOW_STEPS = [
   {
     step: '01',
-    title: 'Connect Wallet',
-    desc: 'Link Phantom or any Solana wallet in one click. No emails, no passwords.',
+    title: 'Connect Phantom Wallet',
+    desc: 'Link your Phantom wallet in one click. No emails, no passwords.',
     color: 'from-cyan-500 to-blue-500',
     icon: (
       <svg className="w-8 h-8" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
@@ -312,15 +312,15 @@ export default function Home() {
             </div>
 
             <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-black leading-[0.95] tracking-tight mb-6">
-              Pay Anyone with{' '}
+              Pay Anyone on Solana with{' '}
               <span className="bg-clip-text text-transparent bg-gradient-to-r from-[#9945FF] via-[#14F195] to-[#00C2FF] animate-gradient-x">
                 Just an @name.
               </span>
             </h1>
 
             <p className="text-lg md:text-xl text-gray-400 mb-10 leading-relaxed max-w-lg">
-              The smartest payment infrastructure on Solana.
-              Claim your alias, send crypto like a message, and auto-split funds — all non-custodial.
+              The easiest payment infrastructure on Solana.
+              Claim your alias, send and receive crypto like a message, and auto-split funds — all non-custodial.
             </p>
 
             <div className="flex flex-col sm:flex-row gap-4">
@@ -361,14 +361,14 @@ export default function Home() {
           </div>
 
           {/* Right Column — Floating Cards */}
-          <div className={`reveal ${heroRef.isVisible ? 'visible' : ''} relative h-[420px] md:h-[500px] hidden md:block`} style={{ transitionDelay: '0.3s' }}>
+          <div className={`reveal ${heroRef.isVisible ? 'visible' : ''} relative h-[450px] md:h-[500px] w-full max-w-[320px] md:max-w-none mx-auto mt-16 md:mt-0`} style={{ transitionDelay: '0.3s' }}>
 
             {/* Decorative ring */}
-            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[350px] h-[350px] rounded-full border border-purple-500/10 animate-spin-slow" />
-            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[250px] h-[250px] rounded-full border border-cyan-500/5 animate-spin-slow" style={{ animationDirection: 'reverse', animationDuration: '30s' }} />
+            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[300px] md:w-[350px] h-[300px] md:h-[350px] rounded-full border border-purple-500/10 animate-spin-slow" />
+            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[200px] md:w-[250px] h-[200px] md:h-[250px] rounded-full border border-cyan-500/5 animate-spin-slow" style={{ animationDirection: 'reverse', animationDuration: '30s' }} />
 
             {/* Card 1 — Alias Input */}
-            <div className="absolute top-4 left-0 w-[280px] glass-strong rounded-2xl p-5 shadow-2xl animate-float1">
+            <div className="absolute top-0 left-1/2 -translate-x-1/2 md:translate-x-0 md:left-0 md:top-4 w-[260px] md:w-[280px] glass-strong rounded-2xl p-4 md:p-5 shadow-2xl animate-float1 z-30">
               <p className="text-[11px] text-gray-500 uppercase tracking-widest font-semibold mb-3">Claim Alias</p>
               <div className="flex items-center gap-2 bg-white/5 rounded-xl px-4 py-3 border border-white/10">
                 <span className="text-purple-400 font-bold">@</span>
@@ -384,7 +384,7 @@ export default function Home() {
             </div>
 
             {/* Card 2 — Chat Bubble */}
-            <div className="absolute top-[140px] right-0 w-[300px] glass-strong rounded-2xl p-5 shadow-2xl animate-float2">
+            <div className="absolute top-[130px] md:top-[140px] left-1/2 -translate-x-1/2 md:translate-x-0 md:left-auto md:right-0 w-[280px] md:w-[300px] glass-strong rounded-2xl p-4 md:p-5 shadow-2xl animate-float2 z-20">
               <div className="flex items-center gap-3 mb-3">
                 <div className="w-8 h-8 rounded-full bg-gradient-to-br from-emerald-400 to-cyan-400 flex items-center justify-center text-sm font-bold text-black">D</div>
                 <div>
@@ -399,7 +399,7 @@ export default function Home() {
             </div>
 
             {/* Card 3 — Transaction Approve */}
-            <div className="absolute bottom-4 left-8 w-[260px] glass-strong rounded-2xl p-5 shadow-2xl animate-float3">
+            <div className="absolute bottom-0 md:bottom-4 left-1/2 -translate-x-1/2 md:translate-x-0 md:left-8 w-[250px] md:w-[260px] glass-strong rounded-2xl p-4 md:p-5 shadow-2xl animate-float3 z-30">
               <div className="flex items-center justify-between mb-4">
                 <p className="text-[11px] text-gray-500 uppercase tracking-widest font-semibold">Confirm Payment</p>
                 <Image src="/logophantom.png" alt="Phantom" width={22} height={22} className="w-5 h-5 rounded opacity-70" />
@@ -439,7 +439,9 @@ export default function Home() {
       {/* ═══════════════════ FEATURES ═══════════════════ */}
       <section id="features" ref={featRef.ref} className="relative z-10 container mx-auto px-4 py-24 md:py-36">
         <div className={`reveal ${featRef.isVisible ? 'visible' : ''} text-center mb-16`}>
-          <p className="text-sm font-bold text-purple-400 uppercase tracking-widest mb-3">Why UnikPay</p>
+          <div className="inline-block px-5 py-2 rounded-full border border-purple-500/30 bg-purple-500/10 mb-6 shadow-[0_0_15px_rgba(168,85,247,0.15)]">
+            <p className="text-sm font-bold text-purple-400 uppercase tracking-widest">Why UnikPay</p>
+          </div>
           <h2 className="text-3xl md:text-5xl font-black tracking-tight">
             Everything you need.<br />
             <span className="text-gray-500">Nothing you don&apos;t.</span>
@@ -483,12 +485,11 @@ export default function Home() {
               ].map((token, i) => (
                 <div
                   key={i}
-                  className={`group flex flex-col items-center gap-3 p-6 rounded-2xl bg-gradient-to-br ${token.color} border border-white/5 ${token.border} transition-all duration-300 hover:-translate-y-1`}
+                  className={`group flex flex-col items-center justify-center gap-4 py-8 rounded-2xl bg-gradient-to-br ${token.color} border border-white/5 ${token.border} transition-all duration-300 hover:-translate-y-1`}
                 >
-                  <Image src={token.img} alt={token.name} width={48} height={48} className="w-12 h-12 group-hover:scale-110 transition-transform duration-300" />
-                  <div className="text-center">
-                    <p className="text-white font-bold">{token.symbol}</p>
-                    <p className="text-xs text-gray-500">{token.name}</p>
+                  <Image src={token.img} alt={token.name} width={56} height={56} className="w-14 h-14 group-hover:scale-110 transition-transform duration-300 mix-blend-screen" />
+                  <div className="text-center mt-2">
+                    <p className="text-white font-bold text-xl">{token.symbol}</p>
                   </div>
                 </div>
               ))}
@@ -500,7 +501,9 @@ export default function Home() {
       {/* ═══════════════════ HOW IT WORKS ═══════════════════ */}
       <section ref={howRef.ref} className="relative z-10 container mx-auto px-4 py-24 md:py-36">
         <div className={`reveal ${howRef.isVisible ? 'visible' : ''} text-center mb-16`}>
-          <p className="text-sm font-bold text-cyan-400 uppercase tracking-widest mb-3">Simplicity by Design</p>
+          <div className="inline-block px-5 py-2 rounded-full border border-cyan-500/30 bg-cyan-500/10 mb-6 shadow-[0_0_15px_rgba(6,182,212,0.15)]">
+            <p className="text-sm font-bold text-cyan-400 uppercase tracking-widest">Simplicity by Design</p>
+          </div>
           <h2 className="text-3xl md:text-5xl font-black tracking-tight">
             From zero to payment<br />
             <span className="text-gray-500">in 5 simple steps.</span>
@@ -644,7 +647,7 @@ export default function Home() {
                 <Image src="/logo-icon.png" alt="UNIK" width={28} height={28} className="w-7 h-7" />
                 <span className="font-bold text-white">UnikPay</span>
               </div>
-              <p className="text-xs text-gray-600 leading-relaxed mb-4">The non-custodial payment router on Solana. Smart aliases, auto-splits, encrypted notes.</p>
+              <p className="text-xs text-gray-600 leading-relaxed mb-4">The easiest way to send and receive payments on Solana. Simple aliases, auto-splits, and encrypted notes.</p>
               <div className="flex items-center gap-3">
                 <Image src="/sol.png" alt="Solana" width={18} height={18} className="w-4 h-4 opacity-50" />
                 <span className="text-[10px] text-gray-600 uppercase tracking-wider font-medium">Built on Solana</span>
