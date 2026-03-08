@@ -90,7 +90,7 @@ const FEATURES = [
   {
     icon: (
       <svg className="w-7 h-7" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" d="M13.19 8.688a4.5 4.5 0 0 1 1.242 7.244l-4.5 4.5a4.5 4.5 0 0 1-6.364-6.364l1.757-1.757m9.86-4.318a4.5 4.5 0 0 0-1.242-7.244l-4.5-4.5a4.5 4.5 0 0 0-6.364 6.364l1.757 1.757" />
+        <path strokeLinecap="round" strokeLinejoin="round" d="M7.217 10.907a2.25 2.25 0 1 0 0 2.186m0-2.186c.18.324.283.696.283 1.093s-.103.77-.283 1.093m0-2.186 9.566-5.314m-9.566 7.5 9.566 5.314m0 0a2.25 2.25 0 1 0 3.935 2.186 2.25 2.25 0 0 0-3.935-2.186Zm0-12.814a2.25 2.25 0 1 0 3.933-2.185 2.25 2.25 0 0 0-3.933 2.185Z" />
       </svg>
     ),
     title: 'Payment Links',
@@ -119,12 +119,85 @@ const FEATURES = [
   },
 ];
 
+/* ───────────────────────────── How It Works Steps ───────────────────────────── */
+const HOW_STEPS = [
+  {
+    step: '01',
+    title: 'Connect Wallet',
+    desc: 'Link Phantom or any Solana wallet in one click. No emails, no passwords.',
+    color: 'from-cyan-500 to-blue-500',
+    icon: (
+      <svg className="w-8 h-8" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" d="M21 12a2.25 2.25 0 0 0-2.25-2.25H15a3 3 0 1 1-6 0H5.25A2.25 2.25 0 0 0 3 12m18 0v6a2.25 2.25 0 0 1-2.25 2.25H5.25A2.25 2.25 0 0 1 3 18v-6m18 0V9M3 12V9m18 0a2.25 2.25 0 0 0-2.25-2.25H5.25A2.25 2.25 0 0 0 3 9m18 0V6a2.25 2.25 0 0 0-2.25-2.25H5.25A2.25 2.25 0 0 0 3 6v3" />
+      </svg>
+    ),
+  },
+  {
+    step: '02',
+    title: 'Claim Your @name',
+    desc: 'Register a unique alias on-chain. It becomes your identity across UnikPay.',
+    color: 'from-purple-500 to-pink-500',
+    icon: (
+      <svg className="w-8 h-8" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0 1 15.75 21H5.25A2.25 2.25 0 0 1 3 18.75V8.25A2.25 2.25 0 0 1 5.25 6H10" />
+      </svg>
+    ),
+  },
+  {
+    step: '03',
+    title: 'Add Contacts',
+    desc: 'Build your encrypted address book. Save aliases and wallet addresses privately.',
+    color: 'from-emerald-500 to-cyan-500',
+    icon: (
+      <svg className="w-8 h-8" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" d="M18 18.72a9.094 9.094 0 0 0 3.741-.479 3 3 0 0 0-4.682-2.72m.94 3.198.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0 1 12 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 0 1 6 18.719m12 0a5.971 5.971 0 0 0-.941-3.197m0 0A5.995 5.995 0 0 0 12 12.75a5.995 5.995 0 0 0-5.058 2.772m0 0a3 3 0 0 0-4.681 2.72 8.986 8.986 0 0 0 3.74.477m.94-3.197a5.971 5.971 0 0 0-.94 3.197M15 6.75a3 3 0 1 1-6 0 3 3 0 0 1 6 0Zm6 3a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0Zm-13.5 0a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0Z" />
+      </svg>
+    ),
+  },
+  {
+    step: '04',
+    title: 'Send & Receive',
+    desc: 'Pay anyone with their @alias. SOL, USDC, or EURC — instant, with optional auto-splits.',
+    color: 'from-amber-500 to-orange-500',
+    icon: (
+      <svg className="w-8 h-8" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" d="M7.5 21 3 16.5m0 0L7.5 12M3 16.5h13.5m0-13.5L21 7.5m0 0L16.5 12M21 7.5H7.5" />
+      </svg>
+    ),
+  },
+  {
+    step: '05',
+    title: 'Track Everything',
+    desc: 'Full history with encrypted notes, amounts, and payment concepts for every transaction.',
+    color: 'from-rose-500 to-purple-500',
+    icon: (
+      <svg className="w-8 h-8" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 0 1 3 19.875v-6.75ZM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V8.625ZM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V4.125Z" />
+      </svg>
+    ),
+  },
+];
+
 /* ───────────────────────────── MAIN COMPONENT ───────────────────────────── */
 export default function Home() {
   const heroRef = useInView(0.1);
   const featRef = useInView(0.1);
   const roadmapRef = useInView(0.1);
   const howRef = useInView(0.1);
+  const tokensRef = useInView(0.1);
+
+  /* Floating particles effect */
+  const [particles] = useState(() =>
+    Array.from({ length: 30 }, (_, i) => ({
+      id: i,
+      x: Math.random() * 100,
+      y: Math.random() * 100,
+      size: Math.random() * 3 + 1,
+      duration: Math.random() * 20 + 15,
+      delay: Math.random() * 10,
+      opacity: Math.random() * 0.3 + 0.05,
+    }))
+  );
 
   return (
     <div className="min-h-screen bg-[#030014] text-white selection:bg-purple-500/30 overflow-x-hidden">
@@ -141,8 +214,8 @@ export default function Home() {
         @keyframes gradient-x { 0%,100% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } }
         @keyframes pulse-glow { 0%,100% { opacity: 0.4; } 50% { opacity: 0.7; } }
         @keyframes spin-slow { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
-        @keyframes slide-up { from { opacity: 0; transform: translateY(40px); } to { opacity: 1; transform: translateY(0); } }
-        @keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes drift { 0% { transform: translateY(0) translateX(0); } 25% { transform: translateY(-30px) translateX(15px); } 50% { transform: translateY(-10px) translateX(-10px); } 75% { transform: translateY(-40px) translateX(5px); } 100% { transform: translateY(0) translateX(0); } }
+        @keyframes shimmer { 0% { background-position: -200% 0; } 100% { background-position: 200% 0; } }
 
         .animate-float1 { animation: float1 6s ease-in-out infinite; }
         .animate-float2 { animation: float2 5s ease-in-out infinite 0.5s; }
@@ -150,12 +223,25 @@ export default function Home() {
         .animate-gradient-x { animation: gradient-x 6s ease infinite; background-size: 200% 200%; }
         .animate-pulse-glow { animation: pulse-glow 4s ease-in-out infinite; }
         .animate-spin-slow { animation: spin-slow 20s linear infinite; }
+        .animate-shimmer { animation: shimmer 3s linear infinite; background-size: 200% 100%; }
 
         .reveal { opacity: 0; transform: translateY(40px); transition: all 0.8s cubic-bezier(0.16, 1, 0.3, 1); }
         .reveal.visible { opacity: 1; transform: translateY(0); }
 
         .glass { background: rgba(255,255,255,0.03); backdrop-filter: blur(20px); border: 1px solid rgba(255,255,255,0.06); }
         .glass-strong { background: rgba(255,255,255,0.05); backdrop-filter: blur(30px); border: 1px solid rgba(255,255,255,0.08); }
+
+        .step-connector { position: relative; }
+        .step-connector::after {
+          content: '';
+          position: absolute;
+          top: 24px;
+          right: -50%;
+          width: 100%;
+          height: 2px;
+          background: linear-gradient(90deg, rgba(255,255,255,0.06), rgba(255,255,255,0.02));
+        }
+        .step-connector:last-child::after { display: none; }
       `}</style>
 
       {/* ─── Ambient Background ─── */}
@@ -165,6 +251,22 @@ export default function Home() {
         <div className="absolute top-[30%] left-[60%] w-[600px] h-[600px] bg-blue-600/5 rounded-full blur-[150px]" />
         {/* Grid overlay */}
         <div className="absolute inset-0 opacity-[0.015]" style={{ backgroundImage: 'linear-gradient(rgba(255,255,255,0.1) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.1) 1px, transparent 1px)', backgroundSize: '60px 60px' }} />
+        {/* Floating particles */}
+        {particles.map(p => (
+          <div
+            key={p.id}
+            className="absolute rounded-full bg-white"
+            style={{
+              left: `${p.x}%`,
+              top: `${p.y}%`,
+              width: p.size,
+              height: p.size,
+              opacity: p.opacity,
+              animation: `drift ${p.duration}s ease-in-out infinite`,
+              animationDelay: `${p.delay}s`,
+            }}
+          />
+        ))}
       </div>
 
       {/* ═══════════════════ DEVNET BANNER ═══════════════════ */}
@@ -210,15 +312,15 @@ export default function Home() {
             </div>
 
             <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-black leading-[0.95] tracking-tight mb-6">
-              Say Goodbye to{' '}
+              Pay Anyone with{' '}
               <span className="bg-clip-text text-transparent bg-gradient-to-r from-[#9945FF] via-[#14F195] to-[#00C2FF] animate-gradient-x">
-                44-Character Addresses.
+                Just an @name.
               </span>
             </h1>
 
             <p className="text-lg md:text-xl text-gray-400 mb-10 leading-relaxed max-w-lg">
-              Claim your <span className="text-white font-semibold">@alias</span>. Send crypto like a text message.
-              Non-custodial, 1-click P2P payments on Solana.
+              The smartest payment infrastructure on Solana.
+              Claim your alias, send crypto like a message, and auto-split funds — all non-custodial.
             </p>
 
             <div className="flex flex-col sm:flex-row gap-4">
@@ -239,17 +341,21 @@ export default function Home() {
               </Link>
             </div>
 
-            {/* Social Proof */}
-            <div className="mt-12 flex items-center gap-8 text-sm">
-              <div className="flex items-center gap-2">
-                <Image src="/sol.png" alt="SOL" width={20} height={20} className="w-5 h-5" />
-                <Image src="/usdc.png" alt="USDC" width={20} height={20} className="w-5 h-5 -ml-1" />
-                <Image src="/eurc.png" alt="EURC" width={20} height={20} className="w-5 h-5 -ml-1" />
-                <span className="text-gray-500 ml-1">SOL · USDC · EURC</span>
+            {/* Token Support */}
+            <div className="mt-12 flex flex-col sm:flex-row items-start sm:items-center gap-4 sm:gap-8 text-sm">
+              <div className="flex items-center gap-3 glass rounded-full px-4 py-2">
+                <Image src="/sol.png" alt="SOL" width={22} height={22} className="w-5 h-5" />
+                <span className="text-gray-300 font-medium">Solana</span>
+                <span className="text-gray-600">·</span>
+                <Image src="/usdc.png" alt="USDC" width={22} height={22} className="w-5 h-5" />
+                <span className="text-gray-300 font-medium">USDC</span>
+                <span className="text-gray-600">·</span>
+                <Image src="/eurc.png" alt="EURC" width={22} height={22} className="w-5 h-5" />
+                <span className="text-gray-300 font-medium">EURC</span>
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 opacity-60 hover:opacity-100 transition-opacity">
                 <Image src="/logophantom.png" alt="Phantom" width={20} height={20} className="w-5 h-5 rounded" />
-                <span className="text-gray-500">Phantom Ready</span>
+                <span className="text-gray-400 text-xs">Phantom Ready</span>
               </div>
             </div>
           </div>
@@ -259,6 +365,7 @@ export default function Home() {
 
             {/* Decorative ring */}
             <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[350px] h-[350px] rounded-full border border-purple-500/10 animate-spin-slow" />
+            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[250px] h-[250px] rounded-full border border-cyan-500/5 animate-spin-slow" style={{ animationDirection: 'reverse', animationDuration: '30s' }} />
 
             {/* Card 1 — Alias Input */}
             <div className="absolute top-4 left-0 w-[280px] glass-strong rounded-2xl p-5 shadow-2xl animate-float1">
@@ -346,7 +453,7 @@ export default function Home() {
               className={`reveal ${featRef.isVisible ? 'visible' : ''} group glass hover:bg-white/[0.04] rounded-2xl p-7 transition-all duration-500 hover:-translate-y-1 hover:border-white/10`}
               style={{ transitionDelay: `${i * 100}ms` }}
             >
-              <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${f.gradient} bg-opacity-10 flex items-center justify-center mb-5 group-hover:scale-110 transition-transform duration-300 shadow-lg`} style={{ background: `linear-gradient(135deg, var(--tw-gradient-stops))`, opacity: 0.85 }}>
+              <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${f.gradient} flex items-center justify-center mb-5 group-hover:scale-110 transition-transform duration-300 shadow-lg`}>
                 <div className="text-white">{f.icon}</div>
               </div>
               <h3 className="text-lg font-bold text-white mb-2">{f.title}</h3>
@@ -356,10 +463,44 @@ export default function Home() {
         </div>
       </section>
 
-      {/* ═══════════════════ HOW IT WORKS (Screenshots) ═══════════════════ */}
+      {/* ═══════════════════ SUPPORTED TOKENS ═══════════════════ */}
+      <section ref={tokensRef.ref} className="relative z-10 container mx-auto px-4 py-16">
+        <div className={`reveal ${tokensRef.isVisible ? 'visible' : ''} max-w-4xl mx-auto`}>
+          <div className="glass-strong rounded-3xl p-8 md:p-12 relative overflow-hidden">
+            {/* Shimmer line */}
+            <div className="absolute top-0 left-0 right-0 h-[1px] animate-shimmer" style={{ background: 'linear-gradient(90deg, transparent, rgba(153,69,255,0.3), transparent)' }} />
+
+            <p className="text-sm font-bold text-cyan-400 uppercase tracking-widest mb-4 text-center">Supported Tokens</p>
+            <h3 className="text-2xl md:text-3xl font-black text-center mb-10">
+              Send and receive in the currency you prefer.
+            </h3>
+
+            <div className="grid grid-cols-3 gap-4 md:gap-6">
+              {[
+                { name: 'Solana', symbol: 'SOL', img: '/sol.png', color: 'from-[#9945FF]/10 to-[#14F195]/10', border: 'hover:border-[#14F195]/30' },
+                { name: 'USD Coin', symbol: 'USDC', img: '/usdc.png', color: 'from-blue-500/10 to-cyan-500/10', border: 'hover:border-blue-500/30' },
+                { name: 'Euro Coin', symbol: 'EURC', img: '/eurc.png', color: 'from-blue-600/10 to-indigo-500/10', border: 'hover:border-blue-400/30' },
+              ].map((token, i) => (
+                <div
+                  key={i}
+                  className={`group flex flex-col items-center gap-3 p-6 rounded-2xl bg-gradient-to-br ${token.color} border border-white/5 ${token.border} transition-all duration-300 hover:-translate-y-1`}
+                >
+                  <Image src={token.img} alt={token.name} width={48} height={48} className="w-12 h-12 group-hover:scale-110 transition-transform duration-300" />
+                  <div className="text-center">
+                    <p className="text-white font-bold">{token.symbol}</p>
+                    <p className="text-xs text-gray-500">{token.name}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ═══════════════════ HOW IT WORKS ═══════════════════ */}
       <section ref={howRef.ref} className="relative z-10 container mx-auto px-4 py-24 md:py-36">
         <div className={`reveal ${howRef.isVisible ? 'visible' : ''} text-center mb-16`}>
-          <p className="text-sm font-bold text-cyan-400 uppercase tracking-widest mb-3">See It In Action</p>
+          <p className="text-sm font-bold text-cyan-400 uppercase tracking-widest mb-3">Simplicity by Design</p>
           <h2 className="text-3xl md:text-5xl font-black tracking-tight">
             From zero to payment<br />
             <span className="text-gray-500">in 5 simple steps.</span>
@@ -367,37 +508,24 @@ export default function Home() {
         </div>
 
         <div className={`reveal ${howRef.isVisible ? 'visible' : ''} max-w-5xl mx-auto`} style={{ transitionDelay: '0.2s' }}>
-          {/* Step Cards */}
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-4 md:gap-6">
-            {[
-              { step: '01', title: 'Connect', desc: 'Link your Solana wallet', color: 'from-cyan-500 to-blue-500' },
-              { step: '02', title: 'Claim', desc: 'Setup your @name', color: 'from-purple-500 to-pink-500' },
-              { step: '03', title: 'Social', desc: 'Add your friends', color: 'from-emerald-500 to-cyan-500' },
-              { step: '04', title: 'Transact', desc: 'Send & receive crypto', color: 'from-amber-500 to-orange-500' },
-              { step: '05', title: 'Track', desc: 'View your history', color: 'from-rose-500 to-purple-500' },
-            ].map((s, i) => (
+          {/* Step Cards with Icons */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-4 md:gap-5">
+            {HOW_STEPS.map((s, i) => (
               <div
                 key={i}
-                className="group glass rounded-2xl p-5 hover:bg-white/[0.04] transition-all duration-300 hover:-translate-y-1"
-                style={{ transitionDelay: `${i * 80}ms` }}
+                className="group glass rounded-2xl p-6 hover:bg-white/[0.04] transition-all duration-300 hover:-translate-y-2 text-center relative step-connector"
+                style={{ transitionDelay: `${i * 100}ms` }}
               >
-                <div className={`text-xs font-black bg-gradient-to-r ${s.color} bg-clip-text text-transparent mb-3`}>STEP {s.step}</div>
-                <h4 className="text-base font-bold text-white mb-1">{s.title}</h4>
-                <p className="text-xs text-gray-500">{s.desc}</p>
+                {/* Step Number Circle */}
+                <div className={`w-12 h-12 mx-auto rounded-full bg-gradient-to-br ${s.color} flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300 shadow-lg`}>
+                  <div className="text-white">{s.icon}</div>
+                </div>
+                {/* Step Label */}
+                <div className={`text-[10px] font-black bg-gradient-to-r ${s.color} bg-clip-text text-transparent mb-2 uppercase tracking-widest`}>Step {s.step}</div>
+                <h4 className="text-sm font-bold text-white mb-2">{s.title}</h4>
+                <p className="text-xs text-gray-500 leading-relaxed">{s.desc}</p>
               </div>
             ))}
-          </div>
-
-          {/* How It Works Image */}
-          <div className="mt-12 glass rounded-3xl p-3 overflow-hidden">
-            <Image
-              src="/1000090997.png"
-              alt="How UnikPay Works — 5 step flow from connecting your wallet to tracking payments"
-              width={1200}
-              height={600}
-              className="w-full rounded-2xl"
-              priority
-            />
           </div>
         </div>
       </section>
@@ -419,7 +547,6 @@ export default function Home() {
             {/* Connecting line */}
             <div className="absolute top-[38px] left-0 right-0 h-[2px]">
               <div className="w-full h-full bg-white/5 rounded-full" />
-              {/* Progress fill — 3 out of 8 = 37.5% but visually let's show 31.25% (center of step 3) */}
               <div className="absolute top-0 left-0 h-full bg-gradient-to-r from-emerald-500 to-cyan-500 rounded-full" style={{ width: '31%' }} />
             </div>
 
@@ -430,7 +557,6 @@ export default function Home() {
                 const isUpcoming = item.status === 'upcoming';
                 return (
                   <div key={i} className="relative flex flex-col items-center text-center pt-0">
-                    {/* Node */}
                     <div className={`relative z-10 w-[18px] h-[18px] rounded-full mb-5 flex items-center justify-center ring-4 transition-all duration-500
                       ${isDone ? 'bg-emerald-400 ring-emerald-400/20' : ''}
                       ${isCurrent ? 'bg-cyan-400 ring-cyan-400/30 shadow-[0_0_20px_rgba(34,211,238,0.5)]' : ''}
@@ -441,7 +567,6 @@ export default function Home() {
                       )}
                       {isCurrent && <span className="absolute inset-0 rounded-full bg-cyan-400 animate-ping opacity-40" />}
                     </div>
-                    {/* Label */}
                     <p className={`text-[11px] font-bold uppercase tracking-wider mb-1.5 ${isDone ? 'text-emerald-400' : isCurrent ? 'text-cyan-400' : 'text-gray-600'}`}>
                       Phase {item.phase}
                     </p>
@@ -455,7 +580,6 @@ export default function Home() {
 
           {/* Mobile Timeline (Vertical) */}
           <div className="md:hidden space-y-0">
-            {/* Vertical line */}
             <div className="absolute top-0 left-[15px] bottom-0 w-[2px] bg-white/5">
               <div className="w-full bg-gradient-to-b from-emerald-500 to-cyan-500 rounded-full" style={{ height: '31%' }} />
             </div>
@@ -488,9 +612,10 @@ export default function Home() {
       {/* ═══════════════════ CTA ═══════════════════ */}
       <section className="relative z-10 container mx-auto px-4 py-24">
         <div className="max-w-4xl mx-auto text-center glass-strong rounded-3xl p-12 md:p-16 relative overflow-hidden">
-          {/* Gradient orbs */}
           <div className="absolute top-0 left-0 w-[300px] h-[300px] bg-purple-600/10 rounded-full blur-[100px] -translate-x-1/2 -translate-y-1/2" />
           <div className="absolute bottom-0 right-0 w-[300px] h-[300px] bg-cyan-600/10 rounded-full blur-[100px] translate-x-1/2 translate-y-1/2" />
+          {/* Shimmer line */}
+          <div className="absolute top-0 left-0 right-0 h-[1px] animate-shimmer" style={{ background: 'linear-gradient(90deg, transparent, rgba(20,241,149,0.3), transparent)' }} />
 
           <div className="relative z-10">
             <h2 className="text-3xl md:text-5xl font-black tracking-tight mb-4">
@@ -514,7 +639,6 @@ export default function Home() {
       <footer className="relative z-10 border-t border-white/5">
         <div className="container mx-auto px-6 py-12">
           <div className="grid md:grid-cols-4 gap-10">
-            {/* Brand */}
             <div className="md:col-span-1">
               <div className="flex items-center gap-2.5 mb-4">
                 <Image src="/logo-icon.png" alt="UNIK" width={28} height={28} className="w-7 h-7" />
@@ -527,7 +651,6 @@ export default function Home() {
               </div>
             </div>
 
-            {/* Product */}
             <div>
               <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-4">Product</p>
               <ul className="space-y-2.5">
@@ -538,7 +661,6 @@ export default function Home() {
               </ul>
             </div>
 
-            {/* Legal */}
             <div>
               <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-4">Legal</p>
               <ul className="space-y-2.5">
@@ -547,7 +669,6 @@ export default function Home() {
               </ul>
             </div>
 
-            {/* Social */}
             <div>
               <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-4">Community</p>
               <ul className="space-y-2.5">
