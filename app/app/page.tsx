@@ -584,8 +584,8 @@ export default function Home() {
           </div>
 
           {/* Mobile Timeline (Vertical) */}
-          <div className="md:hidden space-y-0">
-            <div className="absolute top-0 left-[15px] bottom-0 w-[2px] bg-white/5">
+          <div className="md:hidden relative space-y-2 py-4">
+            <div className="absolute top-8 left-[23px] bottom-8 w-[2px] bg-white/5 z-0">
               <div className="w-full bg-gradient-to-b from-emerald-500 to-cyan-500 rounded-full" style={{ height: '31%' }} />
             </div>
 
@@ -594,8 +594,8 @@ export default function Home() {
               const isCurrent = item.status === 'current';
               const isUpcoming = item.status === 'upcoming';
               return (
-                <div key={i} className="relative flex items-start gap-4 py-4 pl-1">
-                  <div className={`relative z-10 mt-0.5 w-[14px] h-[14px] rounded-full flex-shrink-0 ring-4
+                <div key={i} className="relative z-10 flex items-start gap-5 px-4 py-2">
+                  <div className={`relative mt-1 w-[16px] h-[16px] rounded-full flex-shrink-0 ring-4
                     ${isDone ? 'bg-emerald-400 ring-emerald-400/20' : ''}
                     ${isCurrent ? 'bg-cyan-400 ring-cyan-400/30 shadow-[0_0_15px_rgba(34,211,238,0.5)]' : ''}
                     ${isUpcoming ? 'bg-gray-700 ring-gray-700/20' : ''}
@@ -643,20 +643,20 @@ export default function Home() {
       {/* ═══════════════════ FOOTER ═══════════════════ */}
       <footer className="relative z-10 border-t border-white/5">
         <div className="container mx-auto px-6 py-12">
-          <div className="grid md:grid-cols-4 gap-10">
-            <div className="md:col-span-1">
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-x-8 gap-y-10">
+            <div className="col-span-2 md:col-span-2">
               <div className="flex items-center gap-2.5 mb-4">
                 <Image src="/logo-icon.png" alt="UNIK" width={28} height={28} className="w-7 h-7" />
                 <span className="font-bold text-white">UnikPay</span>
               </div>
-              <p className="text-xs text-gray-600 leading-relaxed mb-4">The easiest way to send and receive payments on Solana. Simple aliases, auto-splits, and encrypted notes.</p>
+              <p className="text-xs text-gray-600 leading-relaxed mb-4 max-w-sm">The easiest way to send and receive payments on Solana. Simple aliases, auto-splits, and encrypted notes.</p>
               <div className="flex items-center gap-3">
                 <Image src="/sol.png" alt="Solana" width={18} height={18} className="w-4 h-4 opacity-50" />
                 <span className="text-[10px] text-gray-600 uppercase tracking-wider font-medium">Built on Solana</span>
               </div>
             </div>
 
-            <div>
+            <div className="col-span-1">
               <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-4">Product</p>
               <ul className="space-y-2.5">
                 <li><Link href="/dashboard" className="text-sm text-gray-500 hover:text-white transition-colors">Dashboard</Link></li>
@@ -666,7 +666,7 @@ export default function Home() {
               </ul>
             </div>
 
-            <div>
+            <div className="col-span-1">
               <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-4">Legal</p>
               <ul className="space-y-2.5">
                 <li><Link href="/privacy" className="text-sm text-gray-500 hover:text-white transition-colors">Privacy Policy</Link></li>
@@ -674,7 +674,7 @@ export default function Home() {
               </ul>
             </div>
 
-            <div>
+            <div className="col-span-2 md:col-span-1">
               <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-4">Community</p>
               <ul className="space-y-2.5">
                 <li>
