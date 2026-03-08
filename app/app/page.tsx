@@ -284,7 +284,7 @@ export default function Home() {
         <div className="container mx-auto px-6 py-4 flex justify-between items-center">
           <Link href="/" className="flex items-center gap-3 group">
             <Image src="/logo-icon.png" alt="UNIK" width={40} height={40} className="w-10 h-10 group-hover:scale-110 transition-transform duration-300" />
-            <Image src="/logo-text.png" alt="UNIK" width={80} height={24} className="h-6 w-auto hidden sm:block opacity-90" />
+            <Image src="/logo-text.png" alt="UNIK" width={80} height={24} className="h-6 w-auto opacity-90" />
           </Link>
           <div className="hidden md:flex items-center gap-8">
             <Link href="/docs" className="text-sm text-gray-400 hover:text-white transition-colors font-medium">Documentation</Link>
@@ -297,7 +297,7 @@ export default function Home() {
       </nav>
 
       {/* ═══════════════════ HERO ═══════════════════ */}
-      <section ref={heroRef.ref} className="relative z-10 container mx-auto px-4 pt-16 md:pt-24 pb-24 md:pb-36">
+      <section ref={heroRef.ref} className="relative z-10 container mx-auto px-4 pt-8 md:pt-16 pb-24 md:pb-36">
         <div className="grid lg:grid-cols-2 gap-12 lg:gap-8 items-center max-w-7xl mx-auto">
 
           {/* Left Column — Text */}
@@ -487,7 +487,7 @@ export default function Home() {
                   key={i}
                   className={`group flex flex-col items-center justify-center gap-4 py-8 rounded-2xl bg-gradient-to-br ${token.color} border border-white/5 ${token.border} transition-all duration-300 hover:-translate-y-1`}
                 >
-                  <Image src={token.img} alt={token.name} width={56} height={56} className="w-14 h-14 group-hover:scale-110 transition-transform duration-300 mix-blend-screen" />
+                  <Image src={token.img} alt={token.name} width={56} height={56} className="w-14 h-14 group-hover:scale-110 transition-transform duration-300" />
                   <div className="text-center mt-2">
                     <p className="text-white font-bold text-xl">{token.symbol}</p>
                   </div>
@@ -536,7 +536,9 @@ export default function Home() {
       {/* ═══════════════════ ROADMAP ═══════════════════ */}
       <section id="roadmap" ref={roadmapRef.ref} className="relative z-10 container mx-auto px-4 py-24 md:py-36 overflow-hidden">
         <div className={`reveal ${roadmapRef.isVisible ? 'visible' : ''} text-center mb-16`}>
-          <p className="text-sm font-bold text-emerald-400 uppercase tracking-widest mb-3">Roadmap</p>
+          <div className="inline-block px-5 py-2 rounded-full border border-emerald-500/30 bg-emerald-500/10 mb-6 shadow-[0_0_15px_rgba(16,185,129,0.15)]">
+            <p className="text-sm font-bold text-emerald-400 uppercase tracking-widest">Roadmap</p>
+          </div>
           <h2 className="text-3xl md:text-5xl font-black tracking-tight">
             Building the future<br />
             <span className="text-gray-500">of P2P payments.</span>
